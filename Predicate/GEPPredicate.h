@@ -8,21 +8,18 @@
 #ifndef GEPPREDICATE_H_
 #define GEPPREDICATE_H_
 
+#include <algorithm>
 #include <tuple>
 
 #include "Predicate.h"
 
 namespace borealis {
 
+class PredicateFactory;
+
 class GEPPredicate: public Predicate {
 
 public:
-
-    GEPPredicate(
-            Term::Ptr lhv,
-            Term::Ptr rhv,
-            const std::vector< std::pair<const llvm::Value*, uint64_t> > shifts,
-            SlotTracker* st);
 
     virtual Predicate::Key getKey() const;
 
@@ -31,11 +28,49 @@ public:
 
     virtual z3::expr toZ3(Z3ExprFactory& z3ef) const;
 
+    static bool classof(const Predicate* p) {
+        return p->getPredicateTypeId() == type_id<GEPPredicate>();
+    }
+
+    static bool classof(const GEPPredicate* /* p */) {
+        return true;
+    }
+
+    template<class SubClass>
+    const GEPPredicate* accept(Transformer<SubClass>* t) {
+
+        std::vector< std::pair< Term::Ptr, Term::Ptr > > new_shifts(shifts.size());
+        std::transform(shifts.begin(), shifts.end(), new_shifts.begin(),
+        [t](std::pair< Term::Ptr, Term::Ptr > e) {
+            return std::make_pair(
+                    t->transform(e.first),
+                    t->transform(e.second));
+        });
+
+        return new GEPPredicate(
+                t->transform(lhv),
+                t->transform(rhv),
+                new_shifts);
+    }
+
+    friend class PredicateFactory;
+
 private:
 
     const Term::Ptr lhv;
     const Term::Ptr rhv;
     std::vector< std::pair< Term::Ptr, Term::Ptr > > shifts;
+
+    GEPPredicate(
+            Term::Ptr lhv,
+            Term::Ptr rhv,
+            std::vector< std::pair< Term::Ptr, Term::Ptr > >&& shifts);
+
+    GEPPredicate(
+            Term::Ptr lhv,
+            Term::Ptr rhv,
+            std::vector< std::pair<llvm::Value*, uint64_t> > shifts,
+            SlotTracker* st);
 
 };
 

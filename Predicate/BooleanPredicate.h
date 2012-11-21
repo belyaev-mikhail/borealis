@@ -15,19 +15,12 @@
 
 namespace borealis {
 
+class PredicateFactory;
+
 class BooleanPredicate: public Predicate {
 
 public:
 
-	BooleanPredicate(
-			Term::Ptr v,
-			bool b,
-			SlotTracker* st);
-	BooleanPredicate(
-			PredicateType type,
-			Term::Ptr v,
-			bool b,
-			SlotTracker* st);
 	virtual Predicate::Key getKey() const;
 
     virtual Dependee getDependee() const;
@@ -35,10 +28,41 @@ public:
 
 	virtual z3::expr toZ3(Z3ExprFactory& z3ef) const;
 
+    static bool classof(const Predicate* p) {
+        return p->getPredicateTypeId() == type_id<BooleanPredicate>();
+    }
+
+    static bool classof(const BooleanPredicate* /* p */) {
+        return true;
+    }
+
+    template<class SubClass>
+    const BooleanPredicate* accept(Transformer<SubClass>* t) {
+        return new BooleanPredicate(
+                t->transform(v),
+                t->transform(b));
+    }
+
+	friend class PredicateFactory;
+
 private:
 
 	const Term::Ptr v;
 	const Term::Ptr b;
+
+	BooleanPredicate(
+	        Term::Ptr v,
+	        Term::Ptr b);
+
+    BooleanPredicate(
+            Term::Ptr v,
+            bool b,
+            SlotTracker* st);
+    BooleanPredicate(
+            PredicateType type,
+            Term::Ptr v,
+            bool b,
+            SlotTracker* st);
 
 };
 
