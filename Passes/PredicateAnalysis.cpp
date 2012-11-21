@@ -91,10 +91,10 @@ public:
 
         Type* type = I.getPointerOperandType();
 
-        std::vector< std::pair<const Value*, uint64_t> > shifts;
+        std::vector< std::pair<Value*, uint64_t> > shifts;
         for (auto it = I.idx_begin(); it != I.idx_end(); ++it) {
-            const Value* v = *it;
-            const uint64_t size = pass->TD->getTypeAllocSize(type);
+            Value* v = *it;
+            uint64_t size = pass->TD->getTypeAllocSize(type);
             shifts.push_back(std::make_pair(v, size));
 
             if (type->isArrayTy()) type = type->getArrayElementType();
@@ -173,16 +173,6 @@ bool PredicateAnalysis::runOnFunction(llvm::Function& F) {
     visitor.visit(F);
 
 	return false;
-}
-
-PredicateAnalysis::~PredicateAnalysis() {
-    for (const auto& entry : PM) {
-        delete entry.second;
-    }
-
-    for (const auto& entry : TPM) {
-        delete entry.second;
-    }
 }
 
 char PredicateAnalysis::ID;
