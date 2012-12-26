@@ -161,7 +161,7 @@ public:
     }
 
     static self mkBound(z3::context& ctx, unsigned i) {
-        return self(z3::to_expr(ctx, Z3_mk_bound(ctx, i, sort(ctx))));
+        return self(ctx, Z3_mk_bound(ctx, i, sort(ctx)));
     }
 
     static self mkConst(z3::context& ctx, long long value) {
