@@ -17,13 +17,12 @@
 #include <string>
 
 #include "Util/util.hpp"
-
 #include "Util/collections.hpp"
 #include "Util/enums.hpp"
-#include "Util/hash.hpp"
 #include "Util/meta.hpp"
 #include "Util/option.hpp"
 #include "Util/streams.hpp"
+#include "Util/locations.h"
 
 namespace llvm {
 
@@ -95,6 +94,12 @@ enum class UnaryArithType {
     BNOT,
 };
 std::string unaryArithString(UnaryArithType opCode);
+
+inline borealis::Locus instructionLocus(const Instruction* inst) {
+    auto node = inst->getMetadata("dbg");
+    if(node) return DILocation(node);
+    else return borealis::Locus();
+}
 
 } // namespace llvm
 
