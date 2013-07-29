@@ -161,8 +161,9 @@ LIBS := \
 	-lcfgparser \
 	-llog4cpp \
 	-lprofiler \
-	-ljsoncpp \
-	-lprotobuf
+	-ljsoncpp\
+	-lprotobuf\
+	-lmathsat -lgmpxx -lgmp
 
 ################################################################################
 # Test defs management
