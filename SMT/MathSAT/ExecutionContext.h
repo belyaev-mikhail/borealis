@@ -1,27 +1,27 @@
 /*
  * ExecutionContext.h
  *
- *  Created on: Nov 22, 2012
- *      Author: belyaev
+ *  Created on: Aug 5, 2013
+ *      Author: sam
  */
 
-#ifndef Z3_EXECUTIONCONTEXT_H_
-#define Z3_EXECUTIONCONTEXT_H_
+#ifndef MATHSAT_EXECUTIONCONTEXT_H_
+#define MATHSAT_EXECUTIONCONTEXT_H_
 
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
-#include "SMT/Z3/ExprFactory.h"
+#include "SMT/MathSAT/ExprFactory.h"
 
 namespace borealis {
-namespace z3_ {
-
+namespace mathsat_ {
 
 class ExecutionContext {
 
-    USING_SMT_LOGIC(Z3);
-    typedef Z3::ExprFactory ExprFactory;
+    USING_SMT_LOGIC(MathSAT);
+
+    typedef MathSAT::ExprFactory ExprFactory;
 
     ExprFactory& factory;
     std::unordered_map<std::string, MemArray> memArrays;
@@ -71,7 +71,7 @@ public:
         return ret;
     }
 
-////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////
 
     Dynamic readExprFromMemory(Pointer ix, size_t bitSize) {
         return memory().select(ix, bitSize);
@@ -97,7 +97,7 @@ public:
         set( id, get(id).store(ix, val) );
     }
 
-////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////
 
     typedef std::pair<Bool, ExecutionContext> Choice;
 
@@ -126,12 +126,12 @@ public:
 
         // Collect all active memory array ids
         auto memArrayIds = std::accumulate(contexts.begin(), contexts.end(),
-            defaultContext.getMemArrayIds(),
-            [](MemArrayIds a, Choice e) -> MemArrayIds {
-                auto ids = e.second.getMemArrayIds();
-                a.insert(ids.begin(), ids.end());
-                return a;
-            }
+                defaultContext.getMemArrayIds(),
+                [](MemArrayIds a, Choice e) -> MemArrayIds {
+                    auto ids = e.second.getMemArrayIds();
+                    a.insert(ids.begin(), ids.end());
+                    return a;
+                }
         );
 
         // Merge memory arrays
@@ -139,7 +139,7 @@ public:
             std::vector<std::pair<Bool, MemArray>> alternatives;
             alternatives.reserve(contexts.size());
             std::transform(contexts.begin(), contexts.end(), std::back_inserter(alternatives),
-                [&id](const Choice& p) { return std::make_pair(p.first, p.second.get(id)); }
+                    [&id](const Choice& p) { return std::make_pair(p.first, p.second.get(id)); }
             );
 
             res.set(id, MemArray::merge(name, defaultContext.get(id), alternatives));
@@ -148,7 +148,7 @@ public:
         return res;
     }
 
-////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////
 
     Bool toSMT() const;
 
@@ -157,7 +157,7 @@ public:
 
 std::ostream& operator<<(std::ostream& s, const ExecutionContext& ctx);
 
-} // namespace z3_
+} // namespace mathsat_
 } // namespace borealis
 
-#endif /* Z3_EXECUTIONCONTEXT_H_ */
+#endif /* MATHSAT_EXECUTIONCONTEXT_H_ */

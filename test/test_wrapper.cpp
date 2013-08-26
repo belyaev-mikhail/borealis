@@ -93,6 +93,7 @@ TEST_P(WrapperTest, basic) {
     actualS >> jsonify(actual);
 
     EXPECT_EQ(expected, actual);
+
 }
 
 
