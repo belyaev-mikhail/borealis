@@ -17,7 +17,6 @@
 namespace borealis {
 namespace z3_ {
 
-
 class ExecutionContext {
 
     USING_SMT_LOGIC(Z3);
@@ -25,7 +24,8 @@ class ExecutionContext {
 
     ExprFactory& factory;
     mutable std::unordered_map<std::string, MemArray> memArrays;
-    unsigned long long currentPtr;
+    unsigned long long globalPtr;
+    unsigned long long localPtr;
 
     static constexpr auto MEMORY_ID = "$$__MEMORY__$$";
     MemArray memory() const {
@@ -33,6 +33,14 @@ class ExecutionContext {
     }
     void memory(const MemArray& value) {
         set(MEMORY_ID, value);
+    }
+
+    static constexpr auto GEP_BOUNDS_ID = "$$__gep_bound__$$";
+    MemArray gepBounds() const {
+        return get(GEP_BOUNDS_ID);
+    }
+    void gepBounds(const MemArray& value) {
+        set(GEP_BOUNDS_ID, value);
     }
 
     MemArray get(const std::string& id) const {
@@ -60,16 +68,27 @@ class ExecutionContext {
 
 public:
 
-    ExecutionContext(ExprFactory& factory);
+    ExecutionContext(ExprFactory& factory, unsigned long long localMemory);
     ExecutionContext(const ExecutionContext&) = default;
 
     MemArray getCurrentMemoryContents() {
         return memory();
     }
+    MemArray getCurrentGepBounds() {
+        return gepBounds();
+    }
 
-    inline Pointer getDistinctPtr(size_t offsetSize = 1U) {
-        auto ret = factory.getPtrConst(currentPtr);
-        currentPtr += offsetSize;
+    inline Pointer getGlobalPtr(size_t offsetSize = 1U) {
+        auto ret = factory.getPtrConst(globalPtr);
+        globalPtr += offsetSize;
+        gepBounds( gepBounds().store(ret, factory.getIntConst(offsetSize)));
+        return ret;
+    }
+
+    inline Pointer getLocalPtr(size_t offsetSize = 1U) {
+        auto ret = factory.getPtrConst(localPtr);
+        localPtr += offsetSize;
+        gepBounds( gepBounds().store(ret, factory.getIntConst(offsetSize)));
         return ret;
     }
 
@@ -109,7 +128,8 @@ public:
         auto merged = ExecutionContext::mergeMemory(name, *this, contexts);
 
         this->memArrays = merged.memArrays;
-        this->currentPtr = merged.currentPtr;
+        this->globalPtr = merged.globalPtr;
+        this->localPtr = merged.localPtr;
 
         return *this;
     }
@@ -118,12 +138,12 @@ public:
             const std::string& name,
             ExecutionContext defaultContext,
             const std::vector<Choice>& contexts) {
-        ExecutionContext res(defaultContext.factory);
+        ExecutionContext res(defaultContext.factory, 0ULL);
 
-        // Merge current pointer
-        res.currentPtr = defaultContext.currentPtr;
+        // Merge pointers
         for (const auto& e : contexts) {
-            res.currentPtr = std::max(res.currentPtr, e.second.currentPtr);
+            res.globalPtr = std::max(res.globalPtr, e.second.globalPtr);
+            res.localPtr = std::max(res.localPtr, e.second.localPtr);
         }
 
         // Collect all active memory array ids
@@ -148,6 +168,12 @@ public:
         }
 
         return res;
+    }
+
+////////////////////////////////////////////////////////////////////////////////
+
+    Pointer getBound(const Pointer& p) {
+        return readProperty<Pointer>(GEP_BOUNDS_ID, p);
     }
 
 ////////////////////////////////////////////////////////////////////////////////
