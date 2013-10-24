@@ -45,10 +45,12 @@ class ExecutionContext {
 
     MemArray get(const std::string& id) const {
         using borealis::util::containsKey;
-        if (!containsKey(memArrays, id)) {
-            memArrays.emplace(id, factory.getNoMemoryArray(id));
+        if (containsKey(memArrays, id)) {
+            return memArrays.at(id);
         }
-        return memArrays.at(id);
+        auto ret = factory.getNoMemoryArray();
+        memArrays.emplace(id, ret);
+        return ret;
     }
     void set(const std::string& id, const MemArray& value) {
         using borealis::util::containsKey;
@@ -170,8 +172,8 @@ public:
 
 ////////////////////////////////////////////////////////////////////////////////
 
-    Pointer getBound(const Pointer& p) {
-        return readProperty<Pointer>(GEP_BOUNDS_ID, p);
+    Integer getBound(const Pointer& p) {
+        return readProperty<Integer>(GEP_BOUNDS_ID, p);
     }
 
 ////////////////////////////////////////////////////////////////////////////////
