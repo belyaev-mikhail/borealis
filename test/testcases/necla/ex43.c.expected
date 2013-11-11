@@ -1,0 +1,237 @@
+
+[
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 8,
+				"line" : 30
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 3,
+				"line" : 39
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 3,
+				"line" : 40
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 3,
+				"line" : 48
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 10,
+				"line" : 49
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 3,
+				"line" : 54
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 3,
+				"line" : 55
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 4,
+				"line" : 61
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 53,
+				"line" : 62
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 5,
+				"line" : 64
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 5,
+				"line" : 65
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 5,
+				"line" : 66
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 5,
+				"line" : 67
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 5,
+				"line" : 68
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 3,
+				"line" : 70
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 3,
+				"line" : 78
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 6,
+				"line" : 31
+			}
+		},
+		"type" : "INI-03"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex43.c",
+			"loc" : 
+			{
+				"col" : 5,
+				"line" : 64
+			}
+		},
+		"type" : "REQ-01"
+	}
+]

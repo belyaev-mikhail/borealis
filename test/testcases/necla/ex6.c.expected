@@ -1,0 +1,16 @@
+
+[
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex6.c",
+			"loc" : 
+			{
+				"col" : 4,
+				"line" : 18
+			}
+		},
+		"type" : "REQ-01"
+	}
+]

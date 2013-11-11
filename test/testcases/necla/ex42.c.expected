@@ -1,0 +1,29 @@
+
+[
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex42.c",
+			"loc" : 
+			{
+				"col" : 3,
+				"line" : 21
+			}
+		},
+		"type" : "BUF-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex42.c",
+			"loc" : 
+			{
+				"col" : 6,
+				"line" : 22
+			}
+		},
+		"type" : "BUF-01"
+	}
+]

@@ -1,0 +1,16 @@
+
+[
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/aegis/ini03_03.c",
+			"loc" : 
+			{
+				"col" : 5,
+				"line" : 5
+			}
+		},
+		"type" : "NDF-01"
+	}
+]

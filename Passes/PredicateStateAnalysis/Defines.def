@@ -1,0 +1,24 @@
+// NB! All PSAs should be lazy (i.e., ShouldBeLazyModularized)
+//     for the function manager updates to be visible
+//     in between functions
+
+#ifndef HANDLE_PSA
+#define INCLUDE_MODE
+#endif
+
+#ifdef INCLUDE_MODE
+#undef INCLUDE_MODE
+
+#include "Passes/PredicateStateAnalysis/OneForOne.h"
+#include "Passes/PredicateStateAnalysis/OneForAll.h"
+
+#define HANDLE_PSA(CLASS)
+
+#endif
+
+HANDLE_PSA(OneForOne)
+HANDLE_PSA(OneForAll)
+
+#ifdef HANDLE_PSA
+#undef HANDLE_PSA
+#endif
