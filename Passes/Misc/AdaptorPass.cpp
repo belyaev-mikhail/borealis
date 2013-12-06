@@ -19,7 +19,8 @@ namespace {
 using namespace borealis::config;
 MultiConfigEntry asserts{"adapt", "assert"};
 MultiConfigEntry assumes{"adapt", "assume"};
-MultiConfigEntry  labels{"adapt", "error-label"};
+MultiConfigEntry labels {"adapt", "error-label"};
+BoolConfigEntry undefinedDefaultsToUnknown{"adapt", "break-undefs"};
 
 llvm::Function* getBorealisBuiltin(
     function_type ft,
@@ -104,17 +105,30 @@ llvm::Value* mkBorealisAssume(
     return mkBorealisBuiltin(function_type::BUILTIN_BOR_ASSUME, M, existingCall);
 }
 
+llvm::Value* mkBorealisNonDet(llvm::Module* M, llvm::Type* type, llvm::Instruction* insertBefore) {
+    auto& intrinsic_manager = IntrinsicsManager::getInstance();
+    auto* func = intrinsic_manager.createIntrinsic(
+        function_type::INTRINSIC_NONDET,
+        util::toString(*type),
+        llvm::FunctionType::get(type, false),
+        M
+    );
+
+    return llvm::CallInst::Create(func, "bor.nondet", insertBefore);
+}
+
 class CallVisitor : public llvm::InstVisitor<CallVisitor> {
 public:
     // XXX: still buggy, unreachable propagation breaks everything to pieces
     void visitBasicBlock(llvm::BasicBlock& BB) {
         using namespace llvm;
+        auto* M = BB.getParent()->getParent();
 
         static auto label = util::viewContainer(labels.get()).toHashSet();
 
         if (!BB.hasName()) return;
 
-        if (label.count(BB.getName())) {
+        if(label.count(BB.getName())) {
             auto& M = *BB.getParent()->getParent();
 
             auto* first = BB.getFirstNonPHIOrDbgOrLifetime();
@@ -129,6 +143,29 @@ public:
 
             llvm::CallInst::Create(f, arg, "", first);
         }
+
+        if(!undefinedDefaultsToUnknown.get(false)) return;
+        // define all undefined variables
+        {
+            std::set<Value*> allocas;
+            for(auto& I : BB) {
+                if(auto* alloca = dyn_cast<AllocaInst>(&I)) {
+                    allocas.insert(alloca);
+                }
+
+                if(auto* store = dyn_cast<StoreInst>(&I)) {
+                    allocas.erase(store->getPointerOperand());
+                }
+
+                if(auto* load = dyn_cast<LoadInst>(&I)) {
+                    auto* op = load->getPointerOperand();
+                    new StoreInst(mkBorealisNonDet(M, op->getType(), load), op, load);
+
+                    allocas.erase(load->getPointerOperand());
+                }
+            }
+        }
+
     }
 
     void visitCall(llvm::CallInst& I) {
@@ -149,6 +186,8 @@ public:
             mkBorealisAssume(M, &I);
         }
     }
+
+
 };
 
 } /* namespace */
