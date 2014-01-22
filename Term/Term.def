@@ -1,0 +1,68 @@
+#ifndef HANDLE_TERM
+#define INCLUDE_MODE
+#endif
+
+#ifdef INCLUDE_MODE
+#undef INCLUDE_MODE
+
+#include "Term/ArgumentTerm.h"
+#include "Term/AxiomTerm.h"
+#include "Term/BoundTerm.h"
+#include "Term/BinaryTerm.h"
+#include "Term/CmpTerm.h"
+#include "Term/ConstTerm.h"
+#include "Term/GepTerm.h"
+#include "Term/LoadTerm.h"
+#include "Term/OpaqueBoolConstantTerm.h"
+#include "Term/OpaqueBuiltinTerm.h"
+#include "Term/OpaqueCallTerm.h"
+#include "Term/OpaqueFloatingConstantTerm.h"
+#include "Term/OpaqueIndexingTerm.h"
+#include "Term/OpaqueInvalidPtrTerm.h"
+#include "Term/OpaqueIntConstantTerm.h"
+#include "Term/OpaqueNullPtrTerm.h"
+#include "Term/OpaqueStringConstantTerm.h"
+#include "Term/OpaqueUndefTerm.h"
+#include "Term/OpaqueVarTerm.h"
+#include "Term/OpaqueMemberAccessTerm.h"
+#include "Term/ReadPropertyTerm.h"
+#include "Term/ReturnValueTerm.h"
+#include "Term/SignTerm.h"
+#include "Term/TernaryTerm.h"
+#include "Term/UnaryTerm.h"
+#include "Term/ValueTerm.h"
+
+#define HANDLE_TERM(NAME, CLASS)
+
+#endif
+
+HANDLE_TERM(Argument, ArgumentTerm)
+HANDLE_TERM(Axiom, AxiomTerm)
+HANDLE_TERM(Bound, BoundTerm)
+HANDLE_TERM(Binary, BinaryTerm)
+HANDLE_TERM(Cmp, CmpTerm)
+HANDLE_TERM(Const, ConstTerm)
+HANDLE_TERM(Gep, GepTerm)
+HANDLE_TERM(Load, LoadTerm)
+HANDLE_TERM(OpaqueBoolConstant, OpaqueBoolConstantTerm)
+HANDLE_TERM(OpaqueBuiltin, OpaqueBuiltinTerm)
+HANDLE_TERM(OpaqueCall, OpaqueCallTerm)
+HANDLE_TERM(OpaqueFloatingConstant, OpaqueFloatingConstantTerm)
+HANDLE_TERM(OpaqueIndexing, OpaqueIndexingTerm)
+HANDLE_TERM(OpaqueInvalidPtr, OpaqueInvalidPtrTerm)
+HANDLE_TERM(OpaqueIntConstant, OpaqueIntConstantTerm)
+HANDLE_TERM(OpaqueNullPtr, OpaqueNullPtrTerm)
+HANDLE_TERM(OpaqueStringConstant, OpaqueStringConstantTerm)
+HANDLE_TERM(OpaqueUndef, OpaqueUndefTerm)
+HANDLE_TERM(OpaqueVar, OpaqueVarTerm)
+HANDLE_TERM(OpaqueMemberAccess, OpaqueMemberAccessTerm)
+HANDLE_TERM(ReadProperty, ReadPropertyTerm)
+HANDLE_TERM(ReturnValue, ReturnValueTerm)
+HANDLE_TERM(Sign, SignTerm)
+HANDLE_TERM(Ternary, TernaryTerm)
+HANDLE_TERM(Unary, UnaryTerm)
+HANDLE_TERM(Value, ValueTerm)
+
+#ifdef HANDLE_TERM
+#undef HANDLE_TERM
+#endif

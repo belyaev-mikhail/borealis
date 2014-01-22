@@ -1,0 +1,55 @@
+
+[
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex22.c",
+			"loc" : 
+			{
+				"col" : 7,
+				"line" : 29
+			}
+		},
+		"type" : "REQ-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex22.c",
+			"loc" : 
+			{
+				"col" : 4,
+				"line" : 31
+			}
+		},
+		"type" : "REQ-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex22.c",
+			"loc" : 
+			{
+				"col" : 4,
+				"line" : 39
+			}
+		},
+		"type" : "REQ-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/ex22.c",
+			"loc" : 
+			{
+				"col" : 4,
+				"line" : 40
+			}
+		},
+		"type" : "REQ-01"
+	}
+]
