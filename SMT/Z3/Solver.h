@@ -27,7 +27,6 @@ class Solver : public borealis::logging::ClassLevelLogging<Solver> {
 public:
 
     typedef std::unordered_map<Term::Ptr, Dynamic> Test;
-//    typedef std::unordered_map<Term::Ptr, Dynamic, util::hash::defaultHasher> Test;
 
 #include "Util/macros.h"
     static constexpr auto loggerDomain() QUICK_RETURN("z3-solver")
@@ -43,9 +42,9 @@ public:
             PredicateState::Ptr path,
             PredicateState::Ptr state);
 
-    Test getTest(
+    Test generateTest(
             PredicateState::Ptr state,
-            std::vector<Term::Ptr>& args);
+            const std::vector<Term::Ptr>& args);
 
 private:
 
@@ -62,7 +61,6 @@ private:
     check_result check(
             const Bool& z3query,
             const Bool& z3state);
-
 };
 
 } // namespace z3_

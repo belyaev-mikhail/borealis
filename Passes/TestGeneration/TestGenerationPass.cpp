@@ -11,6 +11,7 @@
 #include "Passes/Tracker/SlotTrackerPass.h"
 #include "SMT/MathSAT/Solver.h"
 #include "SMT/Z3/Solver.h"
+#include "Util/macros.h"
 #include "Util/util.h"
 
 namespace borealis {
@@ -32,9 +33,6 @@ bool TestGenerationPass::shouldSkipFunction(llvm::Function* F) {
     if (im.getIntrinsicType(F) == function_type::INTRINSIC_GLOBAL_DESCRIPTOR_TABLE)
         return true;
 
-    if ( !llvm::getSingleRetOpt(F)) // no return in function
-        return true;
-
     // XXX sam How to determine main function?
     if (F->getName() == "__main" || F->getName() == "main") // skip main function
         return true;
@@ -53,9 +51,13 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
     auto* st = GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(F);
     FN = FactoryNest(st);
 
-    dbgs() << "name: " << F.getName() << endl
-           << "req: "  << FM->getReq(&F) << endl
-           << "ens: "  << FM->getEns(&F) << endl;
+    dbgs() << "name: " << F.getName() << endl;
+
+    std::vector<Term::Ptr> args;
+    args.reserve(F.arg_size());
+    for (auto& arg : util::view(F.arg_begin(), F.arg_end())) {
+        args.push_back(FN.Term->getArgumentTerm(&arg));
+    }
 
     auto fMemId = FM->getMemoryStart(&F);
 
@@ -67,20 +69,22 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
     Z3::Solver s(ef, fMemId);
 #endif
 
-    std::vector<Term::Ptr> args;
-    args.reserve(F.arg_size());
-    for (auto& arg : util::view(F.arg_begin(), F.arg_end())) {
-        args.push_back(FN.Term->getArgumentTerm(&arg));
-    }
+    auto e = F.end();
+    for (auto bit = ++F.begin(); bit != e; ++bit) {
+        auto state = PSA->getInstructionState(bit->begin());
 
-    auto* ret = llvm::getSingleRetOpt(&F);
+        dbgs() << "State for block" << bit->getName() << endl
+               << state << endl;
 
-    std::string str = "test case: \n";
-    for (const auto& testValue : s.getTest(PSA->getInstructionState(ret), args)) {
-        str += testValue.first->getName() + " = " +
-               util::toString(testValue.second) + "\n";
+        std::string testStr = "test case for block: ";
+        testStr += bit->getName().data();
+        testStr += " \n";
+        for (const auto& testValue : s.generateTest(state, args)) {
+            testStr += testValue.first->getName() + " = " +
+                       util::toString(testValue.second) + "\n";
+        }
+        dbgs() << testStr;
     }
-    dbgs() << str;
 
     return false;
 }
@@ -89,6 +93,8 @@ TestGenerationPass::~TestGenerationPass() {}
 
 char TestGenerationPass::ID;
 static RegisterPass<TestGenerationPass>
-X("test-generation", "Pass that generates unit tests for.");
+X("test-generation", "Pass that generates unit tests.");
+
+#include "Util/unmacros.h"
 
 } /* namespace borealis */

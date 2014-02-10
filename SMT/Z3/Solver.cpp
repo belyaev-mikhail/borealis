@@ -138,14 +138,13 @@ bool Solver::isPathImpossible(
 }
 
 
-Solver::Test Solver::getTest(
+Solver::Test Solver::generateTest(
             PredicateState::Ptr state,
-            std::vector<Term::Ptr>& args) {
+            const std::vector<Term::Ptr>& args) {
 
     TRACE_FUNC;
 
-    dbgs() << "Generating test for state: " << endl
-           << state << endl;
+    dbgs() << "Generating test." << endl;
 
     Test test;
 
@@ -156,18 +155,14 @@ Solver::Test Solver::getTest(
     util::option<z3::model> model;
     std::tie(res, model, std::ignore, std::ignore) = check(z3ef.getTrue(), z3state);
 
-    if (res != z3::sat) {
-        return test;
-    } else {
+    if (res == z3::sat) {
         auto m = model.getUnsafe();
-
         for(const auto& arg: args) {
             auto z3arg = SMT<Z3>::doit(arg, z3ef, &ctx);
             test.emplace(arg, m.eval(logic::z3impl::getExpr(z3arg)));
         }
-
-        return test;
     }
+    return test;
 }
 
 } // namespace z3_
