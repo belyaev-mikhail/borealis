@@ -13,7 +13,11 @@ int foo(int a, char b) {
     return c;
 }
 
+int bar(int a) {
+    return ++a;
+}
+
 int main() {
     int res = foo(1, 2);
-    return res;
+    return bar(res);
 }
