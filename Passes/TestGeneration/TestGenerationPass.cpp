@@ -5,6 +5,7 @@
  *      Author: sam
  */
 
+#include <llvm/Support/InstIterator.h>
 
 #include "Codegen/intrinsics_manager.h"
 #include "Passes/TestGeneration/TestGenerationPass.h"
@@ -15,6 +16,8 @@
 #include "Util/util.h"
 
 namespace borealis {
+
+
 
 TestGenerationPass::TestGenerationPass() : ProxyFunctionPass(ID) {}
 TestGenerationPass::TestGenerationPass(llvm::Pass* pass) : ProxyFunctionPass(ID, pass) {}
@@ -40,6 +43,36 @@ bool TestGenerationPass::shouldSkipFunction(llvm::Function* F) {
     return false;
 }
 
+void TestGenerationPass::testForInst(llvm::Function& F,
+                                     llvm::Instruction* inst,
+                                     const std::vector<Term::Ptr>& args) {
+
+    auto fMemId = FM->getMemoryStart(&F);
+
+#if defined USE_MATHSAT_SOLVER
+    MathSAT::ExprFactory ef;
+    MathSAT::Solver s(ef, fMemId);
+#else
+    Z3::ExprFactory ef;
+    Z3::Solver s(ef, fMemId);
+#endif
+
+    auto state = PSA->getInstructionState(inst);
+
+    std::string blockName = inst->getParent()->getName();
+    dbgs() << "State for block " << blockName << endl
+           << state << endl;
+
+    std::string testStr = "test case for block ";
+    testStr += blockName;
+    testStr += ": \n";
+    for (const auto& testValue : s.generateTest(state, args)) {
+        testStr += testValue.first->getName() + " = " +
+                   util::toString(testValue.second) + "\n";
+    }
+    dbgs() << testStr;
+}
+
 bool TestGenerationPass::runOnFunction(llvm::Function& F) {
 
     if (shouldSkipFunction(&F))
@@ -59,31 +92,14 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
         args.push_back(FN.Term->getArgumentTerm(&arg));
     }
 
-    auto fMemId = FM->getMemoryStart(&F);
-
-#if defined USE_MATHSAT_SOLVER
-    MathSAT::ExprFactory ef;
-    MathSAT::Solver s(ef, fMemId);
-#else
-    Z3::ExprFactory ef;
-    Z3::Solver s(ef, fMemId);
-#endif
+    // FIXME For function with only one BasicBlock generate test for first instruction.
+    if (F.getBasicBlockList().size() == 1) {
+        testForInst(F, &*(llvm::inst_begin(F)), args);
+    }
 
     auto e = F.end();
     for (auto bit = ++F.begin(); bit != e; ++bit) {
-        auto state = PSA->getInstructionState(bit->begin());
-
-        dbgs() << "State for block" << bit->getName() << endl
-               << state << endl;
-
-        std::string testStr = "test case for block: ";
-        testStr += bit->getName().data();
-        testStr += " \n";
-        for (const auto& testValue : s.generateTest(state, args)) {
-            testStr += testValue.first->getName() + " = " +
-                       util::toString(testValue.second) + "\n";
-        }
-        dbgs() << testStr;
+        testForInst(F, &*(bit->begin()), args);
     }
 
     return false;

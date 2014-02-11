@@ -159,7 +159,7 @@ Solver::Test Solver::generateTest(
         auto m = model.getUnsafe();
         for(const auto& arg: args) {
             auto z3arg = SMT<Z3>::doit(arg, z3ef, &ctx);
-            test.emplace(arg, m.eval(logic::z3impl::getExpr(z3arg)));
+            test.emplace(arg, m.eval(logic::z3impl::getExpr(z3arg), true));
         }
     }
     return test;

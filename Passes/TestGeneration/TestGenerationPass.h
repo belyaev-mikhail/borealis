@@ -48,6 +48,10 @@ private:
 
     bool shouldSkipFunction(llvm::Function* F);
 
+    void testForInst(llvm::Function& F,
+                     llvm::Instruction* inst,
+                     const std::vector<Term::Ptr>& args);
+
 };
 
 } /* namespace borealis */
