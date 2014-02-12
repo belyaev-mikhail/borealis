@@ -26,7 +26,7 @@ class Solver : public borealis::logging::ClassLevelLogging<Solver> {
 
 public:
 
-    typedef std::unordered_map<Term::Ptr, Dynamic> Test;
+    typedef std::unordered_map<Term::Ptr, Term::Ptr> Test;
 
 #include "Util/macros.h"
     static constexpr auto loggerDomain() QUICK_RETURN("z3-solver")
