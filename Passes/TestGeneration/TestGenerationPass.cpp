@@ -68,7 +68,7 @@ void TestGenerationPass::testForInst(llvm::Function& F,
     testStr += ": \n";
     for (const auto& testValue : s.generateTest(state, args)) {
         testStr += testValue.first->getName() + " = " +
-                   util::toString(testValue.second) + "\n";
+                   testValue.second->getName() + "\n";
     }
     dbgs() << testStr;
 }
