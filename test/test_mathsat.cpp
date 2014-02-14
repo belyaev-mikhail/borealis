@@ -405,6 +405,8 @@ TEST(MathSAT, Unlogic) {
         auto undoed = unlogic::undoThat(dynE);
         auto redoed = borealis::SMT<borealis::MathSAT>::doit(undoed, factory, &ctx);
         auto b = (dynE == Dynamic(redoed));
+        dbgs() << "otig: " << e << endl <<
+                  "redoed: " << redoed << endl;
 
         borealis::mathsat::Solver solver(logic::msatimpl::getEnvironment(b));
         solver.add(logic::msatimpl::getAxiom(b));
