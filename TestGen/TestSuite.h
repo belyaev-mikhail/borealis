@@ -19,7 +19,8 @@ namespace borealis {
 class TestSuite {
 public:
     explicit TestSuite(FactoryNest fn);
-    TestSuite(const TestSuite& orig) = default;
+    TestSuite(const TestSuite & orig) = default;
+    TestSuite(TestSuite && orig) = default;
     TestSuite(llvm::Function * f, FactoryNest fn);
     TestSuite(llvm::Function * f, const std::vector<TestCase> & tests, FactoryNest fn);
     void addTestCase(const TestCase & testCase);
