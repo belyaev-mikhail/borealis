@@ -12,6 +12,7 @@
 
 #include "Factory/Nest.h"
 #include "Logging/logger.hpp"
+#include "Passes/Checker/CheckManager.h"
 #include "Passes/Defect/DefectManager.h"
 #include "Passes/Manager/FunctionManager.h"
 #include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
@@ -20,12 +21,15 @@
 
 namespace borealis {
 
+template<class T> class CheckHelper;
+
 class CheckOutOfBoundsPass :
         public ProxyFunctionPass,
         public borealis::logging::ClassLevelLogging<CheckOutOfBoundsPass>,
         public ShouldBeModularized {
 
     friend class GepInstVisitor;
+    friend class CheckHelper<CheckOutOfBoundsPass>;
 
 public:
 
@@ -42,6 +46,8 @@ public:
     virtual ~CheckOutOfBoundsPass();
 
 private:
+
+    CheckManager* CM;
 
     DefectManager* DM;
     FunctionManager* FM;

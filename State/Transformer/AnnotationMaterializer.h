@@ -66,7 +66,7 @@ public:
         if(auto builtin = llvm::dyn_cast<OpaqueBuiltinTerm>(trm->getLhv())) {
             if(builtin->getVName() == "property") {
                 auto rhv = trm->getRhv();
-                if(rhv.size() != 2) failWith("Illegal property access " + trm->getName() + ": exactly two operands expected");
+                if(rhv.size() != 2) failWith("Illegal \\property access " + trm->getName() + ": exactly two operands expected");
 
                 auto prop = FN.Term->getOpaqueConstantTerm(rhv[0]->getName());
                 auto val = this->transform(rhv[1]);
@@ -75,7 +75,7 @@ public:
 
             } else if(builtin->getVName() == "bound") {
                 auto rhv = trm->getRhv();
-                if(rhv.size() != 1) failWith("Illegal bound access " + trm->getName() + ": exactly one operand expected");
+                if(rhv.size() != 1) failWith("Illegal \\bound access " + trm->getName() + ": exactly one operand expected");
 
                 auto val = this->transform(rhv[0]);
 
@@ -83,7 +83,7 @@ public:
 
             } else if(builtin->getVName() == "is_valid_ptr") {
                 auto rhv = trm->getRhv();
-                if(rhv.size() != 1) failWith("Illegal is_valid_ptr access " + trm->getName() + ": exactly one operand expected");
+                if(rhv.size() != 1) failWith("Illegal \\is_valid_ptr access " + trm->getName() + ": exactly one operand expected");
 
                 auto val = this->transform(rhv[0]);
                 auto type = val->getType();
@@ -96,10 +96,13 @@ public:
                     return bval != null()
                         && bval != invalid()
                         && bval.bound().uge (builder(TypeUtils::getTypeSizeInElems(pointed)));
-                  } else failWith("Illegal is_valid_ptr access " + trm->getName() + ": called on non-pointer");
-
+                  } else failWith("Illegal \\is_valid_ptr access " + trm->getName() + ": called on non-pointer");
+            } else if(builtin->getVName() == "old") {
+                // all \old's should be already taken care of, let's try to guess the problem
+                if(trm->getRhv().size() != 1)
+                    failWith("Illegal \\old invocation " + trm->getName() + ": exactly one operand expected");
+                failWith("Malformed \\old invocation");
             } else failWith("Cannot call " + trm->getName() + ": not supported");
-
         } else failWith("Cannot call " + trm->getName() + ": only builtins can be called in this way");
 
         BYE_BYE(Term::Ptr, "Unreachable!");
@@ -126,12 +129,11 @@ public:
         if(!field) failWith(
             "Cannot access member " +
             trm->getProperty() +
-            ": no such member defined or structure not available"
+            ": no such member defined or structure not available on " +
+            util::toString(*daStruct)
         );
 
-
         return *builder(load->getRhv()).gep(builder(0), builder(field.getUnsafe().getIndex()));
-
     }
 
     Term::Ptr transformIndirectOpaqueMemberAccessTerm(OpaqueMemberAccessTermPtr trm) {
@@ -155,7 +157,8 @@ public:
         if(!field) failWith(
             "Cannot access member " +
             trm->getProperty() +
-            ": no such member defined or structure not available"
+            ": no such member defined or structure not available on " +
+            util::toString(*daStruct)
         );
 
         return *builder(arg).gep(builder(0), builder(field.getUnsafe().getIndex()));
@@ -226,40 +229,44 @@ public:
     }
 
     Term::Ptr transformOpaqueBuiltinTerm(OpaqueBuiltinTermPtr trm) {
-        const llvm::StringRef name = trm->getName();
+        const llvm::StringRef name = trm->getVName();
         const auto& ctx = nameContext();
 
         if (name == "result") {
             if (ctx.func && ctx.placement == NameContext::Placement::OuterScope) {
                 auto desc = forValueSingle(ctx.func);
+                FN.Type->cast(ctx.func->getReturnType(), desc.type); // side-effecting to load type metadata
+
                 return factory().getReturnValueTerm(ctx.func, desc.type.getSignedness());
 
             } else failWith("\result can only be bound to functions' outer scope");
 
         } else if (name == "null" || name == "nullptr") {
             return factory().getNullPtrTerm();
-
         } else if (name == "invalid" || name == "invalidptr") {
             return factory().getInvalidPtrTerm();
-
         } else if (name.startswith("arg")) {
             if (ctx.func && ctx.placement == NameContext::Placement::OuterScope) {
                 std::istringstream ist(name.drop_front(3).str());
                 unsigned val = 0U;
                 ist >> val;
 
+                if(ctx.func->isDeclaration())
+                    failWith("annotations on function declarations are not supported");
+
                 ASSERTC(val < ctx.func->arg_size());
 
                 auto arg = ctx.func->arg_begin();
                 std::advance(arg, val);
 
-                auto desc = forValueSingle(arg);
+                auto desc = forValueSingle(ctx.func);
+                FN.Type->cast(arg->getType(), desc.type); // side-effecting to load type metadata
 
                 return factory().getArgumentTerm(arg, desc.type.getSignedness());
+
             } else {
                 failWith("\argXXX can only be bound to functions' outer scope");
             }
-
         } else {
             failWith("\\" + name + " : unknown builtin");
         }

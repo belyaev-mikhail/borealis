@@ -42,9 +42,9 @@ static Statistic LoopsFullyUnrolled("loop-deroll",
 
 LoopDeroll::LoopDeroll() : llvm::LoopPass(ID) {}
 
-static bool isLoopTruelyInfinite(llvm::Loop* L) {
+static inline bool isLoopTruelyInfinite(llvm::Loop* L) {
     using namespace llvm;
-    SmallVector<BasicBlock*, 8> ExitBlocks;
+    SmallVector<BasicBlock*, 4> ExitBlocks;
     L->getExitBlocks(ExitBlocks);
     return (ExitBlocks.size() == 0);
 }
@@ -113,6 +113,22 @@ static inline llvm::BasicBlock* CreateUnreachableBasicBlock(
     return BB;
 }
 
+static inline llvm::BasicBlock* normalizePhiNodes(llvm::BasicBlock* BB) {
+    using namespace llvm;
+
+    auto phis = util::viewContainer(*BB)
+                .filter(isaer<PHINode>())
+                .map(caster<PHINode>());
+
+    auto* movePos = BB->getFirstNonPHIOrDbgOrLifetime();
+
+    for (auto& PHI : phis) {
+        PHI.moveBefore(movePos);
+    }
+
+    return BB;
+}
+
 static llvm::BasicBlock* EvolveBasicBlock(
     llvm::ScalarEvolution* SE,
     llvm::BasicBlock* BB,
@@ -165,13 +181,23 @@ static llvm::BasicBlock* EvolveBasicBlock(
             ival->setDebugLoc(I.getDebugLoc());
         }
 
-        if (val != VMap[&I]) {
-            VMap[&I]->replaceAllUsesWith(val);
+
+        Value* newI = VMap.lookup(&I);
+
+        if (
+            newI
+         && (
+                (val != &I && val != newI)
+             || isa<PHINode>(val) // this case will be processed later by a higher entity
+            )
+        ) {
+            newI->replaceAllUsesWith(val);
         }
 
         if ( ! insertAt->hasNUsesOrMore(1)) toRemove.push_back(insertAt);
     }
 
+    normalizePhiNodes(bb);
     approximateAllDebugLocs(bb);
     return bb;
 }
@@ -256,7 +282,7 @@ static util::option<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> UnrollFromT
                 auto* generatedBackEdge =
                     exp.expandCodeFor(backEdgeTaken, indexType, insertAt);
 
-                // remember that backEdgeTaken is not the loop limit, but loop limit decreased by 1!
+                // remember that backEdgeTaken is not the loop limit, but loop limit minus 1!
                 builder.CreateCall(
                     assumeIntr,
                     builder.CreateICmpSLE(nondetCall, generatedBackEdge), // hence SLE
@@ -299,7 +325,7 @@ static util::option<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> UnrollFromT
 static unsigned adjustUnrollFactor(unsigned num, llvm::Loop* l) {
     auto limit2one = [](unsigned i){ return std::max(i, 1U); };
     unsigned loopDepth = l->getLoopDepth() + l->getSubLoops().size();
-    constexpr unsigned basicBlockStd = 2U;
+    constexpr unsigned basicBlockStd = 4U;
 
     loopDepth = limit2one(loopDepth);
 

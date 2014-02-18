@@ -1,4 +1,5 @@
 #include "defines.h"
+
 struct _addr {
   unsigned char len;
   unsigned char dat[16];
@@ -14,6 +15,7 @@ int f1(Addr *addr, Buffer *buf);
 int f2(unsigned char val, Buffer *buf);
 int f3(unsigned char data, Buffer *buf);
 
+// @requires \is_valid_ptr(addr)
 int main(Addr *addr, Buffer *buf)
 {
    ASSUME(addr);
@@ -24,7 +26,7 @@ int main(Addr *addr, Buffer *buf)
    return f1(addr, buf);
 }
 
-// @requires addr != \nullptr
+// @requires \is_valid_ptr(addr)
 int f1(Addr *addr, Buffer *buf) 
 {
   int i;
@@ -37,7 +39,7 @@ int f1(Addr *addr, Buffer *buf)
 
   i = (int)addr->len;
   
-  while (i ) {
+  while (i) {
      ret1 = f2(addr->dat[i - 1], buf);
      if (ret1 != 0) {
         return ret1;

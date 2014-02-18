@@ -1,14 +1,15 @@
 #include "defines.h"
 int a[10];
 
-int foo(int x){
+// @requires x >= 0 && x < 10
+int foo(int x) {
    a[x]=1;
    return a[x];
 }
 
-int main(){
+int main() {
    int il;
-   for(il=0; foo(il) && il  < 10; ++il){}
+   for(il=0; foo(il) && il < 10;  ++il){}
 
    for(il=0; il < 10 && foo(il) ; ++il){}
 
