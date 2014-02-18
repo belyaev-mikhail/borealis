@@ -19,7 +19,8 @@ namespace borealis {
 class TestUnit {
 public:
     explicit TestUnit(FactoryNest fn);
-    TestUnit(const TestUnit& orig) = default;
+    TestUnit(const TestUnit & orig) = default;
+    TestUnit(TestUnit && orig) = default;
     TestSuite & addTestSuite(const TestSuite & suite);
     TestSuite & addTestSuite(llvm::Function * f);
     TestSuite & addTestSuite(llvm::Function * f, const std::vector<TestCase> & tests);
