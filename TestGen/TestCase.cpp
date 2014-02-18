@@ -9,7 +9,7 @@
 
 namespace borealis {
 
-TestCase::TestCase(const std::unordered_map<Term::Ptr, Term::Ptr> & testCase) :
+TestCase::TestCase(const TestCase::TermMap & testCase) :
         testCase(testCase){}
 
 void TestCase::addArgument(const Term::Ptr arg, const Term::Ptr value) {
@@ -17,15 +17,7 @@ void TestCase::addArgument(const Term::Ptr arg, const Term::Ptr value) {
 }
 
 const Term::Ptr TestCase::getValue(const Term::Ptr arg) const {
-    //return testCase.at(arg);
-    std::cout << "===============\nWANT:" << arg->getName() << "\n===============\n";
-    for (const auto & a: testCase) {
-        if (a.first->getName() == arg->getName()) {
-            std::cout << "===============\n" << a.second << "\n===============\n";
-            return a.second;
-        }
-    }
-    std::cout << "===============\nNO:" << arg->getName() << "\n===============\n";
+    return testCase.at(arg);
 }
 
 TestCase::~TestCase() {

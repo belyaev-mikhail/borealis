@@ -111,6 +111,11 @@ struct hash<const borealis::Term::Ptr> {
         return t->hashCode();
     }
 };
+struct termPtrEqual { 
+    bool operator() (const borealis::Term::Ptr& one, const borealis::Term::Ptr& other) const {
+        return *one == *other;
+    }
+};
 } // namespace std
 
 #define MK_COMMON_TERM_IMPL(CLASS) \

@@ -13,15 +13,18 @@
 namespace borealis {
 
 class TestCase {
+private:
+    typedef std::unordered_map<Term::Ptr, Term::Ptr, std::hash<const Term::Ptr>, std::termPtrEqual> TermMap; 
 public:
     TestCase() = default;
-    TestCase(const TestCase& orig) = default;
-    explicit TestCase(const std::unordered_map<Term::Ptr, Term::Ptr> & testCase);
+    TestCase(const TestCase & orig) = default;
+    TestCase(TestCase && orig) = default;
+    explicit TestCase(const TermMap & testCase);
     void addArgument(const Term::Ptr arg, const Term::Ptr value);
     const Term::Ptr getValue(const Term::Ptr arg) const;
     virtual ~TestCase();
 private:
-    std::unordered_map<Term::Ptr, Term::Ptr> testCase;
+    TermMap testCase;
 };
 
 } /* namespace borealis */
