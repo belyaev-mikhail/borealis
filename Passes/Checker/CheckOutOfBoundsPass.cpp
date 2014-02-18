@@ -7,7 +7,7 @@
 
 #include <llvm/Support/InstVisitor.h>
 
-#include "Passes/Checker/CheckManager.h"
+#include "Passes/Checker/CheckHelper.hpp"
 #include "Passes/Checker/CheckOutOfBoundsPass.h"
 #include "Passes/Tracker/SlotTrackerPass.h"
 #include "SMT/MathSAT/Solver.h"
@@ -25,49 +25,21 @@ public:
     GepInstVisitor(CheckOutOfBoundsPass* pass) : pass(pass) {}
 
     void visitGetElementPtrInst(llvm::GetElementPtrInst& GI) {
-        if (checkOutOfBounds(GI)) {
-            reportOutOfBounds(GI);
-        }
-    }
 
-private:
+        CheckHelper<CheckOutOfBoundsPass> h(pass, &GI, DefectType::BUF_01);
 
-    bool checkOutOfBounds(llvm::Instruction& where) {
+        if (h.skip()) return;
 
-        PredicateState::Ptr q = (
+        auto q = (
             pass->FN.State *
             pass->FN.Predicate->getInequalityPredicate(
-                pass->FN.Term->getValueTerm(&where),
+                pass->FN.Term->getValueTerm(&GI),
                 pass->FN.Term->getInvalidPtrTerm()
             )
         )();
+        auto ps = pass->PSA->getInstructionState(&GI);
 
-        PredicateState::Ptr ps = pass->PSA->getInstructionState(&where);
-
-        dbgs() << "Query: " << q->toString() << endl;
-        dbgs() << "State: " << ps << endl;
-
-        auto fMemId = pass->FM->getMemoryStart(where.getParent()->getParent());
-
-#if defined USE_MATHSAT_SOLVER
-        MathSAT::ExprFactory ef;
-        MathSAT::Solver s(ef, fMemId);
-#else
-        Z3::ExprFactory ef;
-        Z3::Solver s(ef, fMemId);
-#endif
-
-        if (s.isViolated(q, ps)) {
-            dbgs() << "Violated!" << endl;
-            return true;
-        } else {
-            dbgs() << "Passed!" << endl;
-            return false;
-        }
-    }
-
-    void reportOutOfBounds(llvm::Instruction& where) {
-        pass->DM->addDefect(DefectType::BUF_01, &where);
+        h.check(q, ps);
     }
 
 private:
@@ -95,8 +67,8 @@ void CheckOutOfBoundsPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 
 bool CheckOutOfBoundsPass::runOnFunction(llvm::Function& F) {
 
-    if (GetAnalysis<CheckManager>::doit(this, F).shouldSkipFunction(&F))
-        return false;
+    CM = &GetAnalysis<CheckManager>::doit(this, F);
+    if (CM->shouldSkipFunction(&F)) return false;
 
     DM = &GetAnalysis<DefectManager>::doit(this, F);
     FM = &GetAnalysis<FunctionManager>::doit(this, F);
@@ -107,6 +79,7 @@ bool CheckOutOfBoundsPass::runOnFunction(llvm::Function& F) {
 
     GepInstVisitor giv(this);
     giv.visit(F);
+
     return false;
 }
 
