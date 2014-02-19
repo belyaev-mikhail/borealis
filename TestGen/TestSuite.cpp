@@ -6,23 +6,19 @@
  */
 
 #include "TestGen/TestSuite.h"
-#include "Factory/Nest.h"
 
 namespace borealis {
 
-TestSuite::TestSuite(FactoryNest fn) : fn(fn) {}
+TestSuite::TestSuite(llvm::Function * f) : function(f) {}
 
-TestSuite::TestSuite(llvm::Function * f, FactoryNest fn) :
-        function(f), fn(fn) {}
-
-TestSuite::TestSuite(llvm::Function * f, const std::vector<TestCase> & tests,
-        FactoryNest fn) : function(f), tests(tests), fn(fn) {}
+TestSuite::TestSuite(llvm::Function * f, const std::vector<TestCase> & tests) :
+        function(f), tests(tests) {}
 
 void TestSuite::addTestCase(const TestCase & testCase) {
     tests.push_back(testCase);
 }
 
-void TestSuite::generateTest(std::ostream & outStream) const {
+void TestSuite::generateTest(std::ostream & outStream, FactoryNest fn) const {
     outStream << "void test" << function->getName().upper() << "(void) {\n";
     for (const auto & t: tests) {
         outStream << "    " << function->getName() << "(";

@@ -18,18 +18,17 @@ namespace borealis {
 
 class TestSuite {
 public:
-    explicit TestSuite(FactoryNest fn);
+    TestSuite() = delete;
     TestSuite(const TestSuite & orig) = default;
     TestSuite(TestSuite && orig) = default;
-    TestSuite(llvm::Function * f, FactoryNest fn);
-    TestSuite(llvm::Function * f, const std::vector<TestCase> & tests, FactoryNest fn);
+    TestSuite(llvm::Function * f);
+    TestSuite(llvm::Function * f, const std::vector<TestCase> & tests);
     void addTestCase(const TestCase & testCase);
-    void generateTest(std::ostream & outStream) const;
+    void generateTest(std::ostream & outStream, FactoryNest fn) const;
     virtual ~TestSuite();
 private:
     llvm::Function * function;
     std::vector<TestCase> tests;
-    FactoryNest fn;
 };
 
 } /* namespace borealis */
