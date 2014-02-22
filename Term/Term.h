@@ -96,6 +96,12 @@ protected:
 
 };
 
+struct termPtrEqual { 
+    bool operator() (const Term::Ptr& one, const Term::Ptr& other) const {
+        return *one == *other;
+    }
+};
+
 } /* namespace borealis */
 
 namespace std {
@@ -109,11 +115,6 @@ template<>
 struct hash<const borealis::Term::Ptr> {
     size_t operator()(const borealis::Term::Ptr& t) const {
         return t->hashCode();
-    }
-};
-struct termPtrEqual { 
-    bool operator() (const borealis::Term::Ptr& one, const borealis::Term::Ptr& other) const {
-        return *one == *other;
     }
 };
 } // namespace std
