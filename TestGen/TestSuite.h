@@ -18,16 +18,19 @@ namespace borealis {
 
 class TestSuite {
 public:
+    typedef std::shared_ptr<TestSuite> Ptr;
+
     TestSuite() = delete;
     TestSuite(const TestSuite & orig) = default;
     TestSuite(TestSuite && orig) = default;
-    TestSuite(llvm::Function * f);
-    TestSuite(llvm::Function * f, const std::vector<TestCase> & tests);
+    TestSuite(const llvm::Function * f);
+    TestSuite(const llvm::Function * f, const std::vector<TestCase> & tests);
     void addTestCase(const TestCase & testCase);
+    void addTestSuite(const TestSuite& other);
     void generateTest(std::ostream & outStream, FactoryNest fn) const;
     virtual ~TestSuite();
 private:
-    llvm::Function * function;
+    const llvm::Function * function;
     std::vector<TestCase> tests;
 };
 

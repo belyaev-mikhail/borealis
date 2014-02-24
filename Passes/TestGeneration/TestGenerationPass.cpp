@@ -43,7 +43,7 @@ bool TestGenerationPass::shouldSkipFunction(llvm::Function* F) {
     return false;
 }
 
-void TestGenerationPass::testForInst(llvm::Function& F,
+TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
                                      llvm::Instruction* inst,
                                      const std::vector<Term::Ptr>& args) {
 
@@ -63,14 +63,23 @@ void TestGenerationPass::testForInst(llvm::Function& F,
     dbgs() << "State for block " << blockName << endl
            << state << endl;
 
+    auto smtTest = s.generateTest(state, args);
+    if (smtTest.empty()) {
+        return nullptr;
+    }
+
+    TestCase::Ptr testCase(new TestCase());
+
     std::string testStr = "test case for block ";
     testStr += blockName;
     testStr += ": \n";
-    for (const auto& testValue : s.generateTest(state, args)) {
+    for (const auto& testValue : smtTest) {
         testStr += testValue.first->getName() + " = " +
                    testValue.second->getName() + "\n";
+        testCase->addArgument(testValue.first, testValue.second);
     }
     dbgs() << testStr;
+    return testCase;
 }
 
 bool TestGenerationPass::runOnFunction(llvm::Function& F) {
@@ -86,6 +95,8 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
 
     dbgs() << "name: " << F.getName() << endl;
 
+    TestSuite::Ptr testSuite(new TestSuite(&F));
+
     std::vector<Term::Ptr> args;
     args.reserve(F.arg_size());
     for (auto& arg : util::view(F.arg_begin(), F.arg_end())) {
@@ -94,14 +105,19 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
 
     // FIXME For function with only one BasicBlock generate test for first instruction.
     if (F.getBasicBlockList().size() == 1) {
-        testForInst(F, &*(llvm::inst_begin(F)), args);
+        auto testCase = testForInst(F, &*(llvm::inst_begin(F)), args);
+        if (testCase != nullptr)
+            testSuite->addTestCase(*testCase);
+    } else {
+        auto e = F.end();
+        for (auto bit = ++F.begin(); bit != e; ++bit) {
+            auto testCase = testForInst(F, &*(bit->begin()), args);
+            if (testCase != nullptr)
+                testSuite->addTestCase(*testCase);
+        }
     }
 
-    auto e = F.end();
-    for (auto bit = ++F.begin(); bit != e; ++bit) {
-        testForInst(F, &*(bit->begin()), args);
-    }
-
+    FM->updateTests(&F, testSuite);
     return false;
 }
 

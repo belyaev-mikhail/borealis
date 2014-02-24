@@ -7,15 +7,26 @@
 
 #include "TestGen/TestSuite.h"
 
+#include "Util/macros.h"
+
 namespace borealis {
 
-TestSuite::TestSuite(llvm::Function * f) : function(f) {}
+TestSuite::TestSuite(const llvm::Function * f) : function(f) {}
 
-TestSuite::TestSuite(llvm::Function * f, const std::vector<TestCase> & tests) :
+TestSuite::TestSuite(const llvm::Function * f, const std::vector<TestCase> & tests) :
         function(f), tests(tests) {}
 
 void TestSuite::addTestCase(const TestCase & testCase) {
     tests.push_back(testCase);
+}
+
+void TestSuite::addTestSuite(const TestSuite& other) {
+    // XXX Comparing llvm::Functions by name?!?!
+    ASSERT(function->getName() == other.function->getName(),
+            "Trying to test cases from test suite for another function.");
+    for(const auto& testCase: other.tests) {
+        tests.push_back(testCase);
+    }
 }
 
 void TestSuite::generateTest(std::ostream & outStream, FactoryNest fn) const {
