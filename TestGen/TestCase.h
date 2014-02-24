@@ -14,7 +14,7 @@ namespace borealis {
 
 class TestCase {
 private:
-    typedef std::unordered_map<Term::Ptr, Term::Ptr, std::hash<const Term::Ptr>, std::termPtrEqual> TermMap; 
+    typedef std::unordered_map<Term::Ptr, Term::Ptr, std::hash<const Term::Ptr>, termPtrEqual> TermMap; 
 public:
     typedef std::shared_ptr<TestCase> Ptr;
 
