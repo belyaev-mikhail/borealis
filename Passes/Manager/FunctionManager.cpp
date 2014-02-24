@@ -79,25 +79,27 @@ bool FunctionManager::runOnModule(llvm::Module& M) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void FunctionManager::put(const llvm::Function* F, PredicateState::Ptr state) {
+void FunctionManager::put(const llvm::Function* F, PredicateState::Ptr state,
+                          TestSuite::Ptr tests) {
     using borealis::util::containsKey;
 
     ASSERT(!containsKey(data, F),
            "Attempt to register function " + F->getName().str() + " twice")
 
-    data[F] = state;
+    data[F] = {state, tests};
 }
 
-void FunctionManager::update(const llvm::Function* F, PredicateState::Ptr state) {
+void FunctionManager::update(const llvm::Function* F, PredicateState::Ptr state,
+                             TestSuite::Ptr tests) {
     using borealis::util::containsKey;
 
     dbgs() << "Updating function state for: " << F->getName().str() << endl
            << "  with: " << endl << state << endl;
 
     if (containsKey(data, F)) {
-        data[F] = mergeFunctionDesc(data.at(F), state);
+        data[F] = mergeFunctionDesc(data.at(F), {state, tests});
     } else {
-        data[F] = state;
+        data[F] = {state, tests};
     }
 }
 
@@ -109,7 +111,7 @@ FunctionManager::FunctionDesc FunctionManager::get(const llvm::Function* F) cons
     if (containsKey(data, F)) {
         // Do nothing
     } else {
-        data[F] = FN.State->Basic();
+        data[F] = {FN.State->Basic(), TestSuite::Ptr(new TestSuite(F))};
     }
 
     return data.at(F);
@@ -128,6 +130,11 @@ PredicateState::Ptr FunctionManager::getBdy(const llvm::Function* F) const {
 PredicateState::Ptr FunctionManager::getEns(const llvm::Function* F) const {
     const auto& desc = get(F);
     return desc.Ens;
+}
+
+TestSuite::Ptr FunctionManager::getTests(const llvm::Function* F) const {
+    const auto& desc = get(F);
+    return desc.Tests;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -152,7 +159,7 @@ FunctionManager::FunctionDesc FunctionManager::get(
         state = m.getPredicateState(ft, F, FN);
     }
 
-    data[F] = state;
+    data[F] = {state, TestSuite::Ptr(new TestSuite(F))};
     return data.at(F);
 }
 
@@ -175,6 +182,13 @@ PredicateState::Ptr FunctionManager::getEns(
         FactoryNest FN) const {
     const auto& desc = get(CI, FN);
     return desc.Ens;
+}
+
+TestSuite::Ptr FunctionManager::getTests(
+        const llvm::CallInst& CI,
+        FactoryNest FN) const {
+    const auto& desc = get(CI, FN);
+    return desc.Tests;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -203,11 +217,15 @@ FunctionManager::getBonds(const llvm::Function* F) const {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-FunctionManager::FunctionDesc FunctionManager::mergeFunctionDesc(const FunctionDesc& d1, const FunctionDesc& d2) const {
+FunctionManager::FunctionDesc FunctionManager::mergeFunctionDesc(const FunctionDesc& d1,
+                const FunctionDesc& d2) const {
+    auto ts = TestSuite::Ptr{new TestSuite(*d1.Tests)};
+    ts->addTestSuite(*d2.Tests);
     return FunctionDesc{
         (FN.State * d1.Req + d2.Req)(),
         (FN.State * d1.Bdy + d2.Bdy)(),
-        (FN.State * d1.Ens + d2.Ens)()
+        (FN.State * d1.Ens + d2.Ens)(),
+        ts
     };
 }
 

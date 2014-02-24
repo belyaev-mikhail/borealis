@@ -17,6 +17,7 @@
 #include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
 #include "Passes/Tracker/MetaInfoTracker.h"
 #include "Passes/Util/ProxyFunctionPass.h"
+#include "TestGen/TestCase.h"
 #include "Util/passes.hpp"
 
 namespace borealis {
@@ -48,7 +49,7 @@ private:
 
     bool shouldSkipFunction(llvm::Function* F);
 
-    void testForInst(llvm::Function& F,
+    TestCase::Ptr testForInst(llvm::Function& F,
                      llvm::Instruction* inst,
                      const std::vector<Term::Ptr>& args);
 

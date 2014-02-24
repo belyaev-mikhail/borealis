@@ -7,8 +7,6 @@ int foo(int a, char b) {
         if (b == 2) {
             c = 2;
         }
-    } else {
-        c = 3;
     }
     return c;
 }

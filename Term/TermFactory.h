@@ -27,7 +27,7 @@ public:
 
     typedef std::shared_ptr<TermFactory> Ptr;
 
-    Term::Ptr getArgumentTerm(llvm::Argument* arg, llvm::Signedness sign = llvm::Signedness::Unknown) {
+    Term::Ptr getArgumentTerm(const llvm::Argument* arg, llvm::Signedness sign = llvm::Signedness::Unknown) {
         ASSERT(st, "Missing SlotTracker");
 
         return Term::Ptr{
