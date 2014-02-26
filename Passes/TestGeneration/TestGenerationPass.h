@@ -12,10 +12,8 @@
 
 #include "Factory/Nest.h"
 #include "Logging/logger.hpp"
-#include "Passes/Defect/DefectManager.h"
 #include "Passes/Manager/FunctionManager.h"
 #include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
-#include "Passes/Tracker/MetaInfoTracker.h"
 #include "Passes/Util/ProxyFunctionPass.h"
 #include "TestGen/TestCase.h"
 #include "Util/passes.hpp"

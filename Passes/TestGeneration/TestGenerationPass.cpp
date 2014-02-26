@@ -70,9 +70,7 @@ TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
 
     TestCase::Ptr testCase(new TestCase());
 
-    std::string testStr = "test case for block ";
-    testStr += blockName;
-    testStr += ": \n";
+    std::string testStr = "test case for block " + blockName + "\n";
     for (const auto& testValue : smtTest) {
         testStr += testValue.first->getName() + " = " +
                    testValue.second->getName() + "\n";
@@ -109,9 +107,8 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
         if (testCase != nullptr)
             testSuite->addTestCase(*testCase);
     } else {
-        auto e = F.end();
-        for (auto bit = ++F.begin(); bit != e; ++bit) {
-            auto testCase = testForInst(F, &*(bit->begin()), args);
+        for (auto&& BB : util::tail(F)) {
+            auto testCase = testForInst(F, &*(BB.begin()), args);
             if (testCase != nullptr)
                 testSuite->addTestCase(*testCase);
         }

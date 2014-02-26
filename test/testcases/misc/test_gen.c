@@ -11,9 +11,21 @@ int foo(int a, char b) {
     return c;
 }
 
+// @requires a > 0
+// @ensures \result > 0
+// @ensures \result == (a + 1)
 int bar(int a) {
     return ++a;
 }
+
+/*
+    void testBAR(){
+        int a = 1;
+        int res = bar(a);
+        CU_ASSERT(res > 0);
+        CU_ASSERT(res == (a + 1));
+    }
+*/
 
 int main() {
     int res = foo(1, 2);

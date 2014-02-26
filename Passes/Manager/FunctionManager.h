@@ -15,7 +15,6 @@
 #include "Factory/Nest.h"
 #include "Logging/logger.hpp"
 #include "Passes/Defect/DefectManager/DefectInfo.h"
-#include "TestGen/TestSuite.h"
 
 namespace borealis {
 
@@ -27,16 +26,13 @@ class FunctionManager :
         PredicateState::Ptr Req;
         PredicateState::Ptr Bdy;
         PredicateState::Ptr Ens;
-        TestSuite::Ptr Tests;
 
         FunctionDesc() {}
 
-        FunctionDesc(PredicateState::Ptr Req, PredicateState::Ptr Bdy,
-                     PredicateState::Ptr Ens, TestSuite::Ptr Tests) :
-            Req(Req), Bdy(Bdy), Ens(Ens), Tests(Tests) {}
+        FunctionDesc(PredicateState::Ptr Req, PredicateState::Ptr Bdy, PredicateState::Ptr Ens) :
+            Req(Req), Bdy(Bdy), Ens(Ens) {}
 
-        FunctionDesc(PredicateState::Ptr state, TestSuite::Ptr tests)
-                        : Tests(tests) {
+        FunctionDesc(PredicateState::Ptr state) {
             auto reqRest = state->splitByTypes({PredicateType::REQUIRES});
             Req = reqRest.first;
 
@@ -64,30 +60,16 @@ public:
     virtual void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
     virtual ~FunctionManager() {};
 
-    void put(const llvm::Function* F, PredicateState::Ptr state, TestSuite::Ptr tests);
-    void put(const llvm::Function* F, PredicateState::Ptr state) {
-        this->put(F, state, TestSuite::Ptr(new TestSuite(F)));
-    }
-    void put(const llvm::Function* F, TestSuite::Ptr tests) {
-        this->put(F, FN.State->Basic(), tests);
-    }
-    void update(const llvm::Function* F, PredicateState::Ptr state, TestSuite::Ptr tests);
-    void update(const llvm::Function* F, PredicateState::Ptr state) {
-        this->update(F, state, TestSuite::Ptr(new TestSuite(F)));
-    }
-    void updateTests(const llvm::Function *F, TestSuite::Ptr tests){
-        this->update(F, FN.State->Basic(), tests);
-    }
+    void put(const llvm::Function* F, PredicateState::Ptr state);
+    void update(const llvm::Function* F, PredicateState::Ptr state);
 
     PredicateState::Ptr getReq(const llvm::Function* F) const;
     PredicateState::Ptr getBdy(const llvm::Function* F) const;
     PredicateState::Ptr getEns(const llvm::Function* F) const;
-    TestSuite::Ptr getTests(const llvm::Function* F) const;
 
     PredicateState::Ptr getReq(const llvm::CallInst& CI, FactoryNest FN) const;
     PredicateState::Ptr getBdy(const llvm::CallInst& CI, FactoryNest FN) const;
     PredicateState::Ptr getEns(const llvm::CallInst& CI, FactoryNest FN) const;
-    TestSuite::Ptr getTests(const llvm::CallInst& CI, FactoryNest FN) const;
 
     unsigned int getId(const llvm::Function* F) const;
     unsigned int getMemoryStart(const llvm::Function* F) const;
