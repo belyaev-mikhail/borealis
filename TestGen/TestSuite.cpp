@@ -29,22 +29,40 @@ void TestSuite::addTestSuite(const TestSuite& other) {
     }
 }
 
-void TestSuite::generateTest(std::ostream & outStream, FactoryNest fn) const {
-    outStream << "void test" << function->getName().upper() << "(void) {\n";
-    for (const auto & t: tests) {
-        outStream << "    " << function->getName() << "(";
-        std::string args;
-        for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
-            auto argTerm = fn.Term->getArgumentTerm(&(*arg));
-            args += t.getValue(argTerm)->getName() + ", ";
-        }
-        args.erase(args.end() - 2, args.end());
-        outStream << args << ");\n";
+void TestSuite::generateTest(std::ostream & outStream, FactoryNest fn) {
+    if (tests.empty()) {
+        return;
     }
-    outStream << "}\n\n";
+    for (size_t i = 0; i < tests.size(); i++) {
+        tests[i].generateTest(outStream, function, fn, i);
+    }
 }
 
-TestSuite::~TestSuite() {
+void TestSuite::activateTest(std::ostream & outStream) const {
+    if (tests.empty()) {
+        return;
+    }
+    outStream << "    CU_pSuite " << getSuiteName() << " = CU_add_suite(\"Suite for " << getFunctionName() << "\", NULL, NULL);\n"
+            << "    if (" << getSuiteName() << " == NULL) {\n"
+            << "        CU_cleanup_registry();\n"
+            << "        return CU_get_error();\n"
+            << "    }\n";
+    for (const auto & t: tests) {
+        t.activateTest(outStream, function);
+    }
+}
+
+
+std::string TestSuite::getTestName() const {
+    return "test" + function->getName().upper();
+}
+
+llvm::StringRef TestSuite::getFunctionName() const {
+    return function->getName();
+}
+
+std::string TestSuite::getSuiteName() const {
+    return "pSuite" + function->getName().upper();
 }
 
 } /* namespace borealis */
