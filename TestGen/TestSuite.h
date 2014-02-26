@@ -25,10 +25,16 @@ public:
     TestSuite(TestSuite && orig) = default;
     TestSuite(const llvm::Function * f);
     TestSuite(const llvm::Function * f, const std::vector<TestCase> & tests);
+    
     void addTestCase(const TestCase & testCase);
     void addTestSuite(const TestSuite& other);
-    void generateTest(std::ostream & outStream, FactoryNest fn) const;
-    virtual ~TestSuite();
+    
+    void generateTest(std::ostream & outStream, FactoryNest fn);
+    void activateTest(std::ostream & outStream) const;
+    
+    std::string getTestName() const;
+    llvm::StringRef getFunctionName() const;
+    std::string getSuiteName() const;
 private:
     const llvm::Function * function;
     std::vector<TestCase> tests;

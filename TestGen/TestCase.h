@@ -8,10 +8,13 @@
 #ifndef TESTCASE_H
 #define	TESTCASE_H
 
+#include "Factory/Nest.h"
 #include "Term/Term.h"
 
 namespace borealis {
 
+class TestSuite;
+    
 class TestCase {
 private:
     typedef std::unordered_map<Term::Ptr, Term::Ptr, std::hash<const Term::Ptr>, termPtrEqual> TermMap; 
@@ -22,11 +25,18 @@ public:
     TestCase(const TestCase & orig) = default;
     TestCase(TestCase && orig) = default;
     explicit TestCase(const TermMap & testCase);
+    
     void addArgument(const Term::Ptr arg, const Term::Ptr value);
     const Term::Ptr getValue(const Term::Ptr arg) const;
-    virtual ~TestCase();
+    
+    void generateTest(std::ostream & outStream, const llvm::Function * F,  FactoryNest fn, int id);
+    void activateTest(std::ostream & outStream, const TestSuite & suite) const;
+
+    std::string getTestName(const llvm::Function * function) const;
+    std::string getTestName(llvm::StringRef functionName) const;
 private:
     TermMap testCase;
+    int id;
 };
 
 } /* namespace borealis */
