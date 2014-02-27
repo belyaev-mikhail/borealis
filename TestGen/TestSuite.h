@@ -11,6 +11,7 @@
 #include <llvm/Function.h>
 
 #include "Factory/Nest.h"
+#include "Passes/Tracker/MetaInfoTracker.h"
 #include "TestGen/TestCase.h"
 
 
@@ -29,7 +30,7 @@ public:
     void addTestCase(const TestCase & testCase);
     void addTestSuite(const TestSuite& other);
     
-    void generateTest(std::ostream & outStream, FactoryNest fn);
+    void generateTest(std::ostream & outStream, FactoryNest fn, MetaInfoTracker * mit);
     void activateTest(std::ostream & outStream) const;
     
     std::string getTestName() const;

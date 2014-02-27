@@ -17,22 +17,26 @@ void TestCase::addArgument(const Term::Ptr arg, const Term::Ptr value) {
     testCase.emplace(arg, value);
 }
 
-void TestCase::generateTest(std::ostream & outStream, const llvm::Function * function,  FactoryNest fn, int id) {
+void TestCase::generateTest(std::ostream & outStream, const llvm::Function * function,  FactoryNest fn, MetaInfoTracker * mit, int id) {
     this->id = id;
     outStream << "void " << getTestName(function) << "(void) {\n";
-    outStream << "    " << function->getName() << "(";
     std::string args;
     for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
         auto argTerm = fn.Term->getArgumentTerm(&(*arg));
-        args += getValue(argTerm)->getName() + ", ";
+        outStream << "    " << mit->locate(const_cast<llvm::Argument *>(&(*arg))).front().type.getName() << " "
+                      << arg->getName() << " = " << getValue(argTerm)->getName() << ";\n";
+        args += arg->getName().str() + ", ";
     }
     args.erase(args.end() - 2, args.end());
-    outStream << args << ");\n";
-    outStream << "}\n\n";
+    outStream << "    " << mit->locate(const_cast<llvm::Function *>(function)).front().type.getName()
+                  << " res = " << function->getName() << "(" << args << ");\n"
+              << "}\n\n";
 }
 
 void TestCase::activateTest(std::ostream & outStream, const TestSuite & suite) const {
-    outStream << "    if (CU_add_test(" << suite.getSuiteName() << ", \"Test #" << id << " for " << suite.getFunctionName() << "\", " << getTestName(suite.getFunctionName()) << ") == NULL) {\n"
+    outStream << "    if (CU_add_test(" << suite.getSuiteName() << ", \"Test #"
+                  << id << " for " << suite.getFunctionName() << "\", "
+                  << getTestName(suite.getFunctionName()) << ") == NULL) {\n"
               << "        CU_cleanup_registry();\n"
               << "        return CU_get_error();\n"
               << "    }\n";
@@ -44,7 +48,9 @@ std::string TestCase::getTestName(const llvm::Function * function) const {
 }
 
 std::string TestCase::getTestName(llvm::StringRef functionName) const {
-    return "test" + functionName.upper() + util::toString(id);
+    std::string name = functionName.str();
+    name[0] = std::toupper(name[0]);
+    return "test" + name + "_" + util::toString(id);
 }
 
 const Term::Ptr TestCase::getValue(const Term::Ptr arg) const {
