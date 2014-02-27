@@ -16,6 +16,7 @@ void CUnitDumperPass::getAnalysisUsage(llvm::AnalysisUsage & AU) const {
 
     AUX<FunctionManager>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
+    AUX<MetaInfoTracker>::addRequiredTransitive(AU);
     AUX<TestGenerationPass>::addRequiredTransitive(AU);
 }
 
@@ -23,13 +24,16 @@ bool CUnitDumperPass::runOnModule(llvm::Module & M) {
     testFile.open("test.c", std::ios::out);
     generateHeader();
     
+    auto * fm = &GetAnalysis<FunctionManager>::doit(this);
+    auto * stp = &GetAnalysis<SlotTrackerPass>::doit(this);
+    auto * mit = &GetAnalysis<MetaInfoTracker>::doit(this);
+    
     for (auto & f: M) {
-        auto * fm = &GetAnalysis<FunctionManager>::doit(this, f);
-        auto * st = GetAnalysis<SlotTrackerPass>::doit(this, f).getSlotTracker(f);
+        auto * st = stp->getSlotTracker(f);
         auto fn = FactoryNest(st);
         
         auto testSuite = fm->getTests(&f);
-        testSuite->generateTest(testFile, fn);
+        testSuite->generateTest(testFile, fn, mit);
     }
     
     testFile << "int main() {\n"
@@ -37,10 +41,6 @@ bool CUnitDumperPass::runOnModule(llvm::Module & M) {
              << "        return CU_get_error();\n";
     
     for (auto & f: M) {
-        auto * fm = &GetAnalysis<FunctionManager>::doit(this, f);
-        auto * st = GetAnalysis<SlotTrackerPass>::doit(this, f).getSlotTracker(f);
-        auto fn = FactoryNest(st);
-        
         auto testSuite = fm->getTests(&f);
         testSuite->activateTest(testFile);
     }

@@ -29,12 +29,12 @@ void TestSuite::addTestSuite(const TestSuite& other) {
     }
 }
 
-void TestSuite::generateTest(std::ostream & outStream, FactoryNest fn) {
+void TestSuite::generateTest(std::ostream & outStream, FactoryNest fn, MetaInfoTracker * mit) {
     if (tests.empty()) {
         return;
     }
     for (size_t i = 0; i < tests.size(); i++) {
-        tests[i].generateTest(outStream, function, fn, i);
+        tests[i].generateTest(outStream, function, fn, mit, i);
     }
 }
 
@@ -43,10 +43,10 @@ void TestSuite::activateTest(std::ostream & outStream) const {
         return;
     }
     outStream << "    CU_pSuite " << getSuiteName() << " = CU_add_suite(\"Suite for " << getFunctionName() << "\", NULL, NULL);\n"
-            << "    if (" << getSuiteName() << " == NULL) {\n"
-            << "        CU_cleanup_registry();\n"
-            << "        return CU_get_error();\n"
-            << "    }\n";
+              << "    if (" << getSuiteName() << " == NULL) {\n"
+              << "        CU_cleanup_registry();\n"
+              << "        return CU_get_error();\n"
+              << "    }\n";
     for (const auto & t: tests) {
         t.activateTest(outStream, function);
     }
