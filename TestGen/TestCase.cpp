@@ -5,6 +5,8 @@
  * Created on 12 Февраль 2014 г., 13:51
  */
 
+#include <llvm/Analysis/DebugInfo.h>
+
 #include "TestGen/TestCase.h"
 #include "TestGen/TestSuite.h"
 
@@ -23,12 +25,12 @@ void TestCase::generateTest(std::ostream & outStream, const llvm::Function * fun
     std::string args;
     for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
         auto argTerm = fn.Term->getArgumentTerm(&(*arg));
-        outStream << "    " << mit->locate(const_cast<llvm::Argument *>(&(*arg))).front().type.getName() << " "
-                      << arg->getName() << " = " << getValue(argTerm)->getName() << ";\n";
+        outStream << "    " << getArgName(&mit->locate(const_cast<llvm::Argument *>(&(*arg))).front().type)
+                      << " " << arg->getName() << " = " << getValue(argTerm)->getName() << ";\n";
         args += arg->getName().str() + ", ";
     }
     args.erase(args.end() - 2, args.end());
-    outStream << "    " << mit->locate(const_cast<llvm::Function *>(function)).front().type.getName()
+    outStream << "    " << getArgName(&mit->locate(const_cast<llvm::Function *>(function)).front().type)
                   << " res = " << function->getName() << "(" << args << ");\n"
               << "}\n\n";
 }
@@ -56,5 +58,14 @@ std::string TestCase::getTestName(llvm::StringRef functionName) const {
 const Term::Ptr TestCase::getValue(const Term::Ptr arg) const {
     return testCase.at(arg);
 }
+
+llvm::StringRef TestCase::getArgName(const llvm::DIType * type) {
+    while (type->isDerivedType()) {
+        auto dt = llvm::DIDerivedType(*type).getTypeDerivedFrom();
+        type = &dt;
+    }
+    return type->getName();
+}
+
 
 } /* namespace borealis */

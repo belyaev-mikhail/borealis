@@ -36,6 +36,8 @@ public:
     std::string getTestName(const llvm::Function * function) const;
     std::string getTestName(llvm::StringRef functionName) const;
 private:
+    static llvm::StringRef getArgName(const llvm::DIType * type);
+    
     TermMap testCase;
     int id;
 };
