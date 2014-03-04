@@ -28,6 +28,7 @@ void TestGenerationPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AUX<FunctionManager>::addRequiredTransitive(AU);
     AUX<PredicateStateAnalysis>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
+    AUX<TestManager>::addRequiredTransitive(AU);
 }
 
 bool TestGenerationPass::shouldSkipFunction(llvm::Function* F) {
@@ -92,6 +93,8 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
 
     auto* st = GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(F);
     FN = FactoryNest(st);
+    
+    TM = &GetAnalysis<TestManager>::doit(this, F);
 
     dbgs() << "name: " << F.getName() << endl;
 
@@ -117,7 +120,7 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
         }
     }
 
-    FM->updateTests(&F, testSuite);
+    TM->update(&F, testSuite);
     return false;
 }
 

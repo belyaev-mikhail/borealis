@@ -42,7 +42,12 @@ void TestManager::update(const llvm::Function * F, TestSuite::Ptr tests) {
 }
 
 TestSuite::Ptr TestManager::getTests(const llvm::Function * F) const {
-    return functionTests.at(F);
+    auto tests = functionTests.find(F);
+    if (tests == functionTests.end()) {
+        return nullptr;
+    } else {
+        return tests->second;
+    }
 }
 
 char TestManager::ID;
