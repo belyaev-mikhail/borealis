@@ -29,6 +29,15 @@ bool CUnitDumperPass::runOnModule(llvm::Module & M) {
     auto * mit = &GetAnalysis<MetaInfoTracker>::doit(this);
     
     for (auto & f: M) {
+        auto testSuite = tm->getTests(&f);
+        if (testSuite != nullptr) {
+            testSuite->prototypeFunction(testFile, mit);
+        }
+    }
+    
+    testFile << "\n";
+    
+    for (auto & f: M) {
         auto * st = stp->getSlotTracker(f);
         auto fn = FactoryNest(st);
         

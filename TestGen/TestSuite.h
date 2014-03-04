@@ -30,6 +30,7 @@ public:
     void addTestCase(const TestCase & testCase);
     void addTestSuite(const TestSuite& other);
     
+    void prototypeFunction(std::ostream & outStream, MetaInfoTracker * mit) const;
     void generateTest(std::ostream & outStream, FactoryNest fn, MetaInfoTracker * mit);
     void activateTest(std::ostream & outStream) const;
     
