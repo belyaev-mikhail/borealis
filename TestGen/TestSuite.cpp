@@ -6,6 +6,7 @@
  */
 
 #include "TestGen/TestSuite.h"
+#include "TestGen/Util/c_types.h"
 
 #include "Util/macros.h"
 
@@ -27,6 +28,16 @@ void TestSuite::addTestSuite(const TestSuite& other) {
     for(const auto& testCase: other.tests) {
         tests.push_back(testCase);
     }
+}
+
+void TestSuite::prototypeFunction(std::ostream & outStream, MetaInfoTracker * mit) const {
+    std::string args;
+    for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
+        args += util::getCType(&mit->locate(const_cast<llvm::Argument *>(&(*arg))).front().type, true) + ", ";
+    }
+    args.erase(args.end() - 2, args.end());
+    outStream << util::getCType(&mit->locate(const_cast<llvm::Function *>(function)).front().type, true)
+                  << " " << function->getName() << "(" << args << ");\n";
 }
 
 void TestSuite::generateTest(std::ostream & outStream, FactoryNest fn, MetaInfoTracker * mit) {
