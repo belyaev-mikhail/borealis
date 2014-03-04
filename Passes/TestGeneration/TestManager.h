@@ -23,7 +23,7 @@ public:
     static char ID;
 
 #include "Util/macros.h"
-    static constexpr auto loggerDomain() QUICK_RETURN("tm")
+    static constexpr auto loggerDomain() QUICK_RETURN("TestManager")
 #include "Util/unmacros.h"
     
     TestManager();

@@ -16,6 +16,7 @@
 #include "Passes/Manager/FunctionManager.h"
 #include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
 #include "Passes/Tracker/MetaInfoTracker.h"
+#include "Passes/TestGeneration/TestManager.h"
 #include "Passes/Util/ProxyFunctionPass.h"
 #include "TestGen/TestCase.h"
 #include "Util/passes.hpp"
@@ -46,6 +47,7 @@ private:
     FunctionManager* FM;
     PredicateStateAnalysis* PSA;
     FactoryNest FN;
+    TestManager* TM;
 
     bool shouldSkipFunction(llvm::Function* F);
 
