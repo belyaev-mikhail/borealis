@@ -31,7 +31,8 @@ public:
     void addTestSuite(const TestSuite& other);
     
     void prototypeFunction(std::ostream & outStream, MetaInfoTracker * mit) const;
-    void generateTest(std::ostream & outStream, FactoryNest fn, MetaInfoTracker * mit);
+    void generateTest(std::ostream & outStream, FactoryNest fn,
+        MetaInfoTracker * mit, const std::vector<Term::Ptr>& oracle);
     void activateTest(std::ostream & outStream) const;
     
     std::string getTestName() const;

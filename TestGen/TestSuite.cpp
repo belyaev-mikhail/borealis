@@ -33,19 +33,27 @@ void TestSuite::addTestSuite(const TestSuite& other) {
 void TestSuite::prototypeFunction(std::ostream & outStream, MetaInfoTracker * mit) const {
     std::string args;
     for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
-        args += util::getCType(&mit->locate(const_cast<llvm::Argument *>(&(*arg))).front().type, true) + ", ";
+        args += util::getCType(
+            &mit->locate(const_cast<llvm::Argument *>(&(*arg))).front().type,
+            util::CTypeModifiersPolicy::KEEP
+        );
+        args += ", ";
     }
     args.erase(args.end() - 2, args.end());
-    outStream << util::getCType(&mit->locate(const_cast<llvm::Function *>(function)).front().type, true)
-                  << " " << function->getName() << "(" << args << ");\n";
+    outStream << util::getCType(
+        &mit->locate(const_cast<llvm::Function *>(function)).front().type,
+        util::CTypeModifiersPolicy::KEEP
+    );
+    outStream << " " << function->getName() << "(" << args << ");\n";
 }
 
-void TestSuite::generateTest(std::ostream & outStream, FactoryNest fn, MetaInfoTracker * mit) {
+void TestSuite::generateTest(std::ostream & outStream, FactoryNest fn,
+    MetaInfoTracker * mit, const std::vector<Term::Ptr>& oracle) {
     if (tests.empty()) {
         return;
     }
     for (size_t i = 0; i < tests.size(); i++) {
-        tests[i].generateTest(outStream, function, fn, mit, i);
+        tests[i].generateTest(outStream, function, fn, mit, i, oracle);
     }
 }
 
