@@ -116,6 +116,7 @@ PredicateState::Ptr BasicPredicateState::sliceOn(PredicateState::Ptr on) const {
     if (*this == *on) {
         return Simplified(new Self{});
     }
+
     return nullptr;
 }
 

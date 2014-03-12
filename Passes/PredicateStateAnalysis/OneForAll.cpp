@@ -183,7 +183,8 @@ PredicateState::Ptr OneForAll::BBM(llvm::BasicBlock* BB) {
 
         auto inState = stateBuilder();
 
-        auto slice = inState->sliceOn(base);
+        auto slice = FN.State->SliceOn(inState, base);
+
         ASSERT(slice != nullptr, "Could not slice state on its predecessor");
 
         choices.push_back(slice);

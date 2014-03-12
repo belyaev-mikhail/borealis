@@ -34,6 +34,8 @@ public:
 
     PredicateState::Ptr Basic();
 
+    PredicateState::Ptr SliceOn(PredicateState::Ptr what, PredicateState::Ptr where);
+
     static PredicateStateFactory::Ptr get() {
         static PredicateStateFactory::Ptr instance(new PredicateStateFactory());
         return instance;
