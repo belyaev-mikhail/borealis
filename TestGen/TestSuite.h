@@ -25,7 +25,7 @@ public:
     TestSuite(const TestSuite & orig) = default;
     TestSuite(TestSuite && orig) = default;
     TestSuite(const llvm::Function * f);
-    TestSuite(const llvm::Function * f, const std::vector<TestCase> & tests);
+    TestSuite(const llvm::Function * f, const std::unordered_set<TestCase> & tests);
     
     void addTestCase(const TestCase & testCase);
     void addTestSuite(const TestSuite& other);
@@ -40,7 +40,7 @@ public:
     std::string getSuiteName() const;
 private:
     const llvm::Function * function;
-    std::vector<TestCase> tests;
+    std::unordered_set<TestCase> tests;
 };
 
 } /* namespace borealis */

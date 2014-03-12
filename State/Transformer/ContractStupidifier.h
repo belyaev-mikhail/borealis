@@ -68,12 +68,41 @@ public:
 
             //if(!ist) failWith("\\" + name + " : unknown builtin");
 
-            return getArgTerms()[val];
+            auto&& args = getArgTerms();
+            if(val >= args.size()) failWith("\\" + name + " : arg not found");
+
+            return args[val];
         } else {
             failWith("\\" + name + " : unknown builtin");
         }
 
         BYE_BYE(Term::Ptr, "Unreachable!");
+    }
+
+    Term::Ptr transformBinaryTerm(BinaryTermPtr trm) {
+        switch(trm->getOpcode()) {
+        case llvm::ArithType::LSHR:
+            return FN.Term->getBinaryTerm(llvm::ArithType::ASHR, trm->getLhv(), trm->getRhv());
+        default:
+            return trm;
+        }
+        return trm;
+    }
+
+    Term::Ptr transformCmpTerm(CmpTermPtr trm) {
+        switch(trm->getOpcode()) {
+        case llvm::ConditionType::TRUE:
+            return FN.Term->getBooleanTerm(true);
+        case llvm::ConditionType::FALSE:
+            return FN.Term->getBooleanTerm(false);
+        default:
+            return FN.Term->getCmpTerm(
+                llvm::forceSigned(trm->getOpcode()),
+                trm->getLhv(),
+                trm->getRhv()
+            );
+        }
+        return trm;
     }
 };
 
