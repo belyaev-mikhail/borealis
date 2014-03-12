@@ -14,11 +14,11 @@ namespace borealis {
 
 TestSuite::TestSuite(const llvm::Function * f) : function(f) {}
 
-TestSuite::TestSuite(const llvm::Function * f, const std::vector<TestCase> & tests) :
+TestSuite::TestSuite(const llvm::Function * f, const std::unordered_set<TestCase> & tests) :
         function(f), tests(tests) {}
 
 void TestSuite::addTestCase(const TestCase & testCase) {
-    tests.push_back(testCase);
+    tests.insert(testCase);
 }
 
 void TestSuite::addTestSuite(const TestSuite& other) {
@@ -26,7 +26,7 @@ void TestSuite::addTestSuite(const TestSuite& other) {
     ASSERT(function->getName() == other.function->getName(),
             "Trying to test cases from test suite for another function.");
     for(const auto& testCase: other.tests) {
-        tests.push_back(testCase);
+        tests.insert(testCase);
     }
 }
 
@@ -49,11 +49,9 @@ void TestSuite::prototypeFunction(std::ostream & outStream, MetaInfoTracker * mi
 
 void TestSuite::generateTest(std::ostream & outStream, FactoryNest fn,
     MetaInfoTracker * mit, const std::vector<Term::Ptr>& oracle) {
-    if (tests.empty()) {
-        return;
-    }
-    for (size_t i = 0; i < tests.size(); i++) {
-        tests[i].generateTest(outStream, function, fn, mit, i, oracle);
+    int i = 0;
+    for (auto&& test: tests) {
+        test.generateTest(outStream, function, fn, mit, i++, oracle);
     }
 }
 
@@ -66,8 +64,9 @@ void TestSuite::activateTest(std::ostream & outStream) const {
               << "        CU_cleanup_registry();\n"
               << "        return CU_get_error();\n"
               << "    }\n";
+    int id = 0;
     for (const auto & t: tests) {
-        t.activateTest(outStream, function);
+        t.activateTest(outStream, function, id++);
     }
 }
 
