@@ -12,7 +12,7 @@ namespace borealis {
 namespace util {
 
 enum class CTypeModifiersPolicy { KEEP, DISCARD };
-std::string getCType(const llvm::DIType * type, CTypeModifiersPolicy fullModifiers);
+std::string getCType(llvm::DIType type, CTypeModifiersPolicy fullModifiers);
 
 } /* namespace util */
 } /* namespace borealis */

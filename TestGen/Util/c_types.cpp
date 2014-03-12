@@ -5,10 +5,10 @@
 namespace borealis {
 namespace util {
 
-std::string getCType(const llvm::DIType * type, CTypeModifiersPolicy fullModifiers) {
+std::string getCType(llvm::DIType type, CTypeModifiersPolicy fullModifiers) {
     std::string result;
-    while (type->isDerivedType()) {
-        switch (type->getTag()) {
+    while (type.isDerivedType()) {
+        switch (type.getTag()) {
             case llvm::dwarf::DW_TAG_const_type:
                 if (fullModifiers == CTypeModifiersPolicy::KEEP) {
                     result = " const" + result;
@@ -18,10 +18,9 @@ std::string getCType(const llvm::DIType * type, CTypeModifiersPolicy fullModifie
                 result = " *" + result;
                 break;
         }
-        auto dt = llvm::DIDerivedType(*type).getTypeDerivedFrom();
-        type = &dt;
+        type = llvm::DIDerivedType(type).getTypeDerivedFrom();
     }
-    return type->getName().str() + result;
+    return type.getName().str() + result;
 }
 
 } /* namespace util */
