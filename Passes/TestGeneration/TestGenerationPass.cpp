@@ -6,6 +6,7 @@
  */
 
 #include <llvm/Support/InstIterator.h>
+#include <llvm/Support/CFG.h>
 
 #include "Codegen/intrinsics_manager.h"
 #include "Passes/TestGeneration/TestGenerationPass.h"
@@ -83,6 +84,16 @@ TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
     return testCase;
 }
 
+// check if a basic block is
+static bool isInterestring(const llvm::BasicBlock* bb) {
+    return util::view(llvm::pred_begin(bb), llvm::pred_end(bb))
+          .any_of([](const llvm::BasicBlock* pred) -> bool{
+                if(auto&& branch = llvm::dyn_cast<llvm::BranchInst>(pred->getTerminator()))
+                    if(branch->isConditional()) return true;
+                return false;
+           });
+}
+
 bool TestGenerationPass::runOnFunction(llvm::Function& F) {
 
     if (shouldSkipFunction(&F))
@@ -114,6 +125,8 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
     } else {
         auto e = F.end();
         for (auto bit = ++F.begin(); bit != e; ++bit) {
+            if(!isInterestring(bit)) continue;
+
             auto testCase = testForInst(F, &*(bit->begin()), args);
             if (testCase != nullptr)
                 testSuite->addTestCase(*testCase);

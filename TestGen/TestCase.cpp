@@ -21,6 +21,8 @@ void TestCase::addArgument(const Term::Ptr arg, const Term::Ptr value) {
 }
 
 static std::string formatToType(Term::Ptr trm, borealis::DIType type) {
+    while(DIAlias alias = type) type = alias.getOriginal();
+
     if(auto integer = llvm::dyn_cast<OpaqueIntConstantTerm>(trm)) {
         llvm::APInt app{ type.getSizeInBits(), integer->getValue(), !type.isUnsignedDIType() };
         return app.toString(10, !type.isUnsignedDIType());
