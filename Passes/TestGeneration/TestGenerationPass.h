@@ -45,8 +45,6 @@ private:
     PredicateStateAnalysis* PSA;
     FactoryNest FN;
 
-    bool shouldSkipFunction(llvm::Function* F);
-
     TestCase::Ptr testForInst(llvm::Function& F,
                      llvm::Instruction* inst,
                      const std::vector<Term::Ptr>& args);

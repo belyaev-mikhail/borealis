@@ -12,12 +12,12 @@
 #include "Passes/Tracker/SlotTrackerPass.h"
 #include "SMT/MathSAT/Solver.h"
 #include "SMT/Z3/Solver.h"
+#include "TestGen/TestSuite.h"
+#include "TestGen/util.h"
 #include "Util/macros.h"
 #include "Util/util.h"
 
 namespace borealis {
-
-
 
 TestGenerationPass::TestGenerationPass() : ProxyFunctionPass(ID) {}
 TestGenerationPass::TestGenerationPass(llvm::Pass* pass) : ProxyFunctionPass(ID, pass) {}
@@ -28,19 +28,6 @@ void TestGenerationPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AUX<FunctionManager>::addRequiredTransitive(AU);
     AUX<PredicateStateAnalysis>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
-}
-
-bool TestGenerationPass::shouldSkipFunction(llvm::Function* F) {
-    // skip borealis_globals function
-    auto& im = IntrinsicsManager::getInstance();
-    if (im.getIntrinsicType(F) == function_type::INTRINSIC_GLOBAL_DESCRIPTOR_TABLE)
-        return true;
-
-    // XXX sam How to determine main function?
-    if (F->getName() == "__main" || F->getName() == "main") // skip main function
-        return true;
-
-    return false;
 }
 
 TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
@@ -82,7 +69,7 @@ TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
 
 bool TestGenerationPass::runOnFunction(llvm::Function& F) {
 
-    if (shouldSkipFunction(&F))
+    if (util::shouldSkipTest(&F))
         return false;
 
     FM = &GetAnalysis<FunctionManager>::doit(this, F);
@@ -114,7 +101,7 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
         }
     }
 
-    FM->updateTests(&F, testSuite);
+//    FM->updateTests(&F, testSuite);
     return false;
 }
 
