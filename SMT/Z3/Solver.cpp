@@ -138,7 +138,6 @@ bool Solver::isPathImpossible(
     return res == z3::unsat;
 }
 
-
 Solver::Test Solver::generateTest(
             PredicateState::Ptr state,
             const std::vector<Term::Ptr>& args) {

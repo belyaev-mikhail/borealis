@@ -12,12 +12,12 @@
 #include "Passes/Tracker/SlotTrackerPass.h"
 #include "SMT/MathSAT/Solver.h"
 #include "SMT/Z3/Solver.h"
+#include "TestGen/TestSuite.h"
+#include "TestGen/util.h"
 #include "Util/macros.h"
 #include "Util/util.h"
 
 namespace borealis {
-
-
 
 TestGenerationPass::TestGenerationPass() : ProxyFunctionPass(ID) {}
 TestGenerationPass::TestGenerationPass(llvm::Pass* pass) : ProxyFunctionPass(ID, pass) {}
@@ -28,20 +28,7 @@ void TestGenerationPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AUX<FunctionManager>::addRequiredTransitive(AU);
     AUX<PredicateStateAnalysis>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
-    AUX<TestManager>::addRequiredTransitive(AU);
-}
-
-bool TestGenerationPass::shouldSkipFunction(llvm::Function* F) {
-    // skip borealis_globals function
-    auto& im = IntrinsicsManager::getInstance();
-    if (im.getIntrinsicType(F) == function_type::INTRINSIC_GLOBAL_DESCRIPTOR_TABLE)
-        return true;
-
-    // XXX sam How to determine main function?
-    if (F->getName() == "__main" || F->getName() == "main") // skip main function
-        return true;
-
-    return false;
+	AUX<TestManager>::addRequiredTransitive(AU);
 }
 
 TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
@@ -71,9 +58,7 @@ TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
 
     TestCase::Ptr testCase(new TestCase());
 
-    std::string testStr = "test case for block ";
-    testStr += blockName;
-    testStr += ": \n";
+    std::string testStr = "test case for block " + blockName + "\n";
     for (const auto& testValue : smtTest) {
         testStr += testValue.first->getName() + " = " +
                    testValue.second->getName() + "\n";
@@ -85,7 +70,7 @@ TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
 
 bool TestGenerationPass::runOnFunction(llvm::Function& F) {
 
-    if (shouldSkipFunction(&F))
+    if (util::shouldSkipTest(&F))
         return false;
 
     FM = &GetAnalysis<FunctionManager>::doit(this, F);
@@ -112,9 +97,8 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
         if (testCase != nullptr)
             testSuite->addTestCase(*testCase);
     } else {
-        auto e = F.end();
-        for (auto bit = ++F.begin(); bit != e; ++bit) {
-            auto testCase = testForInst(F, &*(bit->begin()), args);
+        for (auto&& BB : util::tail(F)) {
+            auto testCase = testForInst(F, &*(BB.begin()), args);
             if (testCase != nullptr)
                 testSuite->addTestCase(*testCase);
         }
