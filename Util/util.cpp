@@ -251,10 +251,10 @@ std::list<ReturnInst*> getAllRets(Function* F) {
     std::unordered_set<ReturnInst*> rets;
 
     for (ReturnInst* RI : viewContainer(F)
-                          .flatten()
-                          .map(takePtr())
-                          .map(dyn_caster<ReturnInst>())
-                          .filter()) {
+                         .flatten()
+                         .map(takePtr())
+                         .map(dyn_caster<ReturnInst>())
+                         .filter()) {
         rets.insert(RI);
     }
 

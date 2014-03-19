@@ -6,6 +6,7 @@
  */
 
 #include <llvm/Support/InstIterator.h>
+#include <llvm/Support/CFG.h>
 
 #include "Codegen/intrinsics_manager.h"
 #include "Passes/TestGeneration/TestGenerationPass.h"
@@ -18,6 +19,8 @@
 #include "Util/util.h"
 
 namespace borealis {
+
+
 
 TestGenerationPass::TestGenerationPass() : ProxyFunctionPass(ID) {}
 TestGenerationPass::TestGenerationPass(llvm::Pass* pass) : ProxyFunctionPass(ID, pass) {}
@@ -58,7 +61,9 @@ TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
 
     TestCase::Ptr testCase(new TestCase());
 
-    std::string testStr = "test case for block " + blockName + "\n";
+    std::string testStr = "test case for block ";
+    testStr += blockName;
+    testStr += ": \n";
     for (const auto& testValue : smtTest) {
         testStr += testValue.first->getName() + " = " +
                    testValue.second->getName() + "\n";
@@ -66,6 +71,16 @@ TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
     }
     dbgs() << testStr;
     return testCase;
+}
+
+// check if a basic block is
+static bool isInterestring(const llvm::BasicBlock* bb) {
+    return util::view(llvm::pred_begin(bb), llvm::pred_end(bb))
+          .any_of([](const llvm::BasicBlock* pred) -> bool{
+                if(auto&& branch = llvm::dyn_cast<llvm::BranchInst>(pred->getTerminator()))
+                    if(branch->isConditional()) return true;
+                return false;
+           });
 }
 
 bool TestGenerationPass::runOnFunction(llvm::Function& F) {
@@ -98,6 +113,8 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
             testSuite->addTestCase(*testCase);
     } else {
         for (auto&& BB : util::tail(F)) {
+            if(!isInterestring(&BB)) continue;
+
             auto testCase = testForInst(F, &*(BB.begin()), args);
             if (testCase != nullptr)
                 testSuite->addTestCase(*testCase);

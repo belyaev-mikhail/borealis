@@ -5,7 +5,17 @@
  * Created on 18 Февраль 2014 г., 17:16
  */
 
-#include "CUnitDumperPass.h"
+#include "Passes/TestGeneration/CUnitDumperPass.h"
+
+#include "Passes/Defect/DefectManager.h"
+#include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
+#include "Passes/TestGeneration/TestGenerationPass.h"
+#include "Passes/TestGeneration/TestManager.h"
+#include "Passes/Tracker/MetaInfoTracker.h"
+#include "Passes/Tracker/SlotTrackerPass.h"
+#include "Passes/Tracker/FunctionAnnotationTracker.h"
+
+#include "State/Transformer/ContractStupidifier.h"
 
 namespace borealis {
 
@@ -18,6 +28,7 @@ void CUnitDumperPass::getAnalysisUsage(llvm::AnalysisUsage & AU) const {
     AUX<MetaInfoTracker>::addRequiredTransitive(AU);
     AUX<TestGenerationPass>::addRequiredTransitive(AU);
     AUX<TestManager>::addRequiredTransitive(AU);
+    AUX<FunctionAnnotationTracker>::addRequiredTransitive(AU);
 }
 
 bool CUnitDumperPass::runOnModule(llvm::Module & M) {
@@ -27,6 +38,8 @@ bool CUnitDumperPass::runOnModule(llvm::Module & M) {
     auto * tm = &GetAnalysis<TestManager>::doit(this);
     auto * stp = &GetAnalysis<SlotTrackerPass>::doit(this);
     auto * mit = &GetAnalysis<MetaInfoTracker>::doit(this);
+
+    FunctionAnnotationTracker& FAT = GetAnalysis<FunctionAnnotationTracker>::doit(this);
     
     for (auto & f: M) {
         auto testSuite = tm->getTests(&f);
@@ -37,13 +50,34 @@ bool CUnitDumperPass::runOnModule(llvm::Module & M) {
     
     testFile << "\n";
     
+
+
     for (auto & f: M) {
         auto * st = stp->getSlotTracker(f);
         auto fn = FactoryNest(st);
         
         auto testSuite = tm->getTests(&f);
+
         if (testSuite != nullptr) {
-            testSuite->generateTest(testFile, fn, mit);
+            ContractStupidifier cs{
+                util::view(f.arg_begin(), f.arg_end())
+                     .map([&](llvm::Argument& a){
+                          return fn.Term->getArgumentTerm(&a);
+                      })
+                     .toVector(),
+                fn.Term->getValueTerm(fn.Type->getUnknownType(), "res"),
+                fn
+            };
+
+            auto oracle = util::viewContainer(FAT.getAnnotations(f))
+                         .map(llvm::dyn_caster<EnsuresAnnotation>{})
+                         .filter()
+                         .map([&](const EnsuresAnnotation* anno){
+                             return cs.transform(anno->getTerm());
+                          })
+                         .toVector();
+
+            testSuite->generateTest(testFile, fn, mit, oracle);
         }
     }
     
