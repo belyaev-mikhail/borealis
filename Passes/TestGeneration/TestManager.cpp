@@ -30,7 +30,7 @@ void TestManager::put(const llvm::Function * F, TestSuite::Ptr tests) {
 void TestManager::update(const llvm::Function * F, TestSuite::Ptr tests) {
     using borealis::util::containsKey;
 
-    dbgs() << "Updating function state for: " << F->getName().str() << endl;
+    dbgs() << "Updating function tests for: " << F->getName().str() << endl;
 
     if (containsKey(functionTests, F)) {
         auto ts = TestSuite::Ptr{new TestSuite(*functionTests.at(F))};

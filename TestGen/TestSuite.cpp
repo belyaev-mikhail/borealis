@@ -12,10 +12,14 @@
 
 namespace borealis {
 
-TestSuite::TestSuite(const llvm::Function * f) : function(f) {}
+TestSuite::TestSuite(const llvm::Function * f) : function(f) {
+    generateResultVariableName();
+}
 
 TestSuite::TestSuite(const llvm::Function * f, const std::unordered_set<TestCase> & tests) :
-        function(f), tests(tests) {}
+        function(f), tests(tests) {
+    generateResultVariableName();
+}
 
 void TestSuite::addTestCase(const TestCase & testCase) {
     tests.insert(testCase);
@@ -51,7 +55,7 @@ void TestSuite::generateTest(std::ostream & outStream, FactoryNest fn,
     MetaInfoTracker * mit, const std::vector<Term::Ptr>& oracle) {
     int i = 0;
     for (auto&& test: tests) {
-        test.generateTest(outStream, function, fn, mit, i++, oracle);
+        test.generateTest(outStream, function, fn, mit, i++, oracle, resultVariableName);
     }
 }
 
@@ -81,6 +85,28 @@ llvm::StringRef TestSuite::getFunctionName() const {
 
 std::string TestSuite::getSuiteName() const {
     return "pSuite" + function->getName().upper();
+}
+
+std::string TestSuite::getResultVariableName() const {
+    return resultVariableName;
+}
+
+void TestSuite::generateResultVariableName() {
+    resultVariableName = "result";
+    while (true) {
+        bool uniq = true;
+        for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
+            auto arg_ = const_cast<llvm::Argument *>(&(*arg));
+            if (arg_->getName() == resultVariableName) {
+                uniq = false;
+                break;
+            }
+        }
+        if (uniq) {
+            break;
+        }
+        resultVariableName += util::toString(rand() % 10);
+    }
 }
 
 } /* namespace borealis */
