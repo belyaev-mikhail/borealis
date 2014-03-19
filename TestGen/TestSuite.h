@@ -38,9 +38,13 @@ public:
     std::string getTestName() const;
     llvm::StringRef getFunctionName() const;
     std::string getSuiteName() const;
+    std::string getResultVariableName() const;
 private:
+    void generateResultVariableName();
+    
     const llvm::Function * function;
     std::unordered_set<TestCase> tests;
+    std::string resultVariableName;
 };
 
 } /* namespace borealis */

@@ -33,7 +33,8 @@ public:
     const Term::Ptr getValue(const Term::Ptr arg) const;
     
     void generateTest(std::ostream & outStream, const llvm::Function * F,
-        FactoryNest fn, MetaInfoTracker * mit, int id, const std::vector<Term::Ptr>& oracle) const;
+        FactoryNest fn, MetaInfoTracker * mit, int id, const std::vector<Term::Ptr>& oracle,
+        std::string resultName) const;
     void activateTest(std::ostream & outStream, const TestSuite & suite, int id) const;
 
     std::string getTestName(const llvm::Function * function, int id) const;

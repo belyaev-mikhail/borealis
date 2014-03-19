@@ -65,7 +65,7 @@ bool CUnitDumperPass::runOnModule(llvm::Module & M) {
                           return fn.Term->getArgumentTerm(&a);
                       })
                      .toVector(),
-                fn.Term->getValueTerm(fn.Type->getUnknownType(), "res"),
+                fn.Term->getValueTerm(fn.Type->getUnknownType(), testSuite->getResultVariableName()),
                 fn
             };
 

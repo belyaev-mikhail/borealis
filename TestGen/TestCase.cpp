@@ -31,7 +31,8 @@ static std::string formatToType(Term::Ptr trm, borealis::DIType type) {
 }
 
 void TestCase::generateTest(std::ostream& outStream, const llvm::Function* function,
-    FactoryNest fn, MetaInfoTracker* mit, int id, const std::vector<Term::Ptr>& oracle) const {
+    FactoryNest fn, MetaInfoTracker* mit, int id, const std::vector<Term::Ptr>& oracle,
+    std::string resultName) const {
     using namespace borealis::util;
 
     outStream << "void " << getTestName(function, id) << "(void) {\n";
@@ -49,7 +50,8 @@ void TestCase::generateTest(std::ostream& outStream, const llvm::Function* funct
     auto f = const_cast<llvm::Function *>(function);
     outStream << "    "
               << getCType(mit->locate(f).front().type, CTypeModifiersPolicy::DISCARD)
-              << " res = " << function->getName() << "(" << args << ");\n";
+              << " " << resultName << " = " << function->getName()
+              << "(" << args << ");\n";
 
     for(auto& check : oracle) {
         outStream << "    " << "CU_ASSERT(" << check->getName() << ");\n";
