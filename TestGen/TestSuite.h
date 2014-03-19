@@ -25,13 +25,14 @@ public:
     TestSuite(const TestSuite & orig) = default;
     TestSuite(TestSuite && orig) = default;
     TestSuite(const llvm::Function * f);
-    TestSuite(const llvm::Function * f, const std::vector<TestCase> & tests);
+    TestSuite(const llvm::Function * f, const std::unordered_set<TestCase> & tests);
     
     void addTestCase(const TestCase & testCase);
     void addTestSuite(const TestSuite& other);
     
     void prototypeFunction(std::ostream & outStream, MetaInfoTracker * mit) const;
-    void generateTest(std::ostream & outStream, FactoryNest fn, MetaInfoTracker * mit);
+    void generateTest(std::ostream & outStream, FactoryNest fn,
+        MetaInfoTracker * mit, const std::vector<Term::Ptr>& oracle);
     void activateTest(std::ostream & outStream) const;
     
     std::string getTestName() const;
@@ -39,7 +40,7 @@ public:
     std::string getSuiteName() const;
 private:
     const llvm::Function * function;
-    std::vector<TestCase> tests;
+    std::unordered_set<TestCase> tests;
 };
 
 } /* namespace borealis */

@@ -13,19 +13,13 @@
 
 #include "Factory/Nest.h"
 #include "Logging/logger.hpp"
-#include "Passes/Defect/DefectManager.h"
-#include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
-#include "Passes/TestGeneration/TestGenerationPass.h"
-#include "Passes/TestGeneration/TestManager.h"
-#include "Passes/Tracker/MetaInfoTracker.h"
-#include "Passes/Tracker/SlotTrackerPass.h"
 #include "Util/passes.hpp"
 
 namespace borealis {
 
 class CUnitDumperPass :
         public llvm::ModulePass,
-        public borealis::logging::ClassLevelLogging<TestGenerationPass> {
+        public borealis::logging::ClassLevelLogging<CUnitDumperPass> {
 public:
 
     static char ID;
