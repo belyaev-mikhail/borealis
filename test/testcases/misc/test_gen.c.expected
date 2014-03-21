@@ -1,1 +1,29 @@
-null
+
+[
+    
+    {
+        "location" : 
+        {
+            "filename" : "test/testcases/misc/test_gen.c",
+            "loc" : 
+            {
+                "col" : 5,
+                "line" : 18
+            }
+        },
+        "type" : "ENS-01"
+    },
+    
+    {
+        "location" : 
+        {
+            "filename" : "test/testcases/misc/test_gen.c",
+            "loc" : 
+            {
+                "col" : 12,
+                "line" : 32
+            }
+        },
+        "type" : "REQ-01"
+    }
+]
