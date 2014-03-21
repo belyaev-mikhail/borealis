@@ -22,6 +22,7 @@ int* unsafe_function(int *arr, unsigned size, unsigned index) {
 }
 
 int main() {
+    int arr[] = {5, 4, 3, 2, 1};
     printf("%i", *safe_function(arr, 5, 3));
     printf("%i", *unsafe_function(arr, 5, 3));
     return 0;
