@@ -34,7 +34,11 @@ void TestSuite::addTestSuite(const TestSuite& other) {
     }
 }
 
-void TestSuite::prototypeFunction(std::ostream & outStream, MetaInfoTracker * mit) const {
+void TestSuite::prototypeFunction(std::ostream & outStream, MetaInfoTracker * mit,
+        PrototypesInfo* prototypes) const {
+    if (util::containsKey(prototypes->locations, function->getName().str())) {
+        return;
+    }
     std::string args;
     for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
         args += util::getCType(

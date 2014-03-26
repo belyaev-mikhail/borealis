@@ -12,6 +12,7 @@
 
 #include "Factory/Nest.h"
 #include "Passes/Tracker/MetaInfoTracker.h"
+#include "TestGen/PrototypesInfo.h"
 #include "TestGen/TestCase.h"
 
 
@@ -30,7 +31,8 @@ public:
     void addTestCase(const TestCase & testCase);
     void addTestSuite(const TestSuite& other);
     
-    void prototypeFunction(std::ostream & outStream, MetaInfoTracker * mit) const;
+    void prototypeFunction(std::ostream & outStream, MetaInfoTracker * mit,
+        PrototypesInfo* prototypes) const;
     void generateTest(std::ostream & outStream, FactoryNest fn,
         MetaInfoTracker * mit, const std::vector<Term::Ptr>& oracle);
     void activateTest(std::ostream & outStream) const;
