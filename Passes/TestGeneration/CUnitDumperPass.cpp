@@ -5,6 +5,9 @@
  * Created on 18 Февраль 2014 г., 17:16
  */
 
+#include <llvm/Analysis/DebugInfo.h>
+#include <llvm/Support/PathV2.h>
+
 #include "Passes/TestGeneration/CUnitDumperPass.h"
 
 #include "Passes/Defect/DefectManager.h"
@@ -34,7 +37,11 @@ void CUnitDumperPass::getAnalysisUsage(llvm::AnalysisUsage & AU) const {
 }
 
 bool CUnitDumperPass::runOnModule(llvm::Module & M) {
-    testFile.open("test.c", std::ios::out);
+    
+    llvm::DICompileUnit cu(M.getNamedMetadata("llvm.dbg.cu")->getOperand(0));
+    auto testFileName = "test_" + llvm::sys::path::stem(cu.getFilename()) + ".c";
+    
+    testFile.open(testFileName.str(), std::ios::out);
     
     auto * tm = &GetAnalysis<TestManager>::doit(this);
     auto * stp = &GetAnalysis<SlotTrackerPass>::doit(this);
