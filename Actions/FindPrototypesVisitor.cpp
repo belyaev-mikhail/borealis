@@ -5,7 +5,6 @@
  * Created on 25 Март 2014 г., 12:18
  */
 
-#include <iostream>
 #include <bits/hashtable.h>
     
 #include "Actions/FindPrototypesVisitor.h"
