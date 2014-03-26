@@ -12,6 +12,7 @@
 
 #include "Actions/FindPrototypesConsumer.h"
 #include "TestGen/PrototypesInfo.h"
+#include "Util/util.hpp"
 
 #ifndef FINDPROTOTYPESACTION_H
 #define	FINDPROTOTYPESACTION_H
@@ -25,6 +26,7 @@ public:
     
     virtual clang::ASTConsumer* CreateASTConsumer(clang::CompilerInstance& compiler,
                                                   llvm::StringRef inFile) {
+        util::use(inFile);
         return new FindPrototypesConsumer(&compiler.getASTContext(),
                 &compiler.getSourceManager(), prototypes);
     }
