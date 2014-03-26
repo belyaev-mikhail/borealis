@@ -13,6 +13,8 @@
 
 #include "Factory/Nest.h"
 #include "Logging/logger.hpp"
+#include "Passes/Util/DataProvider.hpp"
+#include "TestGen/PrototypesInfo.h"
 #include "Util/passes.hpp"
 
 namespace borealis {
@@ -30,6 +32,8 @@ public:
 
     CUnitDumperPass();
     
+    typedef DataProvider<PrototypesInfo> prototypesLocation;
+    
     virtual bool runOnModule(llvm::Module & M) override;
     virtual void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
     virtual ~CUnitDumperPass();
@@ -37,7 +41,7 @@ public:
 private:
     std::ofstream testFile;
     
-    void generateHeader();
+    void generateHeader(PrototypesInfo* prototypes);
 };
 
 } /* namespace borealis */

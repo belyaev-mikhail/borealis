@@ -16,6 +16,7 @@
 #include "Passes/Tracker/FunctionAnnotationTracker.h"
 
 #include "State/Transformer/ContractStupidifier.h"
+#include "poolalloc/src/DSA/stl_util.h"
 
 namespace borealis {
 
@@ -29,11 +30,11 @@ void CUnitDumperPass::getAnalysisUsage(llvm::AnalysisUsage & AU) const {
     AUX<TestGenerationPass>::addRequiredTransitive(AU);
     AUX<TestManager>::addRequiredTransitive(AU);
     AUX<FunctionAnnotationTracker>::addRequiredTransitive(AU);
+    AUX<prototypesLocation>::addRequiredTransitive(AU);
 }
 
 bool CUnitDumperPass::runOnModule(llvm::Module & M) {
     testFile.open("test.c", std::ios::out);
-    generateHeader();
     
     auto * tm = &GetAnalysis<TestManager>::doit(this);
     auto * stp = &GetAnalysis<SlotTrackerPass>::doit(this);
@@ -41,10 +42,16 @@ bool CUnitDumperPass::runOnModule(llvm::Module & M) {
 
     FunctionAnnotationTracker& FAT = GetAnalysis<FunctionAnnotationTracker>::doit(this);
     
+    auto * protoLoc = &GetAnalysis<prototypesLocation>::doit(this);
+    
+    auto prototypes = protoLoc->provide();
+    
+    generateHeader(&prototypes);
+    
     for (auto & f: M) {
         auto testSuite = tm->getTests(&f);
         if (testSuite != nullptr) {
-            testSuite->prototypeFunction(testFile, mit);
+            testSuite->prototypeFunction(testFile, mit, &prototypes);
         }
     }
     
@@ -105,8 +112,18 @@ bool CUnitDumperPass::runOnModule(llvm::Module & M) {
 
 CUnitDumperPass::~CUnitDumperPass() {}
 
-void CUnitDumperPass::generateHeader() {
+void CUnitDumperPass::generateHeader(PrototypesInfo* prototypes) {
     testFile << "#include <CUnit/Basic.h>\n\n";
+    std::unordered_set<std::string> userIncludes;
+    for (const auto& p : prototypes->locations) {
+        userIncludes.insert(p.second);
+    }
+    std::vector<std::string> includes(userIncludes.begin(), userIncludes.end());
+    sort(includes.begin(), includes.end());
+    for (const auto& i: includes) {
+        testFile << "#include \"" << i << "\"\n";
+    }
+    testFile << "\n";
 }
 
 

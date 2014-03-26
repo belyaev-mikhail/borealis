@@ -26,12 +26,14 @@
 #include <fstream>
 #include <unordered_map>
 
+#include "Actions/FindPrototypesAction.h"
 #include "Codegen/intrinsics_manager.h"
 #include "Codegen/llvm.h"
 #include "Driver/clang_pipeline.h"
 #include "Factory/Nest.h"
 #include "Passes/Transform/MetaInserter.h"
 #include "Protobuf/Converter.hpp"
+#include "TestGen/PrototypesInfo.h"
 #include "Util/locations.h"
 #include "Util/util.hpp"
 
@@ -94,6 +96,7 @@ struct clang_pipeline::impl: public DelegateLogging {
     clang::CompilerInstance ci;
     std::unordered_map<std::string, AnnotatedModule::Ptr> fileCache;
     FactoryNest fn;
+    PrototypesInfo prototypes;
 
     impl(clang_pipeline* abs): DelegateLogging(*abs), fn(nullptr) {};
 
@@ -133,6 +136,7 @@ struct clang_pipeline::impl: public DelegateLogging {
 
         clang::EmitLLVMOnlyAction compile_to_llvm{ &llvm::getGlobalContext() };
         borealis::comments::GatherCommentsAction gatherAnnotations;
+        borealis::FindPrototypesAction findPrototypes(&prototypes);
 
         ASSERTC(ci.ExecuteAction(compile_to_llvm));
         std::shared_ptr<llvm::Module> module{ compile_to_llvm.takeModule() };
@@ -142,6 +146,8 @@ struct clang_pipeline::impl: public DelegateLogging {
         ASSERTC(ci.ExecuteAction(gatherAnnotations));
         AnnotationContainer::Ptr annotations{ new AnnotationContainer(gatherAnnotations, fn.Term) };
 
+        ASSERTC(ci.ExecuteAction(findPrototypes));
+        
         fileCache[ci.getFrontendOpts().OutputFile] = AnnotatedModule::Ptr{
             new AnnotatedModule{ module, annotations }
         };
@@ -293,6 +299,10 @@ void clang_pipeline::invoke(const std::vector<command>& cmds) {
 
 AnnotatedModule::Ptr clang_pipeline::result() {
     return pimpl->result();
+}
+
+PrototypesInfo* clang_pipeline::getPrototypesLocations() {
+    return &pimpl->prototypes;
 }
 
 } // namespace driver
