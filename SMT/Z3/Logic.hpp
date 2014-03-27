@@ -251,6 +251,79 @@ Bool iff(Bool lhv, Bool rhv);
 
 ////////////////////////////////////////////////////////////////////////////////
 
+class Real;
+
+namespace impl{
+
+std::string doubleToZ3string(long double d);
+
+template<>
+struct generator<Real> {
+    typedef long double basetype;
+
+    static z3::sort sort(z3::context& ctx) { return ctx.real_sort(); }
+    static bool check(z3::expr e) { return e.is_real(); }
+    static z3::expr mkConst(z3::context& ctx, long double d) {
+        return ctx.real_val(impl::doubleToZ3string(d).c_str());
+    }
+};
+}
+
+ASPECT(Real);
+
+#define REDEF_REAL_OP(OP, RET)\
+    RET operator OP(Real r0, Real r1);
+
+REDEF_REAL_OP(==, Bool)
+REDEF_REAL_OP(!=, Bool)
+REDEF_REAL_OP(>, Bool)
+REDEF_REAL_OP(>=, Bool)
+REDEF_REAL_OP(<=, Bool)
+REDEF_REAL_OP(<, Bool)
+
+REDEF_REAL_OP(+, Real)
+REDEF_REAL_OP(-, Real)
+REDEF_REAL_OP(*, Real)
+REDEF_REAL_OP(/, Real)
+REDEF_REAL_OP(|, Real)
+REDEF_REAL_OP(&, Real)
+REDEF_REAL_OP(^, Real)
+
+#undef REDEF_REAL_OP
+
+
+#define REDEF_REAL_INT_BIN_OP(OP) \
+        Real operator OP(Real r, int v);
+
+REDEF_REAL_INT_BIN_OP(+)
+REDEF_REAL_INT_BIN_OP(-)
+REDEF_REAL_INT_BIN_OP(*)
+REDEF_REAL_INT_BIN_OP(/)
+
+#undef REDEF_REAL_INT_BIN_OP
+
+
+#define REDEF_INT_REAL_BIN_OP(OP) \
+        Real operator OP(int v, Real r);
+
+REDEF_INT_REAL_BIN_OP(+)
+REDEF_INT_REAL_BIN_OP(-)
+REDEF_INT_REAL_BIN_OP(*)
+REDEF_INT_REAL_BIN_OP(/)
+
+#undef REDEF_INT_REAL_BIN_OP
+
+
+#define REDEF_UN_OP(OP) \
+        Real operator OP(Real r);
+
+REDEF_UN_OP(~)
+REDEF_UN_OP(-)
+
+#undef REDEF_UN_OP
+
+////////////////////////////////////////////////////////////////////////////////
+
 template<size_t N> class BitVector;
 
 namespace impl {
@@ -759,6 +832,14 @@ public:
 
     borealis::util::option<Bool> toBool() {
         return to<Bool>();
+    }
+
+    bool isReal() {
+        return is<Real>();
+    }
+
+    borealis::util::option<Real> toReal() {
+        return to<Real>();
     }
 
     template<size_t N>
