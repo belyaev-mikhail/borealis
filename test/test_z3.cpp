@@ -158,6 +158,16 @@ TEST(Solver, logic) {
     }
 
     {
+        auto r = z3_::logic::Real::mkConst(ctx, 1.234e50);
+        auto l = z3_::logic::Real::mkConst(ctx, 1.234e50);
+        auto k = z3_::logic::Real::mkConst(ctx, 2.468e50);
+
+        EXPECT_TRUE(check_expr( r == l ));
+        EXPECT_TRUE(check_expr( (r + l) == k ));
+    }
+
+
+    {
         auto d = BitVector<8>::mkConst(ctx, 0xff);
         auto e = BitVector<8>::mkConst(ctx, 0xff);
 
