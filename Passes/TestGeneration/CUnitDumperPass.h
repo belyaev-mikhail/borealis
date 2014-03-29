@@ -40,8 +40,11 @@ public:
     
 private:
     std::ofstream testFile;
+    llvm::StringRef testFileName;
+    llvm::StringRef baseDirectory;
+    PrototypesInfo prototypes;
     
-    void generateHeader(PrototypesInfo* prototypes);
+    void generateHeader();
 };
 
 } /* namespace borealis */
