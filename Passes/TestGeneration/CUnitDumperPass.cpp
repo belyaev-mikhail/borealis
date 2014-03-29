@@ -6,6 +6,7 @@
  */
 
 #include <llvm/Analysis/DebugInfo.h>
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/PathV2.h>
 
 #include "Passes/TestGeneration/CUnitDumperPass.h"
@@ -18,8 +19,10 @@
 #include "Passes/Tracker/SlotTrackerPass.h"
 #include "Passes/Tracker/FunctionAnnotationTracker.h"
 
-#include "State/Transformer/ContractStupidifier.h"
 #include "poolalloc/src/DSA/stl_util.h"
+
+#include "State/Transformer/ContractStupidifier.h"
+#include "Util/filename_utils.h"
 
 namespace borealis {
 
@@ -38,8 +41,24 @@ void CUnitDumperPass::getAnalysisUsage(llvm::AnalysisUsage & AU) const {
 
 bool CUnitDumperPass::runOnModule(llvm::Module & M) {
     
+    static config::StringConfigEntry testDirectoryEntry("output", "cunit-dump-output-directory");
+    static config::StringConfigEntry testPrefixEntry("output", "cunit-dump-output-prefix");
+    
     llvm::DICompileUnit cu(M.getNamedMetadata("llvm.dbg.cu")->getOperand(0));
-    auto testFileName = "test_" + llvm::sys::path::stem(cu.getFilename()) + ".c";
+    auto testDirectory = testDirectoryEntry.get("tests");
+    
+    llvm::SmallString<256> testDir(testDirectory);
+    
+    bool exists;
+    
+    llvm::sys::fs::create_directories(testDirectory, exists);
+    
+    llvm::sys::path::append(testDir, testPrefixEntry.get("test") +  "_" +
+                        llvm::sys::path::stem(cu.getFilename()) + ".c");
+    
+    testFileName = testDir.str();
+    
+    baseDirectory = cu.getDirectory();
     
     testFile.open(testFileName.str(), std::ios::out);
     
@@ -51,9 +70,9 @@ bool CUnitDumperPass::runOnModule(llvm::Module & M) {
     
     auto * protoLoc = &GetAnalysis<prototypesLocation>::doit(this);
     
-    auto prototypes = protoLoc->provide();
+    prototypes = protoLoc->provide();
     
-    generateHeader(&prototypes);
+    generateHeader();
     
     for (auto & f: M) {
         auto testSuite = tm->getTests(&f);
@@ -119,16 +138,16 @@ bool CUnitDumperPass::runOnModule(llvm::Module & M) {
 
 CUnitDumperPass::~CUnitDumperPass() {}
 
-void CUnitDumperPass::generateHeader(PrototypesInfo* prototypes) {
+void CUnitDumperPass::generateHeader() {
     testFile << "#include <CUnit/Basic.h>\n\n";
     std::unordered_set<std::string> userIncludes;
-    for (const auto& p : prototypes->locations) {
+    for (const auto& p : prototypes.locations) {
         userIncludes.insert(p.second);
     }
     std::vector<std::string> includes(userIncludes.begin(), userIncludes.end());
     sort(includes.begin(), includes.end());
     for (const auto& i: includes) {
-        testFile << "#include \"" << i << "\"\n";
+        testFile << "#include \"" << util::getRelativePath(baseDirectory, llvm::StringRef(i), llvm::StringRef(testFileName.str())) << "\"\n";
     }
     testFile << "\n";
 }
