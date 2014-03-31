@@ -40,14 +40,16 @@ void TestSuite::prototypeFunction(std::ostream & outStream, MetaInfoTracker * mi
         return;
     }
     std::string args;
-    for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
-        args += util::getCType(
-            mit->locate(const_cast<llvm::Argument *>(&(*arg))).front().type,
-            util::CTypeModifiersPolicy::KEEP
-        );
-        args += ", ";
+    if (!function->arg_empty()) {
+        for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
+            args += util::getCType(
+                mit->locate(const_cast<llvm::Argument *>(&(*arg))).front().type,
+                util::CTypeModifiersPolicy::KEEP
+            );
+            args += ", ";
+        }
+        args.erase(args.end() - 2, args.end());
     }
-    args.erase(args.end() - 2, args.end());
     outStream << util::getCType(
         mit->locate(const_cast<llvm::Function *>(function)).front().type,
         util::CTypeModifiersPolicy::KEEP
