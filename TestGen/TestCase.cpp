@@ -37,16 +37,18 @@ void TestCase::generateTest(std::ostream& outStream, const llvm::Function* funct
 
     outStream << "void " << getTestName(function, id) << "(void) {\n";
     std::string args;
-    for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
-        auto arg_ = const_cast<llvm::Argument *>(&(*arg));
-        auto argTerm = fn.Term->getArgumentTerm(arg_);
-        auto type = mit->locate(arg_).front().type;
-        outStream << "    "
-                  << getCType(type, CTypeModifiersPolicy::DISCARD)
-                  << " " << arg->getName() << " = " << formatToType(getValue(argTerm), type) << ";\n";
-        args += arg->getName().str() + ", ";
+    if (!function->arg_empty()) {
+        for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
+            auto arg_ = const_cast<llvm::Argument *>(&(*arg));
+            auto argTerm = fn.Term->getArgumentTerm(arg_);
+            auto type = mit->locate(arg_).front().type;
+            outStream << "    "
+                      << getCType(type, CTypeModifiersPolicy::DISCARD)
+                      << " " << arg->getName() << " = " << formatToType(getValue(argTerm), type) << ";\n";
+            args += arg->getName().str() + ", ";
+        }
+        args.erase(args.end() - 2, args.end());
     }
-    args.erase(args.end() - 2, args.end());
     auto f = const_cast<llvm::Function *>(function);
     outStream << "    "
               << getCType(mit->locate(f).front().type, CTypeModifiersPolicy::DISCARD)
