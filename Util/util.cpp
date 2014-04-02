@@ -308,6 +308,11 @@ std::string& replace(const std::string& from, const std::string& to, std::string
     else return in.replace(pos, from.length(), to);
 }
 
+std::string capitalize(std::string str) {
+    str[0] = std::toupper(str[0]);
+    return str;
+}
+
 } // namespace util
 } // namespace borealis
 

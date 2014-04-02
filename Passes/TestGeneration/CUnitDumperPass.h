@@ -9,10 +9,13 @@
 #define	CUNITDUMPERPASS_H
 
 #include <fstream>
+#include <llvm/Metadata.h>
 #include <llvm/Pass.h>
 
 #include "Factory/Nest.h"
 #include "Logging/logger.hpp"
+#include "Passes/TestGeneration/TestManager.h"
+#include "Passes/Tracker/MetaInfoTracker.h"
 #include "Passes/Util/DataProvider.hpp"
 #include "TestGen/PrototypesInfo.h"
 #include "Util/passes.hpp"
@@ -39,12 +42,14 @@ public:
     virtual ~CUnitDumperPass();
     
 private:
+    TestManager * tm;
+    MetaInfoTracker * mit;
     std::ofstream testFile;
     llvm::StringRef testFileName;
     llvm::StringRef baseDirectory;
     PrototypesInfo prototypes;
     
-    void generateHeader();
+    void generateHeader(const std::vector<llvm::Function*> & funcs);
 };
 
 } /* namespace borealis */

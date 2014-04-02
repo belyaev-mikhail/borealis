@@ -6,6 +6,7 @@
  */
 
 #include <llvm/Analysis/DebugInfo.h>
+#include <llvm/Function.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/PathV2.h>
 
@@ -14,8 +15,6 @@
 #include "Passes/Defect/DefectManager.h"
 #include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
 #include "Passes/TestGeneration/TestGenerationPass.h"
-#include "Passes/TestGeneration/TestManager.h"
-#include "Passes/Tracker/MetaInfoTracker.h"
 #include "Passes/Tracker/SlotTrackerPass.h"
 #include "Passes/Tracker/FunctionAnnotationTracker.h"
 
@@ -23,6 +22,7 @@
 
 #include "State/Transformer/ContractStupidifier.h"
 #include "Util/filename_utils.h"
+#include "Util/util.h"
 
 namespace borealis {
 
@@ -41,113 +41,149 @@ void CUnitDumperPass::getAnalysisUsage(llvm::AnalysisUsage & AU) const {
 
 bool CUnitDumperPass::runOnModule(llvm::Module & M) {
     
-    static config::StringConfigEntry testDirectoryEntry("output", "cunit-dump-output-directory");
-    static config::StringConfigEntry testPrefixEntry("output", "cunit-dump-output-prefix");
+    static config::StringConfigEntry testDirectoryEntry("cunit", "output-directory");
+    static config::StringConfigEntry testPrefixEntry("cunit", "output-prefix");
     
-    llvm::DICompileUnit cu(M.getNamedMetadata("llvm.dbg.cu")->getOperand(0));
     auto testDirectory = testDirectoryEntry.get("tests");
-    
-    llvm::SmallString<256> testDir(testDirectory);
     
     bool exists;
     
     llvm::sys::fs::create_directories(testDirectory, exists);
     
-    llvm::sys::path::append(testDir, testPrefixEntry.get("test") +  "_" +
-                        llvm::sys::path::stem(cu.getFilename()) + ".c");
-    
-    testFileName = testDir.str();
-    
-    baseDirectory = cu.getDirectory();
-    
-    testFile.open(testFileName.str(), std::ios::out);
-    
-    auto * tm = &GetAnalysis<TestManager>::doit(this);
+    tm = &GetAnalysis<TestManager>::doit(this);
     auto * stp = &GetAnalysis<SlotTrackerPass>::doit(this);
-    auto * mit = &GetAnalysis<MetaInfoTracker>::doit(this);
-
+    mit = &GetAnalysis<MetaInfoTracker>::doit(this);
+    
     FunctionAnnotationTracker& FAT = GetAnalysis<FunctionAnnotationTracker>::doit(this);
-    
+
     auto * protoLoc = &GetAnalysis<prototypesLocation>::doit(this);
-    
     prototypes = protoLoc->provide();
-    
-    generateHeader();
-    
-    for (auto & f: M) {
-        auto testSuite = tm->getTests(&f);
-        if (testSuite != nullptr) {
-            testSuite->prototypeFunction(testFile, mit, &prototypes);
-        }
-    }
-    
-    testFile << "\n";
-    
 
-
-    for (auto & f: M) {
-        auto * st = stp->getSlotTracker(f);
-        auto fn = FactoryNest(st);
+    auto* CUs = M.getNamedMetadata("llvm.dbg.cu");
+    
+    std::ofstream testsHeaderFile;
+    testsHeaderFile.open(testDirectory + "/tests.h", std::ios::out);
+    
+    std::ofstream testsMainFile;
+    testsMainFile.open(testDirectory + "/tests_main.c", std::ios::out);
+    
+    testsMainFile << "#include <CUnit/Basic.h>\n\n";
+    testsMainFile << "#include \"tests.h\"\n\n";
+    
+    testsMainFile << "int main() {\n";
+    testsMainFile << "    CU_basic_set_mode(CU_BRM_VERBOSE);\n";
+    
+    for (unsigned i = 0; i < CUs->getNumOperands(); i++) {
+    
+        llvm::SmallString<256> testDir(testDirectory);
         
-        auto testSuite = tm->getTests(&f);
+        llvm::DICompileUnit cu(CUs->getOperand(i));
 
-        if (testSuite != nullptr) {
-            ContractStupidifier cs{
-                util::view(f.arg_begin(), f.arg_end())
-                     .map([&](llvm::Argument& a){
-                          return fn.Term->getArgumentTerm(&a);
-                      })
-                     .toVector(),
-                fn.Term->getValueTerm(fn.Type->getUnknownType(), testSuite->getResultVariableName()),
-                fn
-            };
+        auto cuName = llvm::sys::path::stem(cu.getFilename());
+        
+        llvm::sys::path::append(testDir, testPrefixEntry.get("test") +  "_" +
+                                cuName + ".c");
 
-            auto oracle = util::viewContainer(FAT.getAnnotations(f))
-                         .map(llvm::dyn_caster<EnsuresAnnotation>{})
-                         .filter()
-                         .map([&](const EnsuresAnnotation* anno){
-                             return cs.transform(anno->getTerm());
-                          })
-                         .toVector();
+        testFileName = testDir.str();
 
-            testSuite->generateTest(testFile, fn, mit, oracle);
+        baseDirectory = cu.getDirectory();
+
+        testFile.open(testFileName.str(), std::ios::out);
+        
+        auto SPs = cu.getSubprograms();
+        
+        std::vector<llvm::Function*> cuFunctions;
+        
+        for (unsigned i = 0; i < SPs.getNumElements(); i++) {
+            llvm::DISubprogram sp(SPs.getElement(i));
+            cuFunctions.push_back(sp.getFunction());
         }
-    }
-    
-    testFile << "int main() {\n"
-             << "    if (CUE_SUCCESS != CU_initialize_registry())\n"
-             << "        return CU_get_error();\n";
-    
-    for (auto & f: M) {
-        auto testSuite = tm->getTests(&f);
-        if (testSuite != nullptr) {
+        
+        generateHeader(cuFunctions);
+
+        for (auto & f: cuFunctions) {
+            auto * st = stp->getSlotTracker(*f);
+            auto fn = FactoryNest(st);
+
+            auto testSuite = tm->getTests(f);
+
+            if (testSuite != nullptr) {
+                ContractStupidifier cs{
+                    util::view(f->arg_begin(), f->arg_end())
+                         .map([&](llvm::Argument& a){
+                              return fn.Term->getArgumentTerm(&a);
+                          })
+                         .toVector(),
+                    fn.Term->getValueTerm(fn.Type->getUnknownType(), testSuite->getResultVariableName()),
+                    fn
+                };
+
+                auto oracle = util::viewContainer(FAT.getAnnotations(*f))
+                             .map(llvm::dyn_caster<EnsuresAnnotation>{})
+                             .filter()
+                             .map([&](const EnsuresAnnotation* anno){
+                                 return cs.transform(anno->getTerm());
+                              })
+                             .toVector();
+
+                testSuite->generateTest(testFile, fn, mit, oracle);
+            }
+        }
+        
+        testFile << "int run" << util::capitalize(cuName) << "Test(void) {\n";
+	testFile << "    if (CUE_SUCCESS != CU_initialize_registry())\n"
+		 << "        return CU_get_error();\n";
+        
+        for (auto & f: cuFunctions) {
+            auto testSuite = tm->getTests(f);
             testSuite->activateTest(testFile);
         }
+        
+        testFile << "    CU_basic_run_tests();\n";
+        testFile << "    CU_cleanup_registry();\n";
+        testFile << "    return 0;\n";
+        testFile << "}\n";
+        
+        testsHeaderFile << "int run" << util::capitalize(cuName) << "Test(void);\n";
+        
+        testsMainFile << "    run" << util::capitalize(cuName) << "Test();\n";
+        
+        testFile.close();
     }
     
-    testFile << "    CU_basic_set_mode(CU_BRM_VERBOSE);\n"
-             << "    CU_basic_run_tests();\n"
-             << "    CU_cleanup_registry();\n"
-             << "    return CU_get_error();\n"
-             << "}\n";
+    testsHeaderFile.close();
     
-    testFile.close();
+    testsMainFile << "}\n";
+    
+    testsMainFile.close();
     
     return true;
 }
 
 CUnitDumperPass::~CUnitDumperPass() {}
 
-void CUnitDumperPass::generateHeader() {
+void CUnitDumperPass::generateHeader(const std::vector<llvm::Function*> & funcs) {
     testFile << "#include <CUnit/Basic.h>\n\n";
+    
     std::unordered_set<std::string> userIncludes;
-    for (const auto& p : prototypes.locations) {
-        userIncludes.insert(p.second);
+    for (const auto& f : funcs) {
+        auto loc = prototypes.locations.find(f->getName());
+        if (loc != prototypes.locations.end()) {
+            userIncludes.insert(loc->second);
+        }
     }
     std::vector<std::string> includes(userIncludes.begin(), userIncludes.end());
     sort(includes.begin(), includes.end());
     for (const auto& i: includes) {
         testFile << "#include \"" << util::getRelativePath(baseDirectory, llvm::StringRef(i), llvm::StringRef(testFileName.str())) << "\"\n";
+    }
+    testFile << "\n";
+    
+    for (const auto& f: funcs) {
+        auto testSuite = tm->getTests(f);
+        if (testSuite != nullptr) {
+            testSuite->prototypeFunction(testFile, mit, &prototypes);
+        }
     }
     testFile << "\n";
 }
