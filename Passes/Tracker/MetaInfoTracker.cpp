@@ -85,7 +85,8 @@ bool MetaInfoTracker::runOnModule(llvm::Module& M) {
 
     ctx = &M.getContext();
 
-    DebugInfoFinder dfi;
+    borealis::DebugInfoFinder dfi;
+
     dfi.processModule(M);
 
     auto& sm = GetAnalysis<sm_t>::doit(this).provide();
