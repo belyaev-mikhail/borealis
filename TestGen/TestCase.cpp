@@ -10,6 +10,7 @@
 #include "TestGen/TestCase.h"
 #include "TestGen/TestSuite.h"
 #include "TestGen/Util/c_types.h"
+#include "Util/util.h"
 
 namespace borealis {
 
@@ -77,9 +78,7 @@ std::string TestCase::getTestName(const llvm::Function * function, int id) const
 }
 
 std::string TestCase::getTestName(llvm::StringRef functionName, int id) const {
-    std::string name = functionName.str();
-    name[0] = std::toupper(name[0]);
-    return "test" + name + "_" + util::toString(id);
+    return "test" + util::capitalize(functionName.str()) + "_" + util::toString(id);
 }
 
 const Term::Ptr TestCase::getValue(const Term::Ptr arg) const {
