@@ -313,6 +313,15 @@ std::string capitalize(std::string str) {
     return str;
 }
 
+std::string toUpperCase(std::string str) {
+    for (int i = 0; str[i] != '\0'; i++) {
+        str[i] = std::toupper(str[i]);
+    }
+    return str;
+}
+
+
+
 } // namespace util
 } // namespace borealis
 

@@ -16,7 +16,7 @@ TestSuite::TestSuite(const llvm::Function * f) : function(f) {
     generateResultVariableName();
 }
 
-TestSuite::TestSuite(const llvm::Function * f, const std::unordered_set<TestCase> & tests) :
+TestSuite::TestSuite(const llvm::Function * f, const TestSet& tests) :
         function(f), tests(tests) {
     generateResultVariableName();
 }
@@ -34,8 +34,8 @@ void TestSuite::addTestSuite(const TestSuite& other) {
     }
 }
 
-void TestSuite::prototypeFunction(std::ostream & outStream, MetaInfoTracker * mit,
-        PrototypesInfo* prototypes) const {
+void TestSuite::prototypeFunction(std::ostream & outStream, const MetaInfoTracker * mit,
+        const PrototypesInfo* prototypes) const {
     if (util::containsKey(prototypes->locations, function->getName().str())) {
         return;
     }

@@ -208,6 +208,8 @@ std::string nochar(std::string&& v, char c);
 std::string& replace(const std::string& from, const std::string& to, std::string& in);
 
 std::string capitalize(std::string str);
+std::string toUpperCase(std::string str);
+
 
 template<class Lambda>
 struct scope_guard {

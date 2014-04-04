@@ -21,6 +21,7 @@ class TestSuite;
 class TestCase {
 private:
     typedef std::unordered_map<Term::Ptr, Term::Ptr, std::hash<const Term::Ptr>, termPtrEqual> TermMap; 
+    typedef TermMap::const_iterator const_iterator;
 public:
     typedef std::shared_ptr<TestCase> Ptr;
 
@@ -59,10 +60,31 @@ public:
         }
         return hash;
     }
+    const_iterator begin() const { return testCase.begin(); }
+    const_iterator end() const { return testCase.end(); }
 
 private:
     TermMap testCase;
 };
+
+namespace util {
+////////////////////////////////////////////////////////////////////////////////
+// Json
+////////////////////////////////////////////////////////////////////////////////
+template<>
+struct json_traits<TestCase> {
+    typedef std::unique_ptr<TestCase> optional_ptr_t;
+
+    static Json::Value toJson(const TestCase& val) {
+        Json::Value args;
+        for (auto arg : val) {
+            if (arg.first != nullptr)
+                args[arg.first->getName()] = arg.second->getName();
+        }
+        return args;
+    }
+};
+} // namespace util
 
 } /* namespace borealis */
 
