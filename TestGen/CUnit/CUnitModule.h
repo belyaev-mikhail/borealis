@@ -11,7 +11,7 @@
 #include <iostream>
 #include "Passes/TestGeneration/TestManager.h"
 #include "TestGen/PrototypesInfo.h"
-#include "Passes/TestGeneration/CUnitDumperPass.h"
+#include "Passes/TestGeneration/TestDumpPass.h"
 
 namespace borealis {
 
@@ -32,7 +32,8 @@ public:
     CUnitModule(TestMap& testMap,
               SlotTrackerPass& stp, MetaInfoTracker& mit,
               FunctionAnnotationTracker& fat, prototypesLocation& protoLoc,
-              llvm::StringRef baseDirectory, llvm::StringRef testFileName);
+              llvm::StringRef baseDirectory, llvm::StringRef moduleName,
+              llvm::StringRef filePath);
 
     friend std::ostream& operator<<(std::ostream& os, const CUnitModule& test);
 
@@ -41,6 +42,7 @@ private:
 
     TestMap& testMap;
     llvm::StringRef moduleName;
+    llvm::StringRef filePath;
     llvm::StringRef baseDirectory;
     PrototypesInfo prototypes;
     SlotTrackerPass& stp;
@@ -49,11 +51,6 @@ private:
 
 };
 
-CUnitModule makeCUnitModule(CUnitModule::TestMap& testMap,
-        SlotTrackerPass& stp, MetaInfoTracker& mit,
-        FunctionAnnotationTracker& fat,
-        CUnitModule::prototypesLocation& protoLoc,
-        llvm::StringRef baseDirectory, llvm::StringRef testFileName);
 } /* namespace util */
 
 } /* namespace borealis */
