@@ -21,8 +21,12 @@
 #include "poolalloc/src/DSA/stl_util.h"
 
 #include "State/Transformer/ContractStupidifier.h"
+#include "TestGen/CUnit/CUnitModule.h"
+#include "TestGen/CUnit/CUnitMain.h"
+
 #include "Util/filename_utils.h"
 #include "Util/util.h"
+#include "Util/json.hpp"
 
 namespace borealis {
 
@@ -41,11 +45,12 @@ void CUnitDumperPass::getAnalysisUsage(llvm::AnalysisUsage & AU) const {
 
 bool CUnitDumperPass::runOnModule(llvm::Module & M) {
     
-    static config::StringConfigEntry testDirectoryEntry("cunit", "output-directory");
-    static config::StringConfigEntry testPrefixEntry("cunit", "output-prefix");
-    
+    static config::StringConfigEntry testDirectoryEntry("testgen", "output-directory");
+    static config::StringConfigEntry testPrefixEntry("testgen", "output-prefix");
+    static config::StringConfigEntry testFormatEntry("testgen", "format");
     auto testDirectory = testDirectoryEntry.get("tests");
-    
+
+    auto testFormat = testFormatEntry.get("cunit");
     bool exists;
     
     llvm::sys::fs::create_directories(testDirectory, exists);
@@ -60,103 +65,61 @@ bool CUnitDumperPass::runOnModule(llvm::Module & M) {
     prototypes = protoLoc->provide();
 
     auto* CUs = M.getNamedMetadata("llvm.dbg.cu");
-    
-    std::ofstream testsHeaderFile;
-    testsHeaderFile.open(testDirectory + "/tests.h", std::ios::out);
-    
-    std::ofstream testsMainFile;
-    testsMainFile.open(testDirectory + "/tests_main.c", std::ios::out);
-    
-    testsMainFile << "#include <CUnit/Basic.h>\n\n";
-    testsMainFile << "#include \"tests.h\"\n\n";
-    
-    testsMainFile << "int main() {\n";
-    testsMainFile << "    CU_basic_set_mode(CU_BRM_VERBOSE);\n";
-    
-    for (unsigned i = 0; i < CUs->getNumOperands(); i++) {
-    
-        llvm::SmallString<256> testDir(testDirectory);
-        
-        llvm::DICompileUnit cu(CUs->getOperand(i));
+    if ("json" == testFormat) {
+        for (unsigned i = 0; i < CUs->getNumOperands(); i++) {
+            llvm::SmallString<256> testDir(testDirectory);
 
-        auto cuName = llvm::sys::path::stem(cu.getFilename());
-        
-        llvm::sys::path::append(testDir, testPrefixEntry.get("test") +  "_" +
-                                cuName + ".c");
+            llvm::DICompileUnit cu(CUs->getOperand(i));
 
-        testFileName = testDir.str();
+            auto cuName = llvm::sys::path::stem(cu.getFilename());
 
-        baseDirectory = cu.getDirectory();
+            llvm::sys::path::append(testDir, testPrefixEntry.get("test") +  "_" +
+                                    cuName + ".json");
 
-        testFile.open(testFileName.str(), std::ios::out);
-        
-        auto SPs = cu.getSubprograms();
-        
-        std::vector<llvm::Function*> cuFunctions;
-        
-        for (unsigned i = 0; i < SPs.getNumElements(); i++) {
-            llvm::DISubprogram sp(SPs.getElement(i));
-            cuFunctions.push_back(sp.getFunction());
+            testFileName = testDir.str();
+
+            baseDirectory = cu.getDirectory();
+
+            testFile.open(testFileName.str(), std::ios::out);
+            auto testMap = tm->getTestsForCompileUnit(cu);
+            testFile << util::jsonify(*testMap);
+            testFile.close();
         }
-        
-        generateHeader(cuFunctions);
+    } else if ("cunit" == testFormat) {
+        std::ofstream testsHeaderFile;
+        testsHeaderFile.open(testDirectory + "/tests.h", std::ios::out);
 
-        for (auto & f: cuFunctions) {
-            auto * st = stp->getSlotTracker(*f);
-            auto fn = FactoryNest(st);
+        std::ofstream testsMainFile;
+        testsMainFile.open(testDirectory + "/tests_main.c", std::ios::out);
 
-            auto testSuite = tm->getTests(f);
 
-            if (testSuite != nullptr) {
-                ContractStupidifier cs{
-                    util::view(f->arg_begin(), f->arg_end())
-                         .map([&](llvm::Argument& a){
-                              return fn.Term->getArgumentTerm(&a);
-                          })
-                         .toVector(),
-                    fn.Term->getValueTerm(fn.Type->getUnknownType(), testSuite->getResultVariableName()),
-                    fn
-                };
+        for (unsigned i = 0; i < CUs->getNumOperands(); i++) {
+            llvm::SmallString<256> testDir(testDirectory);
 
-                auto oracle = util::viewContainer(FAT.getAnnotations(*f))
-                             .map(llvm::dyn_caster<EnsuresAnnotation>{})
-                             .filter()
-                             .map([&](const EnsuresAnnotation* anno){
-                                 return cs.transform(anno->getTerm());
-                              })
-                             .toVector();
+            llvm::DICompileUnit cu(CUs->getOperand(i));
 
-                testSuite->generateTest(testFile, fn, mit, oracle);
-            }
+            auto cuName = llvm::sys::path::stem(cu.getFilename());
+
+            llvm::sys::path::append(testDir, testPrefixEntry.get("test") +  "_" +
+                                    cuName + ".c");
+
+            testFileName = testDir.str();
+
+            baseDirectory = cu.getDirectory();
+
+            testFile.open(testFileName.str(), std::ios::out);
+            auto testMap = tm->getTestsForCompileUnit(cu);
+            testFile << util::CUnitModule(*testMap, *stp, *mit, FAT, *protoLoc, baseDirectory, testFileName);
+            testFile.close();
         }
-        
-        testFile << "int run" << util::capitalize(cuName) << "Test(void) {\n";
-	testFile << "    if (CUE_SUCCESS != CU_initialize_registry())\n"
-		 << "        return CU_get_error();\n";
-        
-        for (auto & f: cuFunctions) {
-            auto testSuite = tm->getTests(f);
-            testSuite->activateTest(testFile);
-        }
-        
-        testFile << "    CU_basic_run_tests();\n";
-        testFile << "    CU_cleanup_registry();\n";
-        testFile << "    return 0;\n";
-        testFile << "}\n";
-        
-        testsHeaderFile << "int run" << util::capitalize(cuName) << "Test(void);\n";
-        
-        testsMainFile << "    run" << util::capitalize(cuName) << "Test();\n";
-        
-        testFile.close();
+        testsMainFile << util::CUnitMain(M);
+        testsHeaderFile << util::CUnitHeader(M);
+
+        testsHeaderFile.close();
+        testsMainFile.close();
     }
     
-    testsHeaderFile.close();
-    
-    testsMainFile << "}\n";
-    
-    testsMainFile.close();
-    
+
     return true;
 }
 
