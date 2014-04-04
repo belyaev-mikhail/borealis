@@ -23,11 +23,13 @@ namespace util {
 CUnitModule::CUnitModule(TestMap& testMap,
         SlotTrackerPass& stp, MetaInfoTracker& mit,
         FunctionAnnotationTracker& fat, prototypesLocation& protoLoc,
-        llvm::StringRef baseDirectory, llvm::StringRef testFileName) :
+        llvm::StringRef baseDirectory, llvm::StringRef moduleName,
+        llvm::StringRef filePath) :
             testMap(testMap), stp(stp), mit(mit), fat(fat) {
     prototypes = protoLoc.provide();
     this->baseDirectory = baseDirectory;
-    this->moduleName = testFileName;
+    this->moduleName = moduleName;
+    this->filePath = filePath;
 
 }
 
@@ -112,15 +114,6 @@ std::ostream& operator<<(std::ostream& os, const CUnitModule& test) {
     return os;
 }
 
-CUnitModule makeCUnitModule(CUnitModule::TestMap& testMap,
-        SlotTrackerPass& stp, MetaInfoTracker& mit,
-        FunctionAnnotationTracker& fat,
-        CUnitModule::prototypesLocation& protoLoc,
-        llvm::StringRef baseDirectory, llvm::StringRef testFileName) {
-    return CUnitModule(testMap, stp, mit, fat, protoLoc, baseDirectory, testFileName);
-}
 } /* namespace util */
-
-
 
 } /* namespace borealis */
