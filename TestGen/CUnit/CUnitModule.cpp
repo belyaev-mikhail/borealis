@@ -47,7 +47,7 @@ void CUnitModule::generateHeader(std::ostream& os) const {
     std::vector<std::string> includes(userIncludes.begin(), userIncludes.end());
     sort(includes.begin(), includes.end());
     for (const auto& i: includes) {
-        os << "#include \"" << util::getRelativePath(baseDirectory, llvm::StringRef(i), llvm::StringRef(moduleName.str())) << "\"\n";
+        os << "#include \"" << util::getRelativePath(baseDirectory, llvm::StringRef(i), llvm::StringRef(filePath.str())) << "\"\n";
     }
     os << "\n";
 
