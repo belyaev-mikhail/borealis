@@ -48,10 +48,13 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
     static config::StringConfigEntry testDirectoryEntry("testgen", "output-directory");
     static config::StringConfigEntry testPrefixEntry("testgen", "output-prefix");
     static config::StringConfigEntry testFormatEntry("testgen", "format");
+    static config::BoolConfigEntry absoluteIncludeEntry("testgen", "absolute-include");
     auto testDirectory = testDirectoryEntry.get("tests");
 
     auto testFormat = testFormatEntry.get("cunit");
     bool exists;
+    
+    auto absoluteInclude = absoluteIncludeEntry.get(false);
     
     llvm::sys::fs::create_directories(testDirectory, exists);
     
@@ -109,7 +112,7 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
             testFile.open(testFileName.str(), std::ios::out);
             auto testMap = tm->getTestsForCompileUnit(cu);
-            testFile << util::CUnitModule(*testMap, *stp, *mit, FAT, *protoLoc, baseDirectory, cuName, testFileName);
+            testFile << util::CUnitModule(*testMap, *stp, *mit, FAT, *protoLoc, baseDirectory, cuName, testFileName, absoluteInclude);
             testFile.close();
         }
         testsMainFile << util::CUnitMain(M);
@@ -124,33 +127,6 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 }
 
 TestDumpPass::~TestDumpPass() {}
-
-void TestDumpPass::generateHeader(const std::vector<llvm::Function*> & funcs) {
-    testFile << "#include <CUnit/Basic.h>\n\n";
-    
-    std::unordered_set<std::string> userIncludes;
-    for (const auto& f : funcs) {
-        auto loc = prototypes.locations.find(f->getName());
-        if (loc != prototypes.locations.end()) {
-            userIncludes.insert(loc->second);
-        }
-    }
-    std::vector<std::string> includes(userIncludes.begin(), userIncludes.end());
-    sort(includes.begin(), includes.end());
-    for (const auto& i: includes) {
-        testFile << "#include \"" << util::getRelativePath(baseDirectory, llvm::StringRef(i), llvm::StringRef(testFileName.str())) << "\"\n";
-    }
-    testFile << "\n";
-    
-    for (const auto& f: funcs) {
-        auto testSuite = tm->getTests(f);
-        if (testSuite != nullptr) {
-            testSuite->prototypeFunction(testFile, mit, &prototypes);
-        }
-    }
-    testFile << "\n";
-}
-
 
 char TestDumpPass::ID;
 static RegisterPass<TestDumpPass>
