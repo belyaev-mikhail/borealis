@@ -33,7 +33,7 @@ public:
               SlotTrackerPass& stp, MetaInfoTracker& mit,
               FunctionAnnotationTracker& fat, prototypesLocation& protoLoc,
               llvm::StringRef baseDirectory, llvm::StringRef moduleName,
-              llvm::StringRef filePath);
+              llvm::StringRef filePath, bool absoluteInclude);
 
     friend std::ostream& operator<<(std::ostream& os, const CUnitModule& test);
 
@@ -48,6 +48,7 @@ private:
     SlotTrackerPass& stp;
     MetaInfoTracker& mit;
     FunctionAnnotationTracker& fat;
+    bool absoluteInclude;
 
 };
 
