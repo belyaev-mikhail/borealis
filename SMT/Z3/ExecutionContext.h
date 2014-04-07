@@ -24,6 +24,7 @@ class ExecutionContext {
 
     ExprFactory& factory;
     mutable std::unordered_map<std::string, MemArray> memArrays;
+    mutable FloatMemArray floatMem;
     unsigned long long globalPtr;
     unsigned long long localPtr;
 
@@ -33,6 +34,14 @@ class ExecutionContext {
     }
     void memory(const MemArray& value) {
         set(MEMORY_ID, value);
+    }
+
+    static std::string FLOAT_MEMORY_ID;
+    FloatMemArray floatMemory() const {
+        return floatMem;
+    }
+    void floatMemory(const FloatMemArray& value) {
+        floatMem = value;
     }
 
     static std::string GEP_BOUNDS_ID;
@@ -71,7 +80,9 @@ class ExecutionContext {
     typedef std::unordered_set<std::string> MemArrayIds;
     MemArrayIds getMemArrayIds() const {
         auto it = util::iterate_keys(util::begin_end_pair(memArrays));
-        return MemArrayIds(it.first, it.second);
+        auto ids = MemArrayIds(it.first, it.second);
+        ids.insert(FLOAT_MEMORY_ID);
+        return ids;
     }
 
 public:
@@ -81,6 +92,9 @@ public:
 
     MemArray getCurrentMemoryContents() {
         return memory();
+    }
+    FloatMemArray getCurrentFloatMemoryContents() {
+        return floatMemory();
     }
     MemArray getCurrentGepBounds() {
         return gepBounds();
@@ -120,6 +134,13 @@ public:
         memory( memory().store(ix, val) );
     }
 
+    Dynamic readExprFromFloatMemory(Pointer ix) {
+        return floatMemory().select(ix);
+    }
+    void writeExprToFloatMemory(Pointer ix, Real val) {
+        floatMemory( floatMemory().store(ix, val) );
+    }
+
     Dynamic readProperty(const std::string& id, Pointer ix, size_t bitSize) {
         return get(id).select(ix, bitSize);
     }
@@ -142,6 +163,7 @@ public:
         auto merged = ExecutionContext::mergeMemory(name, *this, contexts);
 
         this->memArrays = merged.memArrays;
+        this->floatMem = merged.floatMem;
         this->globalPtr = merged.globalPtr;
         this->localPtr = merged.localPtr;
 
@@ -180,6 +202,13 @@ public:
 
             res.set(id, MemArray::merge(name, defaultContext.get(id), alternatives));
         }
+
+        std::vector<std::pair<Bool, FloatMemArray>> alternatives;
+        alternatives.reserve(contexts.size());
+        std::transform(contexts.begin(), contexts.end(), std::back_inserter(alternatives),
+            [](const Choice& p) { return std::make_pair(p.first, p.second.floatMemory()); }
+        );
+        res.floatMemory(FloatMemArray::merge(name, defaultContext.floatMemory(), alternatives));
 
         return res;
     }
