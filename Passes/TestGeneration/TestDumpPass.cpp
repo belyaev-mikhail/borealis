@@ -128,6 +128,7 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
 TestDumpPass::~TestDumpPass() {}
 
+char TestDumpPass::ID;
 static RegisterPass<TestDumpPass>
 X("test-dump", "Pass that dumps unit tests.");
 
