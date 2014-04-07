@@ -34,25 +34,20 @@ public:
     
     void addTestCase(const TestCase & testCase);
     void addTestSuite(const TestSuite& other);
-    
-    void prototypeFunction(std::ostream & outStream, const MetaInfoTracker * mit,
-        const PrototypesInfo* prototypes) const;
-    void generateTest(std::ostream & outStream, FactoryNest fn,
-        MetaInfoTracker * mit, const std::vector<Term::Ptr>& oracle);
-    void activateTest(std::ostream & outStream) const;
-    
     std::string getTestName() const;
     llvm::StringRef getFunctionName() const;
+    const llvm::Function* getFunction() const { return function; };
     std::string getSuiteName() const;
     std::string getResultVariableName() const;
 
     const_iterator begin() const { return tests.begin(); }
     const_iterator end() const { return tests.end(); }
-
+    bool empty() const { return tests.empty(); }
+    const std::string& getResultVariableName() { return resultVariableName; }
 private:
     void generateResultVariableName();
     
-    const llvm::Function * function;
+    const llvm::Function* function;
     TestSet tests;
     std::string resultVariableName;
 };

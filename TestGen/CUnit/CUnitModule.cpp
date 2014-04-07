@@ -11,6 +11,8 @@
 #include "Passes/Tracker/SlotTrackerPass.h"
 #include "Passes/Tracker/FunctionAnnotationTracker.h"
 #include "TestGen/CUnit/CUnitModule.h"
+#include "TestGen/CUnit/CUnitSuite.h"
+
 #include "Util/filename_utils.h"
 
 #include "State/Transformer/ContractStupidifier.h"
@@ -54,7 +56,7 @@ void CUnitModule::generateHeader(std::ostream& os) const {
     for (const auto& pair: testMap) {
         auto testSuite = pair.second;
         if (testSuite != nullptr) {
-            testSuite->prototypeFunction(os, &mit, &prototypes);
+            os << CUnitSuitePrototype(*testSuite, mit, &prototypes);
         }
     }
     os << "\n";
@@ -67,6 +69,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitModule& test) {
     for (auto& pair: test.testMap) {
         auto* f = const_cast<llvm::Function*>(pair.first);
         auto* st = test.stp.getSlotTracker(*f);
+
         auto fn = FactoryNest(st);
 
         auto testSuite = pair.second;
@@ -91,8 +94,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitModule& test) {
                              return cs.transform(anno->getTerm());
                           })
                          .toVector();
-
-            testSuite->generateTest(os, fn, &(test.mit), oracle);
+            os << CUnitSuiteDefinitions(*testSuite, fn, test.mit, oracle);
 
         }
     }
@@ -103,7 +105,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitModule& test) {
 
     for (auto& f: test.testMap) {
         auto testSuite = f.second;
-        testSuite->activateTest(os);
+        os << CUnitSuiteActivation(*testSuite);
     }
 
     os << "    CU_basic_run_tests();\n";

@@ -125,32 +125,6 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
 TestDumpPass::~TestDumpPass() {}
 
-void TestDumpPass::generateHeader(const std::vector<llvm::Function*> & funcs) {
-    testFile << "#include <CUnit/Basic.h>\n\n";
-    
-    std::unordered_set<std::string> userIncludes;
-    for (const auto& f : funcs) {
-        auto loc = prototypes.locations.find(f->getName());
-        if (loc != prototypes.locations.end()) {
-            userIncludes.insert(loc->second);
-        }
-    }
-    std::vector<std::string> includes(userIncludes.begin(), userIncludes.end());
-    sort(includes.begin(), includes.end());
-    for (const auto& i: includes) {
-        testFile << "#include \"" << util::getRelativePath(baseDirectory, llvm::StringRef(i), llvm::StringRef(testFileName.str())) << "\"\n";
-    }
-    testFile << "\n";
-    
-    for (const auto& f: funcs) {
-        auto testSuite = tm->getTests(f);
-        if (testSuite != nullptr) {
-            testSuite->prototypeFunction(testFile, mit, &prototypes);
-        }
-    }
-    testFile << "\n";
-}
-
 
 char TestDumpPass::ID;
 static RegisterPass<TestDumpPass>
