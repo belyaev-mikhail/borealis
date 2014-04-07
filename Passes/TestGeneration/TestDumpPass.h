@@ -48,8 +48,6 @@ private:
     llvm::StringRef testFileName;
     llvm::StringRef baseDirectory;
     PrototypesInfo prototypes;
-    
-    void generateHeader(const std::vector<llvm::Function*> & funcs);
 };
 
 } /* namespace borealis */

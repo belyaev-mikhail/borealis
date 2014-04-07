@@ -48,10 +48,13 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
     static config::StringConfigEntry testDirectoryEntry("testgen", "output-directory");
     static config::StringConfigEntry testPrefixEntry("testgen", "output-prefix");
     static config::StringConfigEntry testFormatEntry("testgen", "format");
+    static config::BoolConfigEntry absoluteIncludeEntry("testgen", "absolute-include");
     auto testDirectory = testDirectoryEntry.get("tests");
 
     auto testFormat = testFormatEntry.get("cunit");
     bool exists;
+    
+    auto absoluteInclude = absoluteIncludeEntry.get(false);
     
     llvm::sys::fs::create_directories(testDirectory, exists);
     
@@ -109,7 +112,7 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
             testFile.open(testFileName.str(), std::ios::out);
             auto testMap = tm->getTestsForCompileUnit(cu);
-            testFile << util::CUnitModule(*testMap, *stp, *mit, FAT, *protoLoc, baseDirectory, cuName, testFileName);
+            testFile << util::CUnitModule(*testMap, *stp, *mit, FAT, *protoLoc, baseDirectory, cuName, testFileName, absoluteInclude);
             testFile.close();
         }
         testsMainFile << util::CUnitMain(M);
@@ -125,8 +128,6 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
 TestDumpPass::~TestDumpPass() {}
 
-
-char TestDumpPass::ID;
 static RegisterPass<TestDumpPass>
 X("test-dump", "Pass that dumps unit tests.");
 
