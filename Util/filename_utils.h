@@ -17,6 +17,8 @@ namespace util {
 // If source or target are relative they relate to base path.
 std::string getRelativePath(llvm::StringRef base, llvm::StringRef source, llvm::StringRef target);
 
+std::string getAbsolutePath(llvm::StringRef base, llvm::StringRef source);
+
 } // namespace util
 } // namespace borealis
 

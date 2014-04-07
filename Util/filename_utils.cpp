@@ -59,5 +59,19 @@ std::string getRelativePath(llvm::StringRef base, llvm::StringRef source, llvm::
     return result;
 }
 
+std::string getAbsolutePath(llvm::StringRef base, llvm::StringRef source) {
+    using namespace llvm::sys::path;
+    
+    if (is_absolute(source)) {
+        return source.str();
+    }
+    
+    llvm::SmallString<256> b = base;
+    
+    append(b, source);
+    
+    return b.str().str();
+}
+
 } // namespace util
 } // namespace borealis
