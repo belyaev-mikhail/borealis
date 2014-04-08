@@ -94,11 +94,16 @@ struct SMTImpl<Impl, LoadTerm> {
 
         ASSERTC(ctx != nullptr);
 
+        auto type = t->getType();
+
         auto r = SMT<Impl>::doit(t->getRhv(), ef, ctx).template to<Pointer>();
         ASSERT(!r.empty(), "Load with non-pointer right side");
         auto rp = r.getUnsafe();
 
-        return ctx->readExprFromMemory(rp, ExprFactory::sizeForType(t->getType()));
+        if (llvm::isa<type::Float>(type))
+            return ctx->readExprFromFloatMemory(rp);
+        else
+            return ctx->readExprFromMemory(rp, ExprFactory::sizeForType(type));
     }
 };
 #include "Util/unmacros.h"

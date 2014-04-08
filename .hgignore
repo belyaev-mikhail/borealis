@@ -20,4 +20,8 @@ Protobuf/Gen/*
 
 *.png
 
+*.dot
+
 lib/yaml-cpp/build
+
+test.c
