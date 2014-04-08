@@ -38,7 +38,9 @@ Term::Ptr undoReal(const z3::expr& expr, const FactoryNest& FN) {
     long long n, d;
     auto res = Z3_get_numeral_rational_int64(expr.ctx(), expr, &n, &d);
     if (res != 0) {
-        return FN.Term->getOpaqueConstantTerm(static_cast<double>(n / d));
+        double dn = n;
+        double dd = d;
+        return FN.Term->getOpaqueConstantTerm( dn / dd);
     } else {
         // FixMe sam: what to do when we can't get rational from Z3?
         return FN.Term->getOpaqueConstantTerm(std::numeric_limits<double>::max());

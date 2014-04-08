@@ -74,6 +74,9 @@ public:
     MemArray getCurrentMemoryContents() {
         return memory();
     }
+    FloatMemArray getCurrentFloatMemoryContents() {
+        return memory();
+    }
     MemArray getCurrentGepBounds() {
         return gepBounds();
     }
@@ -110,6 +113,13 @@ public:
     template<class ExprClass>
     void writeExprToMemory(Pointer ix, ExprClass val) {
         memory( memory().store(ix, val) );
+    }
+
+    Dynamic readExprFromFloatMemory(Pointer ix) {
+        return readExprFromMemory<Real>(ix);
+    }
+    void writeExprToFloatMemory(Pointer ix, Real val) {
+        writeExprToFloatMemory(ix, val);
     }
 
     Dynamic readProperty(const std::string& id, Pointer ix, size_t bitSize) {
