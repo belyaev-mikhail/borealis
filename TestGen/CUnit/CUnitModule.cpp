@@ -22,18 +22,6 @@ namespace borealis {
 
 namespace util {
 
-CUnitModule::CUnitModule(TestMap& testMap,
-        SlotTrackerPass& stp, MetaInfoTracker& mit,
-        FunctionAnnotationTracker& fat, prototypesLocation& protoLoc,
-        llvm::StringRef baseDirectory, llvm::StringRef moduleName,
-        llvm::StringRef filePath, bool absoluteInclude) :
-            testMap(testMap), stp(stp), mit(mit), fat(fat), absoluteInclude(absoluteInclude) {
-    prototypes = protoLoc.provide();
-    this->baseDirectory = baseDirectory;
-    this->moduleName = moduleName;
-    this->filePath = filePath;
-
-}
 
 void CUnitModule::generateHeader(std::ostream& os) const {
     os << "#include <CUnit/Basic.h>\n\n";
@@ -49,14 +37,29 @@ void CUnitModule::generateHeader(std::ostream& os) const {
     std::vector<std::string> includes(userIncludes.begin(), userIncludes.end());
     sort(includes.begin(), includes.end());
     for (const auto& i: includes) {
-        if (absoluteInclude) {
-            os << "#include \"" << util::getAbsolutePath(baseDirectory, llvm::StringRef(i)) << "\"\n";
+        if (TestDumpPass::absoluteInclude()) {
+            os << "#include \""
+               << util::getAbsolutePath(baseDirectory, llvm::StringRef(i))
+               << "\"\n";
         } else {
-            os << "#include \"" << util::getRelativePath(baseDirectory, llvm::StringRef(i), llvm::StringRef(filePath.str())) << "\"\n";
+            os << "#include \""
+               << util::getRelativePath(baseDirectory, llvm::StringRef(i),
+                       llvm::StringRef(TestDumpPass::filePathForModule(moduleName)))
+               << "\"\n";
         }
     }
     os << "\n";
-
+    if (TestDumpPass::absoluteInclude()) {
+        os << "#include \""
+           << util::getAbsolutePath(baseDirectory,
+                   llvm::StringRef(TestDumpPass::oracleHeaderPath(moduleName))) << "\"\n";
+    } else {
+        os << "#include \""
+           << util::getRelativePath(baseDirectory,
+                   llvm::StringRef(TestDumpPass::oracleHeaderPath(moduleName)),
+                   llvm::StringRef(TestDumpPass::filePathForModule(moduleName)))
+           << "\"\n";
+    }
     for (const auto& pair: testMap) {
         auto testSuite = pair.second;
         if (testSuite != nullptr) {
