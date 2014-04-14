@@ -12,7 +12,6 @@
 #include <llvm/Metadata.h>
 #include <llvm/Pass.h>
 
-#include "Driver/AnnotatedModule.h"
 #include "Factory/Nest.h"
 #include "Logging/logger.hpp"
 #include "Passes/TestGeneration/TestManager.h"
@@ -36,11 +35,12 @@ public:
 
     TestDumpPass();
     
-    typedef DataProvider<PrototypesInfo> PrototypesLocation;
+    typedef DataProvider<PrototypesInfo> prototypesLocation;
     
     virtual bool runOnModule(llvm::Module & M) override;
     virtual void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
     virtual ~TestDumpPass();
+    
 private:
     TestManager * tm;
     MetaInfoTracker * mit;
@@ -48,20 +48,6 @@ private:
     llvm::StringRef testFileName;
     llvm::StringRef baseDirectory;
     PrototypesInfo prototypes;
-
-public:
-    static driver::AnnotatedModule::Ptr compileFileWithCLang(const std::string& fileName,
-            logging::ClassLevelLogging<TestDumpPass>& logging);
-    static std::shared_ptr<std::unordered_set<llvm::Function*>> getFunctionsToGenerateOracleStubs(
-            std::unordered_set<llvm::Function*> funcs);
-    static std::string getResultNameForFunction(
-            const llvm::Function* function, const std::string& dflt = "result");
-    static bool insertUserOraclesCall();
-    static bool absoluteInclude();
-    static std::string filePathForModule(const std::string& moduleName);
-    static std::string oracleHeaderPath(const std::string& moduleName);
-    static std::string oracleFilePath(const std::string& moduleName);
-    static std::string generateUserOraclesStubs();
 };
 
 } /* namespace borealis */

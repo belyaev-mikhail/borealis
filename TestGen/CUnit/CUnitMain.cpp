@@ -30,13 +30,13 @@ std::ostream& operator<<(std::ostream& os, const CUnitHeader& hdr) {
     auto includeGuard =  util::toUpperCase(hdr.fileName);
     includeGuard = "_" + util::replace(".", "_", includeGuard) + "_";
     os << "#ifndef " << includeGuard << "\n";
-    os << "#define " << includeGuard << "\n\n";
+    os << "#define " << includeGuard << "\n";
     for (unsigned i = 0; i < CUs->getNumOperands(); i++) {
         llvm::DICompileUnit cu(CUs->getOperand(i));
         auto cuName = llvm::sys::path::stem(cu.getFilename());
         os << "int run" << util::capitalize(cuName) << "Test(void);\n";
     }
-    os << "\n#endif /* " + includeGuard + " */\n";
+    os << "#endif /* " + includeGuard + " */\n";
     return os;
 }
 
