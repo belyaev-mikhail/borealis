@@ -6,7 +6,7 @@
  */
 
 #ifndef CUNIT_H_
-#define CUNITMODULE_H_
+#define CUNIT_H_
 
 #include <iostream>
 #include "Passes/TestGeneration/TestManager.h"
@@ -21,7 +21,7 @@ class CUnitModule {
 
 public:
     typedef std::shared_ptr<CUnitModule> Ptr;
-    typedef DataProvider<PrototypesInfo> PrototypesLocation;
+    typedef DataProvider<PrototypesInfo> prototypesLocation;
     typedef std::unordered_map<const llvm::Function*,
             TestSuite::Ptr> TestMap;
     typedef std::shared_ptr<TestMap> TestMapPtr;
@@ -29,26 +29,26 @@ public:
     CUnitModule() = delete;
     CUnitModule(const CUnitModule& orig) = default;
     CUnitModule(CUnitModule&& orig) = default;
-    CUnitModule(const TestMap& testMap,
-              const SlotTrackerPass& stp, const MetaInfoTracker& mit,
-              const FunctionAnnotationTracker& fat, PrototypesLocation& protoLoc,
-              const std::string& moduleName,
-              const std::string& baseDirectory):
-                  testMap(testMap), stp(stp), mit(mit), fat(fat), prototypes(protoLoc.provide()),
-                  moduleName(moduleName), baseDirectory(baseDirectory) {};
+    CUnitModule(TestMap& testMap,
+              SlotTrackerPass& stp, MetaInfoTracker& mit,
+              FunctionAnnotationTracker& fat, prototypesLocation& protoLoc,
+              llvm::StringRef baseDirectory, llvm::StringRef moduleName,
+              llvm::StringRef filePath, bool absoluteInclude);
 
     friend std::ostream& operator<<(std::ostream& os, const CUnitModule& test);
 
 private:
     void generateHeader(std::ostream& os) const;
 
-    const TestMap& testMap;
-    const SlotTrackerPass& stp;
-    const MetaInfoTracker& mit;
-    const FunctionAnnotationTracker& fat;
+    TestMap& testMap;
+    llvm::StringRef moduleName;
+    llvm::StringRef filePath;
+    llvm::StringRef baseDirectory;
     PrototypesInfo prototypes;
-    const std::string& moduleName;
-    const std::string& baseDirectory;
+    SlotTrackerPass& stp;
+    MetaInfoTracker& mit;
+    FunctionAnnotationTracker& fat;
+    bool absoluteInclude;
 
 };
 

@@ -7,7 +7,6 @@
 
 #include <string>
 
-#include "Passes/TestGeneration/TestDumpPass.h"
 #include "Term/Term.h"
 #include "TestGen/CUnit/CUnitCase.h"
 #include "TestGen/Util/c_types.h"
@@ -55,19 +54,13 @@ std::ostream& operator<<(std::ostream& os, const CUnitCaseDefinition& definition
         args.erase(args.end() - 2, args.end());
     }
     auto f = const_cast<llvm::Function *>(function);
-    auto resultName = TestDumpPass::getResultNameForFunction(function);
     os << "    "
        << getCType(definition.mit.locate(f).front().type, CTypeModifiersPolicy::DISCARD)
-       << " " << resultName << " = " << function->getName()
+       << " " << definition.resultName << " = " << function->getName()
        << "(" << args << ");\n";
 
     for(auto& check : definition.oracle) {
         os << "    " << "CU_ASSERT(" << check->getName() << ");\n";
-    }
-    if (TestDumpPass::insertUserOraclesCall()) {
-        os << "    " << "CU_ASSERT(";
-        os << function->getName() + "Oracle" << "(" << args << ", " << resultName << ")";
-        os << ");\n";
     }
 
     os << "}\n\n";

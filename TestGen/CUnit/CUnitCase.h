@@ -32,9 +32,9 @@ public:
     CUnitCaseDefinition() = delete;
     CUnitCaseDefinition(const CUnitCaseDefinition& definition) = default;
     CUnitCaseDefinition(CUnitCaseDefinition&& definition) = default;
-    CUnitCaseDefinition(const TestCase& cs, const TestSuite& suite, const FactoryNest& fn,
-            const MetaInfoTracker& mit, int id, const std::vector<Term::Ptr>& oracle) :
-            cs(cs), suite(suite), fn(fn), mit(mit), id(id), oracle(oracle) {};
+    CUnitCaseDefinition(const TestCase& cs, const TestSuite& suite, const FactoryNest& fn, const MetaInfoTracker& mit,
+            int id, const std::vector<Term::Ptr>& oracle, const std::string& resultName) :
+            cs(cs), suite(suite), fn(fn), mit(mit), id(id), oracle(oracle), resultName(resultName) {};
     friend std::ostream& operator<<(std::ostream& os, const CUnitCaseDefinition& definition);
 private:
     const TestCase& cs;
@@ -43,6 +43,7 @@ private:
     const MetaInfoTracker& mit;
     int id;
     const std::vector<Term::Ptr>& oracle;
+    const std::string& resultName;
 };
 
 } /* namespace util */

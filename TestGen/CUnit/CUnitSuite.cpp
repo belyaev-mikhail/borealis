@@ -59,7 +59,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitSuiteDefinitions& defs) {
     int i = 0;
     for (auto& test: defs.suite) {
         os << CUnitCaseDefinition(test, defs.suite, defs.fn, defs.mit, i++,
-                defs.oracle);
+                defs.oracle, defs.suite.getResultVariableName());
     }
     return os;
 }
