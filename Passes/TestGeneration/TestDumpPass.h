@@ -58,6 +58,7 @@ public:
             const llvm::Function* function, const std::string& dflt = "result");
     static bool insertUserOraclesCall();
     static bool absoluteInclude();
+    static bool includeInMakefile();
     static std::string filePathForModule(const std::string& moduleName);
     static std::string oracleHeaderPath(const std::string& moduleName);
     static std::string oracleFilePath(const std::string& moduleName);

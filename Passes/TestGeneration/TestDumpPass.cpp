@@ -32,6 +32,7 @@
 #include "TestGen/CUnit/CUnitModule.h"
 #include "TestGen/CUnit/CUnitMain.h"
 #include "TestGen/CUnit/CUnitUserOracleStub.h"
+#include "TestGen/CUnit/CUnitMakefile.h"
 #include "TestGen/util.h"
 
 
@@ -67,6 +68,7 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
 
     auto testDirectory = testDirectoryEntry.get("tests");
+
     auto testFormat = testFormatEntry.get("cunit");
     bool exists;
     
@@ -106,12 +108,22 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
             testFile.close();
         }
     } else if ("cunit" == testFormat) {
+        std::string testsHeaderFilename = testDirectory + "/tests.h";
         std::ofstream testsHeaderFile;
-        testsHeaderFile.open(testDirectory + "/tests.h", std::ios::out);
+        testsHeaderFile.open(testsHeaderFilename, std::ios::out);
 
+        std::string testsMainFilename = testDirectory + "/tests_main.c";
         std::ofstream testsMainFile;
-        testsMainFile.open(testDirectory + "/tests_main.c", std::ios::out);
+        testsMainFile.open(testsMainFilename, std::ios::out);
 
+        std::string testsMakefileName = testDirectory + "/Makefile";
+        std::ofstream testsMakefile;
+        testsMakefile.open(testsMakefileName, std::ios::out);
+
+        auto makefile = util::CUnitMakefile(M);
+        
+        makefile.setName(testsMakefileName);
+        
         for (unsigned i = 0; i < CUs->getNumOperands(); i++) {
             llvm::SmallString<256> testDir(testDirectory);
 
@@ -122,9 +134,9 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
                                     cuName + ".c");
 
             testFileName = testDir.str();
-
+            
             baseDirectory = cu.getDirectory();
-
+            
             llvm::SmallString<256> oraclesFileName(oraclesDirectory);
             llvm::sys::path::append(oraclesFileName, userOraclesPrefixEntry.get("oracles") +  "_" +
                                                 cuName + ".c");
@@ -132,6 +144,10 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
             llvm::sys::path::append(oraclesHeaderName, userOraclesPrefixEntry.get("oracles") +  "_" +
                                                 cuName + ".h");
 
+            makefile.setBaseDirectory(baseDirectory);
+            makefile.addSource(cu.getFilename());
+            makefile.addTest(testFileName);
+            makefile.addOracle(oraclesFileName.str());
 
             testFile.open(testFileName.str(), std::ios::out);
             auto testMap = tm->getTestsForCompileUnit(cu);
@@ -180,11 +196,16 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
             }
         }
+        
+        makefile.addTest(testsMainFilename);
+        
         testsMainFile << util::CUnitMain(M);
         testsHeaderFile << util::CUnitHeader(M);
+        testsMakefile << makefile;
 
         testsHeaderFile.close();
         testsMainFile.close();
+        testsMakefile.close();
     }
     
 
@@ -248,6 +269,11 @@ bool TestDumpPass::insertUserOraclesCall() {
 bool TestDumpPass::absoluteInclude() {
     config::BoolConfigEntry absoluteIncludeEntry("testgen", "absolute-include");
     return absoluteIncludeEntry.get(false);
+}
+
+bool TestDumpPass::includeInMakefile() {
+    config::BoolConfigEntry includeInMakefileEntry("testgen", "include-in-makefile");
+    return includeInMakefileEntry.get(true);
 }
 
 std::string TestDumpPass::filePathForModule(const std::string& moduleName) {

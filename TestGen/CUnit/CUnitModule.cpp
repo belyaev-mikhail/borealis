@@ -37,7 +37,9 @@ void CUnitModule::generateHeader(std::ostream& os) const {
     std::vector<std::string> includes(userIncludes.begin(), userIncludes.end());
     sort(includes.begin(), includes.end());
     for (const auto& i: includes) {
-        if (TestDumpPass::absoluteInclude()) {
+        if (TestDumpPass::includeInMakefile()) {
+            os << "#include \"" << i << "\"\n";
+        } else if (TestDumpPass::absoluteInclude()) {
             os << "#include \""
                << util::getAbsolutePath(baseDirectory, llvm::StringRef(i))
                << "\"\n";
@@ -49,7 +51,9 @@ void CUnitModule::generateHeader(std::ostream& os) const {
         }
     }
     os << "\n";
-    if (TestDumpPass::absoluteInclude()) {
+    if (TestDumpPass::includeInMakefile()) {
+            os << "#include \"" << TestDumpPass::oracleHeaderPath(moduleName) << "\"\n";
+    } else if (TestDumpPass::absoluteInclude()) {
         os << "#include \""
            << util::getAbsolutePath(baseDirectory,
                    llvm::StringRef(TestDumpPass::oracleHeaderPath(moduleName))) << "\"\n";
