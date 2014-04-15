@@ -42,15 +42,19 @@ std::string getRelativePath(llvm::StringRef base, llvm::StringRef source, llvm::
     auto sEnd = --end(s);
     auto tEnd = --end(t);
     
-    while (tIt != tEnd) {
-        result += "../";
-        ++tIt;
+    if (tIt != end(t)) {
+        while (tIt != tEnd) {
+            result += "../";
+            ++tIt;
+        }
     }
     
-    while (sIt != sEnd) {
-        result += *sIt;
-        result += "/";
-        ++sIt;
+    if (sIt != end(s)) {
+        while (sIt != sEnd) {
+            result += *sIt;
+            result += "/";
+            ++sIt;
+        }
     }
     
     // append filename

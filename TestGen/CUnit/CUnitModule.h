@@ -5,7 +5,7 @@
  *      Author: gagarski
  */
 
-#ifndef CUNIT_H_
+#ifndef CUNITMODULE_H_
 #define CUNITMODULE_H_
 
 #include <iostream>
@@ -57,4 +57,4 @@ private:
 } /* namespace borealis */
 
 
-#endif /* CUNIT_H_ */
+#endif /* CUNITMODULE_H_ */

@@ -69,7 +69,9 @@ std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubModule& modu
     // including files where functions are defined is necessary for forward declarating
     // types used in parameters
     for (const auto& i: includes) {
-        if (TestDumpPass::absoluteInclude()) {
+        if (TestDumpPass::includeInMakefile()) {
+            os << "#include \"" << i << "\"\n";
+        } else if (TestDumpPass::absoluteInclude()) {
             os << "#include \"" << util::getAbsolutePath(module.baseDirectory,
                     llvm::StringRef(i))
                << "\"\n";
@@ -100,7 +102,9 @@ std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubHeader& hdr)
     // including files where functions are defined is necessary for forward declarating
     // types used in parameters
     for (const auto& i: includes) {
-        if (TestDumpPass::absoluteInclude()) {
+        if (TestDumpPass::includeInMakefile()) {
+            os << "#include \"" << i << "\"\n";
+        } else if (TestDumpPass::absoluteInclude()) {
             os << "#include \""
                << util::getAbsolutePath(hdr.baseDirectory,
                        llvm::StringRef(i)) << "\"\n";
