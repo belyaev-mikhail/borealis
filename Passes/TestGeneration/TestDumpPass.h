@@ -60,6 +60,8 @@ public:
     static bool absoluteInclude();
     static bool includeInMakefile();
     static std::string filePathForModule(const std::string& moduleName);
+    static std::string oracleDirectory();
+    static std::string oracleHeaderFilename(const std::string& moduleName);
     static std::string oracleHeaderPath(const std::string& moduleName);
     static std::string oracleFilePath(const std::string& moduleName);
     static std::string generateUserOraclesStubs();

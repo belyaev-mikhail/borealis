@@ -286,13 +286,21 @@ std::string TestDumpPass::filePathForModule(const std::string& moduleName) {
     return std::move(testDir.str());
 }
 
-std::string TestDumpPass::oracleHeaderPath(const std::string& moduleName) {
+std::string TestDumpPass::oracleDirectory() {
     static config::StringConfigEntry userOraclesDirEntry("testgen", "user-oracles-directory");
+    return std::move(userOraclesDirEntry.get("tests/oracles"));
+}
+
+std::string TestDumpPass::oracleHeaderFilename(const std::string& moduleName) {
     static config::StringConfigEntry userOraclesPrefixEntry("testgen", "user-oracles-prefix");
-    auto oraclesDirectory = userOraclesDirEntry.get("tests/oracles");
-    llvm::SmallString<256> oraclesHeaderName(oraclesDirectory);
-    llvm::sys::path::append(oraclesHeaderName, userOraclesPrefixEntry.get("oracles") +  "_" +
+    return std::move(userOraclesPrefixEntry.get("oracles") +  "_" +
             moduleName + ".h");
+}
+
+std::string TestDumpPass::oracleHeaderPath(const std::string& moduleName) {
+    static config::StringConfigEntry userOraclesPrefixEntry("testgen", "user-oracles-prefix");
+    llvm::SmallString<256> oraclesHeaderName(oracleDirectory());
+    llvm::sys::path::append(oraclesHeaderName, oracleHeaderFilename(moduleName));
     return std::move(oraclesHeaderName.str().str());
 }
 

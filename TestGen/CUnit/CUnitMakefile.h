@@ -25,7 +25,7 @@ public:
     void setBaseDirectory(const std::string& baseDirectory) {
         this->baseDirectory = baseDirectory;
     }
-    
+        
     void setName(const std::string& name) {
         this->name = name;
     }
