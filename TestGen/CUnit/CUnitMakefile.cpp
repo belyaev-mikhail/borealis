@@ -14,15 +14,23 @@ namespace util {
     
 std::ostream& operator<<(std::ostream& os, const CUnitMakefile& makefile) {
     os << "CC = clang\n\n";
+    
     if (TestDumpPass::includeInMakefile()) {
-        os << "CFLAGS = -I";
+        os << "INCLUDE_DIRS =";
         if (TestDumpPass::absoluteInclude()) {
-            os << makefile.baseDirectory;
+            os << " " << makefile.baseDirectory;
+            os << " " << util::getAbsolutePath(makefile.baseDirectory, TestDumpPass::oracleDirectory());
         } else {
-            os << util::getRelativePath(makefile.baseDirectory, "", makefile.name);
+            os << " " << util::getRelativePath(makefile.baseDirectory, "", makefile.name);
+            os << " " << util::getRelativePath(makefile.baseDirectory, TestDumpPass::oracleDirectory(), makefile.name);
         }
         os << "\n\n";
+        
+        os << "INCLUDES := $(foreach dir, $(INCLUDE_DIRS), -I\"$(dir)\")\n\n";
+
+        os << "CFLAGS = $(INCLUDES)\n\n";
     }
+    
     os << "LDFLAGS = -lcunit\n\n";
     
     os << "SOURCES =";

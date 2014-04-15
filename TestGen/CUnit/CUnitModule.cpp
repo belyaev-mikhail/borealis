@@ -52,7 +52,7 @@ void CUnitModule::generateHeader(std::ostream& os) const {
     }
     os << "\n";
     if (TestDumpPass::includeInMakefile()) {
-            os << "#include \"" << TestDumpPass::oracleHeaderPath(moduleName) << "\"\n";
+        os << "#include \"" << TestDumpPass::oracleHeaderFilename(moduleName) << "\"\n";
     } else if (TestDumpPass::absoluteInclude()) {
         os << "#include \""
            << util::getAbsolutePath(baseDirectory,
