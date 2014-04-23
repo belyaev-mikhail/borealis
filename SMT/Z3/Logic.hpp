@@ -793,6 +793,64 @@ ASPECT_END
 
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace z3impl {
+    inline z3::expr toReal(z3::expr e, bool is_signed) {
+        if (e.is_real()) return e;
+        ASSERTC(e.is_bv());
+        auto integer = Z3_mk_bv2int(e.ctx(), e, is_signed);
+        auto real = Z3_mk_int2real(e.ctx(), integer);
+        return z3::to_expr(e.ctx(), real);
+    }
+
+    inline z3::expr toBV(z3::expr e, size_t n) {
+        if (e.is_bv()) return e;
+        ASSERTC(e.is_real());
+        auto integer = Z3_mk_real2int(e.ctx(), e);
+        std::cout << "govno" << std::endl;
+        integer = Z3_mk_ite(e.ctx(),
+                            e >= e.ctx().real_val(0),
+                            integer,
+                            z3::to_expr(e.ctx(), integer) + e.ctx().int_val(1)
+                   );
+        std::cout << "xer" << std::endl;
+        auto bv = Z3_mk_int2bv(e.ctx(), n, integer);
+        return z3::to_expr(e.ctx(), bv);
+    }
+}
+
+template<typename From, typename To>
+struct Converter{
+    static To convert(From expr, bool isSigned = true){
+        util::use(expr); util::use(isSigned);
+        BYE_BYE(To, "Unknown conversion!");
+    }
+};
+
+template<size_t N>
+struct Converter<BitVector<N>, Real>{
+    static Real convert(BitVector<N> expr, bool isSigned = true) {
+        return Real{z3impl::toReal(z3impl::getExpr(expr), isSigned)};
+    }
+};
+
+template<size_t N>
+struct Converter<Real, BitVector<N>>{
+    static BitVector<N> convert(Real expr, bool isSigned = true) {
+        util::use(isSigned);
+        return BitVector<N>{z3impl::toBV(z3impl::getExpr(expr), N)};
+    }
+};
+
+template<typename From>
+struct Converter<From, From>{
+    static From convert(From expr, bool isSigned = true) {
+        util::use(isSigned);
+        return expr;
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+
 // Untyped logic expression
 class SomeExpr: public ValueExpr {
 public:
@@ -813,12 +871,12 @@ public:
     static SomeExpr mkDynamic(BitVector<N> bv) { return SomeExpr{ bv }; }
 
     template<class Aspect>
-    bool is() {
+    bool is() const {
         return impl::generator<Aspect>::check(z3impl::getExpr(this));
     }
 
     template<class Aspect>
-    util::option<Aspect> to() {
+    util::option<Aspect> to() const {
         using util::just;
         using util::nothing;
 
@@ -826,61 +884,66 @@ public:
         else return nothing();
     }
 
-    bool isBool() {
+    bool isBool() const {
         return is<Bool>();
     }
 
-    borealis::util::option<Bool> toBool() {
+    borealis::util::option<Bool> toBool() const {
         return to<Bool>();
     }
 
-    bool isReal() {
+    bool isReal() const {
         return is<Real>();
     }
 
-    borealis::util::option<Real> toReal() {
+    borealis::util::option<Real> toReal() const {
         return to<Real>();
     }
 
     template<size_t N>
-    bool isBitVector() {
+    bool isBitVector() const {
         return is<BitVector<N>>();
     }
 
     template<size_t N>
-    borealis::util::option<BitVector<N>> toBitVector() {
+    borealis::util::option<BitVector<N>> toBitVector() const {
         return to<BitVector<N>>();
     }
 
-    bool isComparable() {
+    bool isComparable() const {
         return is<ComparableExpr>();
     }
 
-    borealis::util::option<ComparableExpr> toComparable() {
+    borealis::util::option<ComparableExpr> toComparable() const {
         return to<ComparableExpr>();
     }
 
-    bool isUnsignedComparable() {
+    bool isUnsignedComparable() const {
         return is<UComparableExpr>();
     }
 
-    borealis::util::option<UComparableExpr> toUnsignedComparable() {
+    borealis::util::option<UComparableExpr> toUnsignedComparable() const {
         return to<UComparableExpr>();
     }
 
     // equality comparison operators are the most general ones
     Bool operator==(const SomeExpr& that) {
-        return Bool{
-            z3impl::getExpr(this) == z3impl::getExpr(that),
-            z3impl::spliceAxioms(*this, that)
-        };
+        ASSERTC(isComparable() && that.isComparable());
+        auto compThis = toComparable().getUnsafe();
+        auto compThat = that.toComparable().getUnsafe();
+        return compThis == compThat;
     }
 
     Bool operator!=(const SomeExpr& that) {
-        return Bool{
-            z3impl::getExpr(this) != z3impl::getExpr(that),
-            z3impl::spliceAxioms(*this, that)
-        };
+        ASSERTC(isComparable() && that.isComparable());
+        auto compThis = toComparable().getUnsafe();
+        auto compThat = that.toComparable().getUnsafe();
+        return compThis != compThat;
+    }
+
+    template<typename From, typename To>
+    static To convert(const From& expr, bool isSigned = true) {
+        return Converter<From, To>::convert(expr, isSigned);
     }
 };
 

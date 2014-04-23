@@ -176,27 +176,24 @@ public:
     void visitCastInst(llvm::CastInst& I) {
         using namespace llvm;
 
+
+
         Value* lhv = &I;
         Value* rhv = I.getOperand(0);
 
         Term::Ptr lhvt = pass->FN.Term->getValueTerm(lhv);
         Term::Ptr rhvt = pass->FN.Term->getValueTerm(rhv);
 
-        if (isa<type::Bool>(lhvt->getType()) && ! isa<type::Bool>(rhvt->getType())) {
-            rhvt = pass->FN.Term->getCmpTerm(
-                ConditionType::NEQ,
-                rhvt,
-                pass->FN.Term->getIntTerm(0ULL)
-            );
-        } else if (! isa<type::Bool>(lhvt->getType()) && isa<type::Bool>(rhvt->getType())) {
-            lhvt = pass->FN.Term->getCmpTerm(
-                ConditionType::NEQ,
+        if (Instruction::CastOps::FPExt == I.getOpcode()) {
+            pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
                 lhvt,
-                pass->FN.Term->getIntTerm(0ULL)
+                rhvt,
+                pass->SLT->getLocFor(&I)
             );
+            return;
         }
 
-        pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
+        pass->PM[&I] = pass->FN.Predicate->getCastPredicate(
             lhvt,
             rhvt,
             pass->SLT->getLocFor(&I)

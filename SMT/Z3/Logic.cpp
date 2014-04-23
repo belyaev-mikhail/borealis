@@ -147,6 +147,23 @@ REDEF_BOOL_BOOL_OP(!=)
 REDEF_BOOL_BOOL_OP(&&)
 REDEF_BOOL_BOOL_OP(||)
 
+#undef REDEF_BOOL_BOOL_OP
+
+Bool operator^(Bool bv0, Bool bv1) {
+    z3::expr bv0_raw = z3impl::getExpr(bv0);
+    z3::expr bv1_raw = z3impl::getExpr(bv1);
+    auto& ctx = bv0_raw.ctx();
+
+    return Bool{
+        z3::to_expr(ctx, Z3_mk_xor(ctx, bv0_raw, bv1_raw)),
+        z3impl::spliceAxioms(bv0, bv1)
+    };
+}
+
+Bool operator!(Bool bv0) {
+    return Bool{ !z3impl::getExpr(bv0), z3impl::getAxiom(bv0) };
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace impl {
@@ -229,27 +246,7 @@ REDEF_UN_OP(-)
 
 #undef REDEF_UN_OP
 
-
 ////////////////////////////////////////////////////////////////////////////////
-
-Bool operator^(Bool bv0, Bool bv1) {
-    z3::expr bv0_raw = z3impl::getExpr(bv0);
-    z3::expr bv1_raw = z3impl::getExpr(bv1);
-    auto& ctx = bv0_raw.ctx();
-
-    return Bool{
-        z3::to_expr(ctx, Z3_mk_xor(ctx, bv0_raw, bv1_raw)),
-        z3impl::spliceAxioms(bv0, bv1)
-    };
-}
-
-#undef REDEF_BOOL_BOOL_OP
-
-
-Bool operator!(Bool bv0) {
-    return Bool{ !z3impl::getExpr(bv0), z3impl::getAxiom(bv0) };
-}
-
 
 #define REDEF_OP(OP) \
     Bool operator OP(const ComparableExpr& lhv, const ComparableExpr& rhv) { \
@@ -257,7 +254,7 @@ Bool operator!(Bool bv0) {
             z3impl::getExpr(lhv) OP z3impl::getExpr(rhv), \
             z3impl::spliceAxioms(lhv, rhv) \
         }; \
-    }
+    }\
 
     REDEF_OP(<)
     REDEF_OP(>)
@@ -268,6 +265,7 @@ Bool operator!(Bool bv0) {
 
 #undef REDEF_OP
 
+////////////////////////////////////////////////////////////////////////////////
 
 #define BIN_OP(OP) \
     DynBitVectorExpr operator OP(const DynBitVectorExpr& lhv, const DynBitVectorExpr& rhv) { \
