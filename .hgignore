@@ -25,3 +25,4 @@ Protobuf/Gen/*
 lib/yaml-cpp/build
 
 test.c
+tests/*
