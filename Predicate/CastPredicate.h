@@ -87,14 +87,14 @@ struct SMTImpl<Impl, CastPredicate> {
             return lhvi != ef.getIntConst(0);
         } else if (llvm::isa<type::Float>(to) && not llvm::isa<type::Float>(from)) {
             auto lhvr = lhvz3.template to<Real>().getUnsafe();
-            auto rhvi = lhvz3.template to<Integer>().getUnsafe();
+            auto rhvi = rhvz3.template to<Integer>().getUnsafe();
             auto rhvr = Dynamic::template convert<Integer, Real>(rhvi, false);
-            return lhvr = rhvr;
+            return lhvr == rhvr;
         } else if (llvm::isa<type::Integer>(to) && not llvm::isa<type::Integer>(from)) {
             auto lhvi = lhvz3.template to<Integer>().getUnsafe();
             auto rhvr = rhvz3.template to<Real>().getUnsafe();
             auto rhvi = Dynamic::template convert<Real, Integer>(rhvr, false);
-            return lhvi = rhvi;
+            return lhvi == rhvi;
         }
         return lhvz3 == rhvz3;
     }

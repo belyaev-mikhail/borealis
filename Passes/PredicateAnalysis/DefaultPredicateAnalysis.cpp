@@ -176,8 +176,6 @@ public:
     void visitCastInst(llvm::CastInst& I) {
         using namespace llvm;
 
-
-
         Value* lhv = &I;
         Value* rhv = I.getOperand(0);
 

@@ -12,7 +12,10 @@ float foo(double a, float b) {
 }
 
 int bar(double d, unsigned i) {
-    return i > d;
+    if (d > 2.8)
+        return i > d;
+    else 
+        return 0;
 }
 
 int main() {

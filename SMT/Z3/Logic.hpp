@@ -806,13 +806,13 @@ namespace z3impl {
         if (e.is_bv()) return e;
         ASSERTC(e.is_real());
         auto integer = Z3_mk_real2int(e.ctx(), e);
-        std::cout << "govno" << std::endl;
+        auto ei = z3::to_expr(e.ctx(), integer);
+        auto one = e.ctx().int_val(1);
         integer = Z3_mk_ite(e.ctx(),
                             e >= e.ctx().real_val(0),
                             integer,
-                            z3::to_expr(e.ctx(), integer) + e.ctx().int_val(1)
+                            ei + one
                    );
-        std::cout << "xer" << std::endl;
         auto bv = Z3_mk_int2bv(e.ctx(), n, integer);
         return z3::to_expr(e.ctx(), bv);
     }
