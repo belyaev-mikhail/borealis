@@ -88,12 +88,14 @@ struct SMTImpl<Impl, CastPredicate> {
         } else if (llvm::isa<type::Float>(to) && not llvm::isa<type::Float>(from)) {
             auto lhvr = lhvz3.template to<Real>().getUnsafe();
             auto rhvi = rhvz3.template to<Integer>().getUnsafe();
-            auto rhvr = Dynamic::template convert<Integer, Real>(rhvi, false);
+            auto isSigned = (TypeUtils::isSigned(from) == llvm::Signedness::Signed);
+            auto rhvr = Dynamic::template convert<Integer, Real>(rhvi, isSigned);
             return lhvr == rhvr;
         } else if (llvm::isa<type::Integer>(to) && not llvm::isa<type::Integer>(from)) {
             auto lhvi = lhvz3.template to<Integer>().getUnsafe();
             auto rhvr = rhvz3.template to<Real>().getUnsafe();
-            auto rhvi = Dynamic::template convert<Real, Integer>(rhvr, false);
+            auto isSigned = (TypeUtils::isSigned(to) == llvm::Signedness::Signed);
+            auto rhvi = Dynamic::template convert<Real, Integer>(rhvr, isSigned);
             return lhvi == rhvi;
         }
         return lhvz3 == rhvz3;
