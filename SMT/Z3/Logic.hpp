@@ -797,7 +797,6 @@ namespace z3impl {
     inline z3::expr toReal(z3::expr e, bool is_signed) {
         if (e.is_real()) return e;
         ASSERTC(e.is_bv());
-        std::cout << "signed: " << is_signed << std::endl;
         auto integer = Z3_mk_bv2int(e.ctx(), e, is_signed);
         auto real = Z3_mk_int2real(e.ctx(), integer);
         return z3::to_expr(e.ctx(), real);

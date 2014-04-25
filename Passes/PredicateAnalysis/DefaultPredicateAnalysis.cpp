@@ -183,20 +183,15 @@ public:
 
         Term::Ptr lhvt;
         Term::Ptr rhvt;
-        std::cout << I << std::endl;
         if (Instruction::CastOps::FPToSI ==  cast) {
-            std::cout << "lhv signed" << std::endl;
             lhvt = pass->FN.Term->getValueTerm(lhv, Signedness::Signed);
         } else {
-            std::cout << "lhv unsigned" << std::endl;
             lhvt = pass->FN.Term->getValueTerm(lhv, Signedness::Unsigned);
         }
 
         if (Instruction::CastOps::SIToFP ==  cast) {
-            std::cout << "rhv signed" << std::endl;
             rhvt = pass->FN.Term->getValueTerm(rhv, Signedness::Signed);
         } else {
-            std::cout << "rhv unsigned" << std::endl;
             rhvt = pass->FN.Term->getValueTerm(rhv, Signedness::Unsigned);
         }
 
