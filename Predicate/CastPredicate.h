@@ -78,20 +78,19 @@ struct SMTImpl<Impl, CastPredicate> {
         auto lhvz3 = SMT<Impl>::doit(p->getLhv(), ef, ctx);
         auto rhvz3 = SMT<Impl>::doit(p->getRhv(), ef, ctx);
 
-
         if (llvm::isa<type::Bool>(to) && not llvm::isa<type::Bool>(from)) {
             auto rhvi = rhvz3.template to<Integer>().getUnsafe();
             return ef.getIntConst(0) != rhvi;
-        } else if (! llvm::isa<type::Bool>(to) && llvm::isa<type::Bool>(from)) {
+        } else if (not llvm::isa<type::Bool>(to) && llvm::isa<type::Bool>(from)) {
             auto lhvi = lhvz3.template to<Integer>().getUnsafe();
             return lhvi != ef.getIntConst(0);
-        } else if (llvm::isa<type::Float>(to) && not llvm::isa<type::Float>(from)) {
+        } else if (llvm::isa<type::Float>(to) && llvm::isa<type::Integer>(from)) {
             auto lhvr = lhvz3.template to<Real>().getUnsafe();
             auto rhvi = rhvz3.template to<Integer>().getUnsafe();
             auto isSigned = (TypeUtils::isSigned(from) == llvm::Signedness::Signed);
             auto rhvr = Dynamic::template convert<Integer, Real>(rhvi, isSigned);
             return lhvr == rhvr;
-        } else if (llvm::isa<type::Integer>(to) && not llvm::isa<type::Integer>(from)) {
+        } else if (llvm::isa<type::Integer>(to) && llvm::isa<type::Float>(from)) {
             auto lhvi = lhvz3.template to<Integer>().getUnsafe();
             auto rhvr = rhvz3.template to<Real>().getUnsafe();
             auto isSigned = (TypeUtils::isSigned(to) == llvm::Signedness::Signed);
