@@ -85,7 +85,7 @@ void PredicateStateAnalysis::updateInlineSummary(llvm::Function& F) {
     auto riState = delegate->getInstructionState(RI);
     ASSERT(riState, "No state found for: " + llvm::valueSummary(RI));
 
-    auto bdy = riState->sliceOn(initial);
+    auto bdy = FN.State->SliceOn(riState, initial);
     ASSERT(bdy, "Function state slicing failed for: " + llvm::valueSummary(RI));
 
     FM.update(&F, bdy);
@@ -124,7 +124,7 @@ void PredicateStateAnalysis::updateInterpolSummary(llvm::Function& F) {
     auto riState = delegate->getInstructionState(RI);
     ASSERT(riState, "No state found for: " + llvm::valueSummary(RI));
 
-    auto bdy = riState->sliceOn(initial);
+    auto bdy = FN.State->SliceOn(riState, initial);
     ASSERT(bdy, "Function state slicing failed for: " + llvm::valueSummary(RI));
 
     //    PredicateState::Ptr query = (

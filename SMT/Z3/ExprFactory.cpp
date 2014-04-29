@@ -72,14 +72,8 @@ Z3::Real ExprFactory::getRealVar(const std::string& name, bool fresh) {
     return fresh ? Real::mkFreshVar(*ctx, name) : Real::mkVar(*ctx, name);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-Z3::Real ExprFactory::getRealConst(int v) {
-    return Real::mkConst(*ctx, v);
-}
-
 Z3::Real ExprFactory::getRealConst(double v) {
-    return Real::mkConst(*ctx, (long long int)v);
+    return Real::mkConst(*ctx, v);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -101,6 +95,26 @@ Z3::MemArray ExprFactory::getEmptyMemoryArray(const std::string& id) {
 Z3::MemArray ExprFactory::getDefaultMemoryArray(const std::string& id, int def) {
     return MemArray::mkDefault(*ctx, id, Byte::mkConst(*ctx, def));
 }
+
+Z3::FloatMemArray ExprFactory::getNoFloatMemoryArray(const std::string& id) {
+    static config::ConfigEntry<bool> DefaultsToUnknown("analysis", "memory-defaults-to-unknown");
+
+    if (DefaultsToUnknown.get(false)) {
+        return getEmptyFloatMemoryArray(id);
+    } else {
+        return getDefaultFloatMemoryArray(id, 255.0);
+    }
+}
+
+Z3::FloatMemArray ExprFactory::getEmptyFloatMemoryArray(const std::string& id) {
+    return FloatMemArray::mkFree(*ctx, id);
+}
+
+Z3::FloatMemArray ExprFactory::getDefaultFloatMemoryArray(const std::string& id, double def) {
+    return FloatMemArray::mkDefault(*ctx, id, Real::mkConst(*ctx, def));
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 Z3::Pointer ExprFactory::getInvalidPtr() {
     return getPtrConst(~0U);

@@ -8,6 +8,8 @@
 #ifndef Z3_SOLVER_H_
 #define Z3_SOLVER_H_
 
+#include <unordered_map>
+
 #include "Logging/logger.hpp"
 #include "SMT/Z3/ExecutionContext.h"
 #include "SMT/Z3/ExprFactory.h"
@@ -24,6 +26,8 @@ class Solver : public borealis::logging::ClassLevelLogging<Solver> {
 
 public:
 
+    typedef std::unordered_map<Term::Ptr, Term::Ptr> Test;
+
 #include "Util/macros.h"
     static constexpr auto loggerDomain() QUICK_RETURN("z3-solver")
 #include "Util/unmacros.h"
@@ -37,6 +41,10 @@ public:
     bool isPathImpossible(
             PredicateState::Ptr path,
             PredicateState::Ptr state);
+
+    Test generateTest(
+            PredicateState::Ptr state,
+            const std::vector<Term::Ptr>& args);
 
 private:
 
@@ -53,7 +61,6 @@ private:
     check_result check(
             const Bool& z3query,
             const Bool& z3state);
-
 };
 
 } // namespace z3_

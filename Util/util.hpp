@@ -146,8 +146,8 @@ std::string join(const Args&... args) {
     return s.str();
 }
 
-} // naemspace util
-} // naemspace borealis
+} // namespace util
+} // namespace borealis
 
 namespace llvm {
 template<class To>
