@@ -7,6 +7,7 @@
 
 #include "Logging/tracer.hpp"
 #include "SMT/Z3/Solver.h"
+#include "SMT/Z3/Unlogic/Unlogic.h"
 
 #include "Util/macros.h"
 
@@ -135,6 +136,34 @@ bool Solver::isPathImpossible(
     std::tie(res, std::ignore, std::ignore, std::ignore) = check(z3path, z3state);
 
     return res == z3::unsat;
+}
+
+Solver::Test Solver::generateTest(
+            PredicateState::Ptr state,
+            const std::vector<Term::Ptr>& args) {
+
+    TRACE_FUNC;
+
+    dbgs() << "Generating test." << endl;
+
+    Test test;
+
+    ExecutionContext ctx(z3ef, memoryStart);
+    auto z3state = SMT<Z3>::doit(state, z3ef, &ctx);
+
+    z3::check_result res;
+    util::option<z3::model> model;
+    std::tie(res, model, std::ignore, std::ignore) = check(z3ef.getTrue(), z3state);
+
+    if (res == z3::sat) {
+        auto m = model.getUnsafe();
+        for(const auto& arg: args) {
+            auto z3arg = SMT<Z3>::doit(arg, z3ef, &ctx);
+            auto expr = m.eval(logic::z3impl::getExpr(z3arg), true);
+            test.emplace(arg, unlogic::undoThat(expr));
+        }
+    }
+    return test;
 }
 
 } // namespace z3_

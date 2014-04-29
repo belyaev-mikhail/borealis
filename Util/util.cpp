@@ -251,10 +251,10 @@ std::list<ReturnInst*> getAllRets(Function* F) {
     std::unordered_set<ReturnInst*> rets;
 
     for (ReturnInst* RI : viewContainer(F)
-                          .flatten()
-                          .map(takePtr())
-                          .map(dyn_caster<ReturnInst>())
-                          .filter()) {
+                         .flatten()
+                         .map(takePtr())
+                         .map(dyn_caster<ReturnInst>())
+                         .filter()) {
         rets.insert(RI);
     }
 
@@ -307,6 +307,20 @@ std::string& replace(const std::string& from, const std::string& to, std::string
     if (pos == std::string::npos) return in;
     else return in.replace(pos, from.length(), to);
 }
+
+std::string capitalize(std::string str) {
+    str[0] = std::toupper(str[0]);
+    return str;
+}
+
+std::string toUpperCase(std::string str) {
+    for (int i = 0; str[i] != '\0'; i++) {
+        str[i] = std::toupper(str[i]);
+    }
+    return str;
+}
+
+
 
 } // namespace util
 } // namespace borealis

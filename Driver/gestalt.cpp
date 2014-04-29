@@ -77,6 +77,7 @@
 #include "Logging/logger.hpp"
 #include "Passes/Misc/PrinterPasses.h"
 #include "Passes/Util/DataProvider.hpp"
+#include "TestGen/PrototypesInfo.h"
 #include "Util/util.h"
 
 namespace borealis {
@@ -226,6 +227,8 @@ int gestalt::main(int argc, const char** argv) {
     for (StringRef pass : passes2run) {
         llvm.add(pass.str());
     }
+    
+    llvm.add(*clang.getPrototypesLocations());
 
     llvm.run();
 

@@ -72,7 +72,7 @@ public:
     }
 
     virtual std::pair<PredicateState::Ptr, PredicateState::Ptr> splitByTypes(std::initializer_list<PredicateType> types) const = 0;
-    virtual PredicateState::Ptr sliceOn(PredicateState::Ptr on) const = 0;
+
     virtual PredicateState::Ptr simplify() const = 0;
 
     bool isUnreachableIn(unsigned long long memoryStart) const;
@@ -99,7 +99,13 @@ public:
     PredicateState(id_t classTag);
     virtual ~PredicateState() {};
 
+    friend class PredicateStateFactory;
+
 protected:
+    virtual PredicateState::Ptr sliceOn(PredicateState::Ptr on) const = 0;
+    static PredicateState::Ptr sliceOn(PredicateState::Ptr what, PredicateState::Ptr where) {
+        return what->sliceOn(where);
+    }
 
     static PredicateState::Ptr Simplified(const PredicateState* s) {
         return PredicateState::Ptr(s)->simplify();

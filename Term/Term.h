@@ -96,6 +96,12 @@ protected:
 
 };
 
+struct termPtrEqual { 
+    bool operator() (const Term::Ptr& one, const Term::Ptr& other) const {
+        return *one == *other;
+    }
+};
+
 } /* namespace borealis */
 
 namespace std {
@@ -111,6 +117,20 @@ struct hash<const borealis::Term::Ptr> {
         return t->hashCode();
     }
 };
+
+template<>
+struct hash<borealis::Term> {
+    size_t operator()(const borealis::Term& t) const {
+        return t.hashCode();
+    }
+};
+template<>
+struct hash<const borealis::Term> {
+    size_t operator()(const borealis::Term& t) const {
+        return t.hashCode();
+    }
+};
+
 } // namespace std
 
 #define MK_COMMON_TERM_IMPL(CLASS) \

@@ -80,9 +80,14 @@ struct SMTImpl<Impl, StorePredicate> {
         ASSERT(!l.empty(), "Store dealing with a non-pointer value");
         auto lp = l.getUnsafe();
 
+        auto lt = llvm::dyn_cast<type::Pointer>(p->getLhv()->getType());   // Should not fail
+
         auto r = SMT<Impl>::doit(p->getRhv(), ef, ctx);
 
-        ctx->writeExprToMemory(lp, r);
+        if (llvm::isa<type::Float>(lt->getPointed()))
+            ctx->writeExprToFloatMemory(lp, r);
+        else
+            ctx->writeExprToMemory(lp, r);
 
         return ef.getTrue();
     }

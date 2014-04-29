@@ -27,6 +27,7 @@ BRING_FROM_IMPL(DynBV)
 BRING_FROM_IMPL(Dynamic)
 
 BRING_FROM_IMPL(MemArray)
+BRING_FROM_IMPL(FloatMemArray)
 
 #undef BRING_FROM_IMPL
 
@@ -41,7 +42,8 @@ BRING_FROM_IMPL(MemArray)
     typedef typename IMPL::DynBV DynBV; \
     typedef typename IMPL::UComparable UComparable; \
     typedef typename IMPL::Dynamic Dynamic; \
-    typedef typename IMPL::MemArray MemArray;
+    typedef typename IMPL::MemArray MemArray; \
+    typedef typename IMPL::FloatMemArray FloatMemArray;
 
 #define USING_SMT_IMPL(IMPL) \
     USING_SMT_LOGIC(IMPL) \
