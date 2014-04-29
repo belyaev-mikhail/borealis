@@ -14,9 +14,12 @@ namespace borealis {
 
 bool FindPrototypesVisitor::VisitFunctionDecl(clang::FunctionDecl* s) {
     if (s->isFirstDeclaration()) {
-        llvm::StringRef fileName = sm->getFileEntryForID(sm->getFileID(s->getLocation()))->getName();
-        if (llvm::sys::path::extension(fileName) == ".h") {
-            prototypes->locations.emplace(s->getNameAsString(), fileName);
+        auto* fileEntry = sm->getFileEntryForID(sm->getFileID(s->getLocation()));
+        if (fileEntry != nullptr) {
+            llvm::StringRef fileName = fileEntry->getName();
+            if (llvm::sys::path::extension(fileName) == ".h") {
+                prototypes->locations.emplace(s->getNameAsString(), fileName);
+            }
         }
     }
     return true;
