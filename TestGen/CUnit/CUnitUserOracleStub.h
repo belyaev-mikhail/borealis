@@ -8,11 +8,17 @@
 #ifndef CUNITUSERORACLESSTUB_H_
 #define CUNITUSERORACLESSTUB_H_
 
+#include <unistd.h>
+#include <iostream>
+
 #include <llvm/Function.h>
 
 #include "Passes/TestGeneration/TestDumpPass.h"
 #include "Passes/Tracker/SlotTrackerPass.h"
+#include "TestGen/CUnit/util.hpp"
+#include "TestGen/SourceLocations.h"
 #include "Util/filename_utils.h"
+
 namespace borealis {
 
 namespace util {
@@ -85,9 +91,15 @@ public:
                 baseDirectory(baseDirectory) {
         prototypes = protoLoc.provide();
     };
+    bool addToFile(const std::string& fileName, LocationAnalyseResult& oldLocs);
     friend std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubModule& module);
+    template<class ToInsert, class Unit>
+    friend bool updateOracleFile(
+            Unit& module,
+            const std::string& fileName, LocationAnalyseResult& oldLocs);
 
 private:
+    void writeIncludes(std::ostream& os, const IncludesLocationsInFile* oldLocs) const;
     const FuncList& funcs;
     const SlotTrackerPass& stp;
     const MetaInfoTracker& mit;
@@ -110,7 +122,12 @@ public:
                 baseDirectory(baseDirectory) {
         prototypes = protoLoc.provide();
     };
+    bool addToFile(const std::string& fileName, LocationAnalyseResult& oldLocs);
     friend std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubHeader& hdr);
+    template<class ToInsert, class Unit>
+    friend bool updateOracleFile(
+            Unit& hdr,
+            const std::string& fileName, LocationAnalyseResult& oldLocs);
 
 private:
     const FuncList& funcs;
@@ -121,8 +138,6 @@ private:
     PrototypesInfo prototypes;
 
 };
-
-
 } /* namespace util */
 
 } /* namespace borealis */

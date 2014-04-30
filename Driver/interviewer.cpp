@@ -95,7 +95,8 @@ std::vector<command> interviewer::getCompileCommands() {
             };
 
             if (command->getSource().getKind() == clang::driver::Action::CompileJobClass ||
-                command->getSource().getKind() == clang::driver::Action::AssembleJobClass) {
+                command->getSource().getKind() == clang::driver::Action::AssembleJobClass ||
+                command->getSource().getKind() == clang::driver::Action::PrecompileJobClass) {
                 toPut.operation = command::COMPILE;
             } else if(command->getSource().getKind() == clang::driver::Action::LinkJobClass) {
                 toPut.operation = command::LINK;
