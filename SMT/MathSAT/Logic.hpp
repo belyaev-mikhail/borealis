@@ -624,6 +624,24 @@ ASPECT_END
 
 ////////////////////////////////////////////////////////////////////////////////
 
+template<typename From, typename To>
+struct Converter{
+    static To convert(From expr, bool isSigned = true){
+        util::use(expr); util::use(isSigned);
+        BYE_BYE(To, "Unknown conversion!");
+    }
+};
+
+template<typename From>
+struct Converter<From, From>{
+    static From convert(From expr, bool isSigned = true) {
+        util::use(isSigned);
+        return expr;
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+
 // Untyped logic expression
 class SomeExpr: public ValueExpr {
 public:
@@ -704,6 +722,11 @@ public:
             msatimpl::getExpr(this) != msatimpl::getExpr(that),
             msatimpl::spliceAxioms(*this, that)
         };
+    }
+
+    template<typename From, typename To>
+    static To convert(const From& expr, bool isSigned = true) {
+        return Converter<From, To>::convert(expr, isSigned);
     }
 };
 

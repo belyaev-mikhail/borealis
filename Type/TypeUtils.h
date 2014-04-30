@@ -100,6 +100,14 @@ struct TypeUtils {
         BYE_BYE(unsigned long long, "Funk you!");
     }
 
+    static llvm::Signedness isSigned(Type::Ptr type) {
+        if (auto integer = llvm::dyn_cast<type::Integer>(type)) {
+            return integer->getSignedness();
+        } else {
+            return llvm::Signedness::Unknown;
+        }
+    }
+
 };
 
 } // namespace borealis

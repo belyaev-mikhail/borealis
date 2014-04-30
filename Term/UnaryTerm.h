@@ -87,23 +87,41 @@ struct SMTImpl<Impl, UnaryTerm> {
 
         auto rhvz3 = SMT<Impl>::doit(t->getRhv(), ef, ctx);
 
-        switch(t->getOpcode()) {
-        case llvm::UnaryArithType::BNOT: {
-            auto rhvi = rhvz3.template to<Integer>();
-            ASSERT(!rhvi.empty(), "Bit not: rhv is not an integer");
-            return ~rhvi.getUnsafe();
+        auto rhvi = rhvz3.template to<Integer>();
+        if (not rhvi.empty()) {
+            auto rhv = rhvi.getUnsafe();
+            switch (t->getOpcode()) {
+            case llvm::UnaryArithType::BNOT:    return ~rhv;
+            case llvm::UnaryArithType::NEG:     return -rhv;
+            default:
+                BYE_BYE(Dynamic, "Unsupported bv opcode: " +
+                        llvm::unaryArithString(t->getOpcode()));
+            }
         }
-        case llvm::UnaryArithType::NEG: {
-            auto rhvi = rhvz3.template to<Integer>();
-            ASSERT(!rhvi.empty(), "Negate: rhv is not an integer");
-            return -rhvi.getUnsafe();
+
+        auto rhvr = rhvz3.template to<Real>();
+        if (not rhvr.empty()) {
+            auto rhv = rhvr.getUnsafe();
+            switch (t->getOpcode()) {
+            case llvm::UnaryArithType::BNOT:    return ~rhv;
+            case llvm::UnaryArithType::NEG:     return -rhv;
+            default:
+                BYE_BYE(Dynamic, "Unsupported float opcode: " +
+                        llvm::unaryArithString(t->getOpcode()));
+            }
         }
-        case llvm::UnaryArithType::NOT: {
-            auto rhvi = rhvz3.toBool();
-            ASSERT(!rhvi.empty(), "Logic not: rhv is not a boolean");
-            return !rhvi.getUnsafe();
+
+        auto rhvb = rhvz3.template to<Bool>();
+        if (not rhvb.empty()) {
+            auto rhv = rhvb.getUnsafe();
+            if (t->getOpcode() == llvm::UnaryArithType::NOT)
+                return !rhv;
+            else
+                BYE_BYE(Dynamic, "Unsupported bool opcode: " +
+                        llvm::unaryArithString(t->getOpcode()));
         }
-        }
+
+        BYE_BYE(Dynamic, "Unreachable");
     }
 };
 #include "Util/unmacros.h"

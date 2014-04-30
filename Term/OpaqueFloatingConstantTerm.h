@@ -69,7 +69,13 @@ struct SMTImpl<Impl, OpaqueFloatingConstantTerm> {
             const OpaqueFloatingConstantTerm* t,
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>*) {
-        return ef.getRealConst(t->getValue());
+        double d = t->getValue();
+        if (std::isnan(d)) {   //check double for NaN
+            d = 0;
+        } else if (std::isinf(d)) {  // check for infinity
+            d = std::numeric_limits<double>::max();
+        }
+        return ef.getRealConst(d);
     }
 };
 
