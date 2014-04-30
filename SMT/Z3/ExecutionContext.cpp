@@ -11,7 +11,8 @@ namespace borealis {
 namespace z3_ {
 
 ExecutionContext::ExecutionContext(ExprFactory& factory, unsigned long long localMemory):
-    factory(factory), globalPtr(1ULL), localPtr(localMemory) {
+    factory(factory), floatMem(factory.getNoFloatMemoryArray(FLOAT_MEMORY_ID)),
+    globalPtr(1ULL), localPtr(localMemory) {
     initGepBounds();
 };
 
@@ -28,6 +29,7 @@ std::ostream& operator<<(std::ostream& s, const ExecutionContext& ctx) {
 }
 
 std::string ExecutionContext::MEMORY_ID = "$$__memory__$$";
+std::string ExecutionContext::FLOAT_MEMORY_ID = "$$__float_memory__$$";
 std::string ExecutionContext::GEP_BOUNDS_ID = "$$__gep_bound__$$";
 
 } // namespace z3_

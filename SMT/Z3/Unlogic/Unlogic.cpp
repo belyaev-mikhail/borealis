@@ -34,6 +34,19 @@ Term::Ptr undoBool(const z3::expr& expr, const FactoryNest& FN) {
     }
 }
 
+Term::Ptr undoReal(const z3::expr& expr, const FactoryNest& FN) {
+    long long n, d;
+    auto res = Z3_get_numeral_rational_int64(expr.ctx(), expr, &n, &d);
+    if (res != 0) {
+        double dn = n;
+        double dd = d;
+        return FN.Term->getOpaqueConstantTerm( dn / dd);
+    } else {
+        // FixMe sam: what to do when we can't get rational from Z3?
+        return FN.Term->getOpaqueConstantTerm(std::numeric_limits<double>::max());
+    }
+}
+
 Term::Ptr undoThat(Z3::Dynamic dyn) {
     FactoryNest FN(nullptr);
 
@@ -42,6 +55,8 @@ Term::Ptr undoThat(Z3::Dynamic dyn) {
 
     if (expr.is_bv()) {
         return undoBv(expr, FN);
+    } else if (expr.is_real()) {
+        return undoReal(expr, FN);
     } else if (expr.is_bool()) {
         return undoBool(expr, FN);
     }

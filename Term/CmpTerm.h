@@ -131,6 +131,7 @@ struct SMTImpl<Impl, CmpTerm> {
 
         BYE_BYE(Dynamic, "Unsupported CmpTerm: " + util::toString(t->getName()));
     }
+
 };
 #include "Util/unmacros.h"
 

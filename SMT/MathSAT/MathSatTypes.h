@@ -45,6 +45,7 @@ struct MathSAT {
 
     // memory array
     typedef mathsat_::logic::ScatterArray<Pointer, Byte::bitsize, ArrayImpl> MemArray;
+    typedef MemArray FloatMemArray;
 
 };
 
