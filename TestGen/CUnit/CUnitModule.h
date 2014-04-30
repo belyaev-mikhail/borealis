@@ -8,7 +8,6 @@
 #ifndef CUNITMODULE_H_
 #define CUNITMODULE_H_
 
-#include <iostream>
 #include "Passes/TestGeneration/TestManager.h"
 #include "TestGen/PrototypesInfo.h"
 #include "Passes/TestGeneration/TestDumpPass.h"

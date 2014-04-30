@@ -19,6 +19,8 @@
 #include "Passes/Tracker/MetaInfoTracker.h"
 #include "Passes/Util/DataProvider.hpp"
 #include "TestGen/PrototypesInfo.h"
+#include "TestGen/SourceLocations.h"
+
 #include "Util/passes.hpp"
 
 namespace borealis {
@@ -50,7 +52,10 @@ private:
     PrototypesInfo prototypes;
 
 public:
-    static driver::AnnotatedModule::Ptr compileFileWithCLang(const std::string& fileName,
+    std::unordered_set<const llvm::Function*> getFunctionsToInsertOracles(
+            LocationAnalyseResult* locations, TestManager::TestMap* testMap);
+    LocationAnalyseResult::Ptr analyzeFileWithCLang(const std::string& fileName,
+            const std::string& baseDirectory,
             logging::ClassLevelLogging<TestDumpPass>& logging);
     static std::shared_ptr<std::unordered_set<llvm::Function*>> getFunctionsToGenerateOracleStubs(
             std::unordered_set<llvm::Function*> funcs);
@@ -61,7 +66,9 @@ public:
     static bool includeInMakefile();
     static std::string filePathForModule(const std::string& moduleName);
     static std::string oracleDirectory();
+    static std::string oracleFilename(const std::string& moduleName);
     static std::string oracleHeaderFilename(const std::string& moduleName);
+    static std::string oraclePath(const std::string& moduleName);
     static std::string oracleHeaderPath(const std::string& moduleName);
     static std::string oracleFilePath(const std::string& moduleName);
     static std::string generateUserOraclesStubs();

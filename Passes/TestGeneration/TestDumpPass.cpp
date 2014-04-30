@@ -5,14 +5,23 @@
  * Created on 18 Февраль 2014 г., 17:16
  */
 #include <clang/CodeGen/CodeGenAction.h>
+#include <clang/Driver/Arg.h>
 #include <clang/Driver/ArgList.h>
 #include <clang/Driver/Compilation.h>
+#include <clang/Driver/Driver.h>
+#include <clang/Driver/Options.h>
+#include <clang/Driver/Tool.h>
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Frontend/DiagnosticOptions.h>
+#include <clang/Frontend/FrontendDiagnostic.h>
+#include <clang/Frontend/Utils.h>
 #include <llvm/Analysis/DebugInfo.h>
 #include <llvm/Function.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/PathV2.h>
+
+#include "Actions/TestGen/LocateFunctionsAction.h"
+#include "Actions/TestGen/LocateIncludesAction.h"
 
 #include "Driver/interviewer.h"
 #include "Passes/TestGeneration/TestDumpPass.h"
@@ -28,6 +37,7 @@
 #include "Codegen/DiagnosticLogger.h"
 #include "Driver/AnnotatedModule.h"
 #include "Driver/clang_pipeline.h"
+#include "TestGen/SourceLocations.h"
 #include "State/Transformer/ContractStupidifier.h"
 #include "TestGen/CUnit/CUnitModule.h"
 #include "TestGen/CUnit/CUnitMain.h"
@@ -77,6 +87,7 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
     llvm::sys::fs::create_directories(testDirectory, exists);
     llvm::sys::fs::create_directories(oraclesDirectory, exists);
+
     tm = &GetAnalysis<TestManager>::doit(this);
     auto * stp = &GetAnalysis<SlotTrackerPass>::doit(this);
     mit = &GetAnalysis<MetaInfoTracker>::doit(this);
@@ -157,43 +168,42 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
             auto funcs = util::viewContainer(*testMap)
                 .map([](decltype(*testMap->begin()) pair) { return pair.first; });
             std::unordered_set<const llvm::Function*> functionOracles;
-            bool regenerateFlag = false;
-            if ("preserve" == generateOracleStubs) {
-                auto oracleAM = compileFileWithCLang(oraclesFileName.str(), *this);
-                if (nullptr != oracleAM) {
-                    auto oracleModule = oracleAM->module;
-                    auto oldOraclesView = util::view(oracleModule->begin(), oracleModule->end())
-                        .map([](decltype((*oracleModule->begin())) func) { return &func; });
-                    auto toAdd = funcs.filter(
-                        [&](const llvm::Function* func) {
-                            return !oldOraclesView.any_of(
-                                [&](const llvm::Function* oldFunc) {
-                                    return func->getName().str() + "Oracle" == oldFunc->getName().str();
-                                });
-                        }
-                    );
-                    functionOracles.insert(toAdd.begin(), toAdd.end());
-                } else {
-                    functionOracles.insert(funcs.begin(), funcs.end());
-                    regenerateFlag = true;
-                }
-            } else if ("override" == generateOracleStubs) {
-                functionOracles.insert(funcs.begin(), funcs.end());
-            }
-            if ("preserve" == generateOracleStubs || "override" == generateOracleStubs) {
-                std::ofstream oracleFile;
-                oracleFile.open(oraclesFileName.str(),
-                        "override" == generateOracleStubs || regenerateFlag ? std::ios::out : std::ios::app);
-                oracleFile << util::CUnitUserOracleStubModule(functionOracles, *stp, *mit, *protoLoc,
-                        cuName.str(), baseDirectory);
-                std::ofstream oracleHeader;
-                oracleHeader.open(oraclesHeaderName.str(),
-                        "override" == generateOracleStubs || regenerateFlag ? std::ios::out : std::ios::app);
-                oracleHeader << util::CUnitUserOracleStubHeader(functionOracles, *stp, *mit,
-                        *protoLoc, cuName.str(), baseDirectory);
-                oracleFile.close();
-                oracleHeader.close();
 
+            LocationAnalyseResult::Ptr srcLocs = nullptr;
+            LocationAnalyseResult::Ptr hdrLocs = nullptr;
+            if ("preserve" == generateUserOraclesStubs()) {
+                srcLocs = analyzeFileWithCLang(oraclePath(cuName), baseDirectory, *this);
+                hdrLocs = analyzeFileWithCLang(oracleHeaderPath(cuName), baseDirectory, *this);
+            }
+            auto srcToInsert = getFunctionsToInsertOracles(srcLocs.get(), testMap.get());
+            auto hdrToInsert = getFunctionsToInsertOracles(hdrLocs.get(), testMap.get());
+            if (nullptr == srcLocs) {
+                // Preserve old file
+                std::string fileName = oraclePath(cuName);
+                if (llvm::sys::fs::exists(fileName))
+                    llvm::sys::fs::rename(fileName, fileName + ".backup");
+                std::ofstream oracleFile;
+                oracleFile.open(fileName, std::ios::out);
+                oracleFile << util::CUnitUserOracleStubModule(srcToInsert, *stp, *mit, *protoLoc,
+                                        cuName.str(), baseDirectory);
+                oracleFile.close();
+            } else {
+                util::CUnitUserOracleStubModule(srcToInsert, *stp, *mit, *protoLoc,
+                        cuName.str(), baseDirectory).addToFile(oraclePath(cuName), *srcLocs);
+            }
+            if (nullptr == hdrLocs) {
+                // Preserve old file
+                std::string fileName = oracleHeaderPath(cuName);
+                if (llvm::sys::fs::exists(fileName))
+                    llvm::sys::fs::rename(fileName, fileName + ".backup");
+                std::ofstream oracleHeader;
+                oracleHeader.open(fileName, std::ios::out);
+                oracleHeader << util::CUnitUserOracleStubHeader(hdrToInsert, *stp, *mit,
+                                        *protoLoc, cuName.str(), baseDirectory);
+                oracleHeader.close();
+            } else {
+                util::CUnitUserOracleStubHeader(srcToInsert, *stp, *mit, *protoLoc,
+                        cuName.str(), baseDirectory).addToFile(oracleHeaderPath(cuName), *hdrLocs);
             }
         }
         
@@ -212,12 +222,59 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
     return true;
 }
 
-driver::AnnotatedModule::Ptr TestDumpPass::compileFileWithCLang(const std::string& fileName,
+std::unordered_set<const llvm::Function*> TestDumpPass::getFunctionsToInsertOracles(
+        LocationAnalyseResult* locations, TestManager::TestMap* testMap) {
+    auto funcs = util::viewContainer(*testMap)
+                 .map([](decltype(*testMap->begin()) pair) { return pair.first; });
+    std::unordered_set<const llvm::Function*> functionOracles;
+    bool notCompiled = false;
+    if ("preserve" == generateUserOraclesStubs()) {
+        if (nullptr != locations) {
+            auto oldOraclesNames = util::view(locations->functions_begin(), locations->functions_end())
+                .map([](decltype((*locations->functions_begin())) func) { return func.name; });
+
+            auto toAdd = funcs.filter(
+                [&](const llvm::Function* func) {
+                    return !oldOraclesNames.any_of(
+                        [&](const std::string& oldFuncName) {
+                            return func->getName().str() + "Oracle" == oldFuncName;
+                        });
+                }
+            );
+            functionOracles.insert(toAdd.begin(), toAdd.end());
+        } else {
+            functionOracles.insert(funcs.begin(), funcs.end());
+            notCompiled = true;
+        }
+    } else if ("override" == generateUserOraclesStubs()) {
+        functionOracles.insert(funcs.begin(), funcs.end());
+    }
+    return std::move(functionOracles);
+}
+
+LocationAnalyseResult::Ptr TestDumpPass::analyzeFileWithCLang(const std::string& fileName,
+        const std::string& baseDirectory,
         logging::ClassLevelLogging<TestDumpPass>& logging) {
+
     if (!llvm::sys::fs::exists(fileName))
-        return nullptr;
+            return nullptr;
     driver::CommandLine compilerArgs;
     compilerArgs = compilerArgs.push_back(fileName);
+
+    if (includeInMakefile()) {
+        if (absoluteInclude()) {
+            compilerArgs = compilerArgs.push_back("-I");
+            compilerArgs = compilerArgs.push_back(baseDirectory);
+            compilerArgs = compilerArgs.push_back("-I");
+            compilerArgs = compilerArgs.push_back(util::getAbsolutePath(baseDirectory, oracleDirectory()));
+        } else {
+            compilerArgs = compilerArgs.push_back("-I");
+            compilerArgs = compilerArgs.push_back(util::getRelativePath(baseDirectory, "", baseDirectory));
+            compilerArgs = compilerArgs.push_back("-I");
+            compilerArgs = compilerArgs.push_back(util::getRelativePath(baseDirectory,
+                    oracleDirectory(), baseDirectory));
+        }
+    }
 
     infos() << "Invoking clang with: " << compilerArgs << endl;
     clang::DiagnosticOptions DiagOpts;
@@ -233,11 +290,56 @@ driver::AnnotatedModule::Ptr TestDumpPass::compileFileWithCLang(const std::strin
     nativeClang.assignLogger(logging);
     auto compileCommands = nativeClang.getCompileCommands();
     if (compileCommands.empty()) return nullptr;
-    driver::clang_pipeline clang("clang", diags);
-    clang.assignLogger(logging);
-    clang.invoke(compileCommands);
-    auto annotatedModule = clang.result();
-    return annotatedModule;
+    clang::CompilerInstance ci;
+    ci.setDiagnostics(diags.getPtr());
+    std::unique_ptr<clang::CompilerInvocation> CI { new clang::CompilerInvocation() };
+    std::vector<const char*> ccArgs;
+    auto cmdIt = std::find_if(
+            compileCommands.begin(),
+            compileCommands.end(),
+            [](driver::command& cmd) {
+                return (cmd.operation == driver::command::COMPILE);
+            }
+        );
+    if (cmdIt == compileCommands.end()) {
+        return nullptr;
+    }
+    auto& args = cmdIt->cl;
+    ccArgs.reserve(args->getNumInputArgStrings());
+    for (auto i = 0U, size = args->getNumInputArgStrings(); i < size; ++i) {
+        auto* arg = args->getArgString(i);
+        ccArgs.push_back(arg);
+    }
+    {
+        auto info = infos();
+        info << "cc " << borealis::util::head(ccArgs);
+        for (const auto& arg: borealis::util::tail(ccArgs)) info << " " << arg;
+        info << endl;
+    }
+    if (!clang::CompilerInvocation::CreateFromArgs(
+            *CI,
+            const_cast<const char**>(ccArgs.data()),
+            const_cast<const char**>(ccArgs.data()) + ccArgs.size(),
+             ci.getDiagnostics()))
+        return nullptr;
+
+    ci.setInvocation(CI.release());
+
+    if (!ci.hasInvocation())
+        return nullptr;
+    IncludesLocations includes;
+    LocateIncludesAction locateIncludes(&includes);
+    ci.ExecuteAction(locateIncludes);
+    FunctionsLocations locations;
+    LocateFunctionsAction locateFunctions(&locations);
+    ci.ExecuteAction(locateFunctions);
+
+    if (ci.getDiagnostics().getClient()->getNumErrors() != 0)
+        return nullptr;
+    else
+        return std::make_shared<LocationAnalyseResult>(
+                includes[fileName], locations[fileName]
+        );
 };
 
 std::string TestDumpPass::getResultNameForFunction(const llvm::Function* function,
@@ -283,27 +385,45 @@ std::string TestDumpPass::filePathForModule(const std::string& moduleName) {
     llvm::SmallString<256> testDir(testDirectory);
     llvm::sys::path::append(testDir, testPrefixEntry.get("test") +  "_" +
             moduleName + ".c");
-    return std::move(testDir.str());
+    return testDir.str();
 }
 
 std::string TestDumpPass::oracleDirectory() {
     static config::StringConfigEntry userOraclesDirEntry("testgen", "user-oracles-directory");
-    return std::move(userOraclesDirEntry.get("tests/oracles"));
+    return userOraclesDirEntry.get("tests/oracles");
+}
+
+std::string TestDumpPass::oracleFilename(const std::string& moduleName) {
+    static config::StringConfigEntry userOraclesPrefixEntry("testgen", "user-oracles-prefix");
+    return userOraclesPrefixEntry.get("oracles") +  "_" +
+            moduleName + ".c";
 }
 
 std::string TestDumpPass::oracleHeaderFilename(const std::string& moduleName) {
     static config::StringConfigEntry userOraclesPrefixEntry("testgen", "user-oracles-prefix");
-    return std::move(userOraclesPrefixEntry.get("oracles") +  "_" +
-            moduleName + ".h");
+    return userOraclesPrefixEntry.get("oracles") +  "_" +
+            moduleName + ".h";
+}
+
+std::string TestDumpPass::oraclePath(const std::string& moduleName) {
+    static config::StringConfigEntry userOraclesPrefixEntry("testgen", "user-oracles-prefix");
+    llvm::SmallString<256> oraclesName(oracleDirectory());
+    llvm::sys::path::append(oraclesName, oracleFilename(moduleName));
+    return oraclesName.str().str();
 }
 
 std::string TestDumpPass::oracleHeaderPath(const std::string& moduleName) {
     static config::StringConfigEntry userOraclesPrefixEntry("testgen", "user-oracles-prefix");
     llvm::SmallString<256> oraclesHeaderName(oracleDirectory());
     llvm::sys::path::append(oraclesHeaderName, oracleHeaderFilename(moduleName));
-    return std::move(oraclesHeaderName.str().str());
+    return oraclesHeaderName.str().str();
 }
 
+std::string TestDumpPass::generateUserOraclesStubs() {
+    static config::StringConfigEntry generateUserOraclesEntry("testgen", "generate-user-oracles-stub");
+    return generateUserOraclesEntry.get("false");
+
+}
 
 
 TestDumpPass::~TestDumpPass() {}

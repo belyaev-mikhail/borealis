@@ -12,7 +12,7 @@
 #include "Passes/Tracker/FunctionAnnotationTracker.h"
 #include "TestGen/CUnit/CUnitModule.h"
 #include "TestGen/CUnit/CUnitSuite.h"
-
+#include "TestGen/CUnit/util.hpp"
 #include "Util/filename_utils.h"
 
 #include "State/Transformer/ContractStupidifier.h"
@@ -25,31 +25,12 @@ namespace util {
 
 void CUnitModule::generateHeader(std::ostream& os) const {
     os << "#include <CUnit/Basic.h>\n\n";
+    auto funcsView = util::view(testMap.begin(), testMap.end())
+        .map([](decltype(*testMap.begin()) pair) { return pair.first; });
+    auto includes = util::getIncludesForFunctions(
+            funcsView.begin(), funcsView.end(), prototypes);
 
-    std::unordered_set<std::string> userIncludes;
-    for (const auto& pair : testMap) {
-        auto* f = pair.first;
-        auto loc = prototypes.locations.find(f->getName());
-        if (loc != prototypes.locations.end()) {
-            userIncludes.insert(loc->second);
-        }
-    }
-    std::vector<std::string> includes(userIncludes.begin(), userIncludes.end());
-    sort(includes.begin(), includes.end());
-    for (const auto& i: includes) {
-        if (TestDumpPass::includeInMakefile()) {
-            os << "#include \"" << i << "\"\n";
-        } else if (TestDumpPass::absoluteInclude()) {
-            os << "#include \""
-               << util::getAbsolutePath(baseDirectory, llvm::StringRef(i))
-               << "\"\n";
-        } else {
-            os << "#include \""
-               << util::getRelativePath(baseDirectory, llvm::StringRef(i),
-                       llvm::StringRef(TestDumpPass::filePathForModule(moduleName)))
-               << "\"\n";
-        }
-    }
+    util::writeIncludes(includes.begin(), includes.end(), os, baseDirectory, moduleName);
     os << "\n";
     if (TestDumpPass::includeInMakefile()) {
         os << "#include \"" << TestDumpPass::oracleHeaderFilename(moduleName) << "\"\n";
@@ -74,7 +55,6 @@ void CUnitModule::generateHeader(std::ostream& os) const {
 }
 
 std::ostream& operator<<(std::ostream& os, const CUnitModule& test) {
-
     test.generateHeader(os);
 
     for (auto& pair: test.testMap) {

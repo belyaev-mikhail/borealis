@@ -28,7 +28,9 @@ std::ostream& operator<<(std::ostream& os, const CUnitMain& main) {
 std::ostream& operator<<(std::ostream& os, const CUnitHeader& hdr) {
     auto* CUs = hdr.module.getNamedMetadata("llvm.dbg.cu");
     auto includeGuard =  util::toUpperCase(hdr.fileName);
-    includeGuard = "_" + util::replace(".", "_", includeGuard) + "_";
+    std::replace(includeGuard.begin(), includeGuard.end(), '.', '_');
+    std::replace(includeGuard.begin(), includeGuard.end(), '/', '_');
+    includeGuard = "_" + includeGuard + "_";
     os << "#ifndef " << includeGuard << "\n";
     os << "#define " << includeGuard << "\n\n";
     for (unsigned i = 0; i < CUs->getNumOperands(); i++) {
