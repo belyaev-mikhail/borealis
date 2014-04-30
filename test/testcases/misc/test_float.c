@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 
 float foo(double a, float b) {
     float c = 0.0;
@@ -18,8 +19,41 @@ int bar(double d, unsigned i) {
         return 0;
 }
 
-int main() {
-    float a = 1.0;
-    float b = 2.0;
-    return 3.0 == foo(a, b);
+double cosinus(double x) {
+    double t , s ;
+    int p;
+    p = 0;
+    s = 1.0;
+    t = 1.0;
+    while(fabs(t/s) > 0.001) {
+        p++;
+        t = (-t * x * x) / ((2 * p - 1) * (2 * p));
+        s += t;
+    }
+    return s;
+}
+
+
+float sine(float x) {
+    float res = 0, pow = x, fact = 1;
+    int ii;
+    if (x == M_PI) {
+        return 0;
+    }
+    for(ii = 0; ii < 100; ++ii) {
+        float i = (float) ii;
+        res+=pow / fact;
+        pow *= x * x;
+        fact *= (2 * (i + 1)) * (2 * (i + 1) + 1);
+    }
+    return res;
+}
+
+
+float smth(float a) {
+    for (int i = 0; i < 100; ++i) {
+        a = a + 2.0;
+        float ii = (float)i;
+    }
+    return a;
 }
