@@ -123,8 +123,6 @@ bool updateOracleFile(Unit& unit,
         llvm::sys::fs::remove(fileName, existed);
         llvm::sys::fs::rename(llvm::Twine(tmpPath), llvm::Twine(fileName));
     }
-    if (failed)
-        std::cout << "Failed on" << fileName << "\n";
     return !failed;
 }
 
