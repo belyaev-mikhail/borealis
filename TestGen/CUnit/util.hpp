@@ -17,6 +17,7 @@ namespace util {
 
 bool copyPartOfFile(std::istream& from, std::ostream& to, unsigned int n, unsigned int& rdBytes);
 bool copyUntilChar(std::istream& from, std::ostream& to, char stop, unsigned int& rdBytes);
+bool copyUntilUnescapedEOL(std::istream& from, std::ostream& to, unsigned int& rdBytes);
 bool copyWhitespaces(std::istream& from, std::ostream& to, unsigned int& rdBytes, int& last);
 
 template<class Iter>

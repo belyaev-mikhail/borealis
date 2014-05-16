@@ -227,7 +227,6 @@ std::unordered_set<const llvm::Function*> TestDumpPass::getFunctionsToInsertOrac
     auto funcs = util::viewContainer(*testMap)
                  .map([](decltype(*testMap->begin()) pair) { return pair.first; });
     std::unordered_set<const llvm::Function*> functionOracles;
-    bool notCompiled = false;
     if ("preserve" == generateUserOraclesStubs()) {
         if (nullptr != locations) {
             auto oldOraclesNames = util::view(locations->functions_begin(), locations->functions_end())
@@ -244,7 +243,6 @@ std::unordered_set<const llvm::Function*> TestDumpPass::getFunctionsToInsertOrac
             functionOracles.insert(toAdd.begin(), toAdd.end());
         } else {
             functionOracles.insert(funcs.begin(), funcs.end());
-            notCompiled = true;
         }
     } else if ("override" == generateUserOraclesStubs()) {
         functionOracles.insert(funcs.begin(), funcs.end());
