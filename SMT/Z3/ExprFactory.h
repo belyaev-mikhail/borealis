@@ -28,7 +28,6 @@ public:
         return isa<type::Integer>(type) ? Integer::bitsize :
                isa<type::Pointer>(type) ? Pointer::bitsize :
                isa<type::Array>(type)   ? Pointer::bitsize : // FIXME: ???
-               isa<type::Float>(type)   ? Real::bitsize :
                util::sayonara<size_t>(__FILE__, __LINE__, __PRETTY_FUNCTION__,
                        "Cannot acquire bitsize for type " + util::toString(*type));
     }
@@ -54,12 +53,14 @@ public:
     Integer getIntConst(int v);
     // Reals
     Real getRealVar(const std::string& name, bool fresh = false);
-    Real getRealConst(int v);
     Real getRealConst(double v);
     // Memory
     MemArray getNoMemoryArray(const std::string& id);
     MemArray getEmptyMemoryArray(const std::string& id);
     MemArray getDefaultMemoryArray(const std::string& id, int def);
+    FloatMemArray getNoFloatMemoryArray(const std::string& id);
+    FloatMemArray getEmptyFloatMemoryArray(const std::string& id);
+    FloatMemArray getDefaultFloatMemoryArray(const std::string& id, double def);
 
     // Generic functions
     Dynamic getVarByTypeAndName(
