@@ -44,6 +44,26 @@ bool copyUntilChar(std::istream& from, std::ostream& to, char stop, unsigned int
     return true;
 }
 
+bool copyUntilUnescapedEOL(std::istream& from, std::ostream& to, unsigned int& rdBytes) {
+    bool escaped = false;
+    char last;
+    do {
+        last = from.get();
+        if (!from.good()) {
+            return false;
+        }
+        if (last == '\\' && !escaped)
+            escaped = true;
+        else if (escaped && std::isspace(last))
+            escaped = true;
+        else
+            escaped = false;
+        rdBytes++;
+        to << last;
+    } while (last != '\n' || escaped);
+    return true;
+}
+
 bool copyWhitespaces(std::istream& from, std::ostream& to, unsigned int& rdBytes, int& last) {
     do {
         last = from.get();

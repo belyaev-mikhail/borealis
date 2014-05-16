@@ -49,7 +49,6 @@ TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
 #endif
 
     auto state = PSA->getInstructionState(inst);
-
     std::string blockName = inst->getParent()->getName();
     dbgs() << "State for block " << blockName << endl
            << state << endl;

@@ -57,19 +57,8 @@ bool updateOracleFile(Unit& unit,
         int toRead = includesInsertItr->hashOffset;
         failed = !util::copyPartOfFile(inputFile, tmpOutputFile, toRead, inFileRd);
         if (!failed) {
-            if (includesInsertItr->isAngled) {
-                failed = !util::copyUntilChar(inputFile, tmpOutputFile,
-                        '>', inFileRd);
-            } else {
-                // Copying until second quote
-                failed = !util::copyUntilChar(inputFile, tmpOutputFile,
-                        '\"', inFileRd);
-                failed = !util::copyUntilChar(inputFile, tmpOutputFile,
-                        '\"', inFileRd);
-            }
+            failed = !util::copyUntilUnescapedEOL(inputFile, tmpOutputFile, inFileRd);
         }
-        tmpOutputFile << static_cast<char>(inputFile.get()); // EOL
-        inFileRd += 1;
     }
 
     // Adding new includes
