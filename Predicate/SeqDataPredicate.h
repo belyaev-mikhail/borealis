@@ -83,6 +83,9 @@ struct SMTImpl<Impl, SeqDataPredicate> {
         ASSERT(!l.empty(), "SeqData with non-pointer base");
         auto lp = l.getUnsafe();
 
+        auto bp = llvm::dyn_cast<type::Pointer>(p->getBase()->getType()); // Should not fail
+        auto pointedType = bp->getPointed();
+
         auto base = ctx->getGlobalPtr(p->getData().size());
         auto res = lp == base;
 
@@ -90,7 +93,10 @@ struct SMTImpl<Impl, SeqDataPredicate> {
         if ( ! SkipStaticInit.get(true)) {
             for (const auto& datum : p->getData()) {
                 auto d = SMT<Impl>::doit(datum, ef, ctx);
-                ctx->writeExprToMemory(base, d);
+                if (llvm::isa<type::Float>(pointedType))
+                    ctx->writeExprToFloatMemory(base, d);
+                else
+                    ctx->writeExprToMemory(base, d);
                 base = base + 1;
             }
         }
