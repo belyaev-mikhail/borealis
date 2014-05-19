@@ -53,6 +53,30 @@ void writeIncludes(Iter begin, Iter end, std::ostream& os,
         }
     }
 }
+
+template<class FileType>
+void createOrUpdateOracleFile(const std::string& fileName,
+        LocationAnalyseResult::Ptr locations,
+        std::unordered_set<const llvm::Function*>& toInsert,
+        SlotTrackerPass& stp, MetaInfoTracker& mit,
+        TestDumpPass::PrototypesLocation& protoLoc,
+        const std::string& cuName,
+        const std::string& baseDirectory) {
+    if (nullptr == locations) {
+        // Preserve old file
+        if (llvm::sys::fs::exists(fileName))
+            llvm::sys::fs::rename(fileName, fileName + ".backup");
+        std::ofstream oracleFile;
+        oracleFile.open(fileName, std::ios::out);
+        oracleFile << FileType(toInsert, stp, mit, protoLoc,
+                                cuName, baseDirectory);
+        oracleFile.close();
+    } else {
+        FileType(toInsert, stp, mit, protoLoc,
+                cuName, baseDirectory).addToFile(fileName, *locations);
+    }
+}
+
 } // namespace util
 } // namespace borealis
 

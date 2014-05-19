@@ -43,6 +43,7 @@
 #include "TestGen/CUnit/CUnitMain.h"
 #include "TestGen/CUnit/CUnitUserOracleStub.h"
 #include "TestGen/CUnit/CUnitMakefile.h"
+#include "TestGen/PrototypesInfo.h"
 #include "TestGen/util.h"
 
 
@@ -147,18 +148,11 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
             testFileName = testDir.str();
             
             baseDirectory = cu.getDirectory();
-            
-            llvm::SmallString<256> oraclesFileName(oraclesDirectory);
-            llvm::sys::path::append(oraclesFileName, userOraclesPrefixEntry.get("oracles") +  "_" +
-                                                cuName + ".c");
-            llvm::SmallString<256> oraclesHeaderName(oraclesDirectory);
-            llvm::sys::path::append(oraclesHeaderName, userOraclesPrefixEntry.get("oracles") +  "_" +
-                                                cuName + ".h");
 
             makefile.setBaseDirectory(baseDirectory);
             makefile.addSource(cu.getFilename());
             makefile.addTest(testFileName);
-            makefile.addOracle(oraclesFileName.str());
+            makefile.addOracle(oracleFilename(cuName));
 
             testFile.open(testFileName.str(), std::ios::out);
             auto testMap = tm->getTestsForCompileUnit(cu);
@@ -177,34 +171,20 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
             }
             auto srcToInsert = getFunctionsToInsertOracles(srcLocs.get(), testMap.get());
             auto hdrToInsert = getFunctionsToInsertOracles(hdrLocs.get(), testMap.get());
-            if (nullptr == srcLocs) {
-                // Preserve old file
-                std::string fileName = oraclePath(cuName);
-                if (llvm::sys::fs::exists(fileName))
-                    llvm::sys::fs::rename(fileName, fileName + ".backup");
-                std::ofstream oracleFile;
-                oracleFile.open(fileName, std::ios::out);
-                oracleFile << util::CUnitUserOracleStubModule(srcToInsert, *stp, *mit, *protoLoc,
-                                        cuName.str(), baseDirectory);
-                oracleFile.close();
-            } else {
-                util::CUnitUserOracleStubModule(srcToInsert, *stp, *mit, *protoLoc,
-                        cuName.str(), baseDirectory).addToFile(oraclePath(cuName), *srcLocs);
-            }
-            if (nullptr == hdrLocs) {
-                // Preserve old file
-                std::string fileName = oracleHeaderPath(cuName);
-                if (llvm::sys::fs::exists(fileName))
-                    llvm::sys::fs::rename(fileName, fileName + ".backup");
-                std::ofstream oracleHeader;
-                oracleHeader.open(fileName, std::ios::out);
-                oracleHeader << util::CUnitUserOracleStubHeader(hdrToInsert, *stp, *mit,
-                                        *protoLoc, cuName.str(), baseDirectory);
-                oracleHeader.close();
-            } else {
-                util::CUnitUserOracleStubHeader(srcToInsert, *stp, *mit, *protoLoc,
-                        cuName.str(), baseDirectory).addToFile(oracleHeaderPath(cuName), *hdrLocs);
-            }
+            util::createOrUpdateOracleFile<util::CUnitUserOracleStubModule>(
+                    oraclePath(cuName),
+                    srcLocs,
+                    srcToInsert,
+                    *stp, *mit, *protoLoc,
+                    cuName.str(),
+                    baseDirectory);
+            util::createOrUpdateOracleFile<util::CUnitUserOracleStubHeader>(
+                    oracleHeaderPath(cuName),
+                    hdrLocs,
+                    hdrToInsert,
+                    *stp, *mit, *protoLoc,
+                    cuName.str(),
+                    baseDirectory);
         }
         
         makefile.addTest(testsMainFilename);
@@ -221,6 +201,8 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
     return true;
 }
+
+
 
 std::unordered_set<const llvm::Function*> TestDumpPass::getFunctionsToInsertOracles(
         LocationAnalyseResult* locations, TestManager::TestMap* testMap) {
