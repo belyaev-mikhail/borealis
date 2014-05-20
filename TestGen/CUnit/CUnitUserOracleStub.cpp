@@ -95,7 +95,7 @@ bool updateOracleFile(Unit& unit,
 
     // Inserting new functions
     for (auto& f: unit.funcs) {
-        tmpOutputFile << ToInsert(f, unit.stp, unit.mit);
+        tmpOutputFile << ToInsert(f, unit.fip);
     }
     if (firstNonWhiteSpace != EOF)
         tmpOutputFile << static_cast<char>(firstNonWhiteSpace);
@@ -117,32 +117,29 @@ bool updateOracleFile(Unit& unit,
 
 std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubDecl& decl) {
     auto* function = decl.function;
-    auto* f = const_cast<llvm::Function*>(function);
-    auto* st = decl.stp.getSlotTracker(*f);
-    auto fn = FactoryNest(st);
-    os << "int " << function->getName() << "Oracle(";
+    
+    auto fi = decl.fip.getFunctionInfo(function);
+    
+    os << "int " << fi.getName() << "Oracle(";
     std::string args;
-    if (!function->arg_empty()) {
-        for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
-            auto arg_ = const_cast<llvm::Argument *>(&(*arg));
-            auto argTerm = fn.Term->getArgumentTerm(arg_);
-            auto type = decl.mit.locate(arg_).front().type;
-            args += getCType(type, CTypeModifiersPolicy::DISCARD);
+    if (fi.getArgsCount() > 0) {
+        for (auto arg : fi) {
+            args += getCType(arg.type, CTypeModifiersPolicy::DISCARD);
             args += " ";
-            args += arg->getName();
+            args += arg.name;
             args += ", ";
         }
     }
-    args += getCType(decl.mit.locate(f).front().type, CTypeModifiersPolicy::DISCARD);
+    args += getCType(fi.getReturnType(), CTypeModifiersPolicy::DISCARD);
     args += " ";
-    args += TestDumpPass::getResultNameForFunction(f);
+    args += TestDumpPass::getResultNameForFunction(function);
     os << args;
     os << ")";
     return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubDefinition& stub) {
-    os << CUnitUserOracleStubDecl(stub.function, stub.stp, stub.mit);
+    os << CUnitUserOracleStubDecl(stub.function, stub.fip);
     os << " {\n";
     os << "    // Put your oracle code here.\n";
     os << "    return 1;\n";
@@ -153,7 +150,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubDefinition& 
 
 
 std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubProto& proto) {
-    os << CUnitUserOracleStubDecl(proto.function, proto.stp, proto.mit);
+    os << CUnitUserOracleStubDecl(proto.function, proto.fip);
     os << ";\n\n";
     return os;
 }
@@ -180,7 +177,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubModule& modu
     util::writeIncludes(includes.begin(), includes.end(), os, module.baseDirectory, module.moduleName);
     os << "\n";
     for (auto& f: module.funcs) {
-        os << CUnitUserOracleStubDefinition(f, module.stp, module.mit);
+        os << CUnitUserOracleStubDefinition(f, module.fip);
     }
     return os;
 }
@@ -198,7 +195,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubHeader& hdr)
     os << "#ifndef " << includeGuard << "\n";
     os << "#define " << includeGuard << "\n\n";
     for (auto& f: hdr.funcs) {
-        os << CUnitUserOracleStubProto(f, hdr.stp, hdr.mit);
+        os << CUnitUserOracleStubProto(f, hdr.fip);
     }
     os << "#endif /* " + includeGuard + " */\n";
     return os;

@@ -38,6 +38,7 @@ public:
     void update(const llvm::Function* F, TestSuite::Ptr tests);
     TestSuite::Ptr getTests(const llvm::Function* F) const;
     TestMapPtr getTestsForCompileUnit(llvm::DICompileUnit& unit) const;
+    std::vector<const llvm::Function*> getFunctions() const;
 private:
     TestMap functionTests;
 

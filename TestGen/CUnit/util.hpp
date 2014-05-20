@@ -58,7 +58,7 @@ template<class FileType>
 void createOrUpdateOracleFile(const std::string& fileName,
         LocationAnalyseResult::Ptr locations,
         std::unordered_set<const llvm::Function*>& toInsert,
-        SlotTrackerPass& stp, MetaInfoTracker& mit,
+        FunctionInfoPass& fip,
         TestDumpPass::PrototypesLocation& protoLoc,
         const std::string& cuName,
         const std::string& baseDirectory) {
@@ -68,11 +68,11 @@ void createOrUpdateOracleFile(const std::string& fileName,
             llvm::sys::fs::rename(fileName, fileName + ".backup");
         std::ofstream oracleFile;
         oracleFile.open(fileName, std::ios::out);
-        oracleFile << FileType(toInsert, stp, mit, protoLoc,
+        oracleFile << FileType(toInsert, fip, protoLoc,
                                 cuName, baseDirectory);
         oracleFile.close();
     } else {
-        FileType(toInsert, stp, mit, protoLoc,
+        FileType(toInsert, fip, protoLoc,
                 cuName, baseDirectory).addToFile(fileName, *locations);
     }
 }

@@ -8,6 +8,7 @@
 #ifndef CUNITCASE_H_
 #define CUNITCASE_H_
 
+#include "Passes/TestGeneration/FunctionInfoPass.h"
 #include "TestGen/TestCase.h"
 #include "TestGen/TestSuite.h"
 
@@ -32,15 +33,14 @@ public:
     CUnitCaseDefinition() = delete;
     CUnitCaseDefinition(const CUnitCaseDefinition& definition) = default;
     CUnitCaseDefinition(CUnitCaseDefinition&& definition) = default;
-    CUnitCaseDefinition(const TestCase& cs, const TestSuite& suite, const FactoryNest& fn,
-            const MetaInfoTracker& mit, int id, const std::vector<Term::Ptr>& oracle) :
-            cs(cs), suite(suite), fn(fn), mit(mit), id(id), oracle(oracle) {};
+    CUnitCaseDefinition(const TestCase& cs, const TestSuite& suite,
+            const FunctionInfoPass& fip, int id, const std::vector<Term::Ptr>& oracle) :
+            cs(cs), suite(suite), fip(fip), id(id), oracle(oracle) {};
     friend std::ostream& operator<<(std::ostream& os, const CUnitCaseDefinition& definition);
 private:
     const TestCase& cs;
     const TestSuite& suite;
-    const FactoryNest& fn;
-    const MetaInfoTracker& mit;
+    const FunctionInfoPass& fip;
     int id;
     const std::vector<Term::Ptr>& oracle;
 };

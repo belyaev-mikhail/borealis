@@ -16,7 +16,7 @@
 #include "Factory/Nest.h"
 #include "Logging/logger.hpp"
 #include "Passes/TestGeneration/TestManager.h"
-#include "Passes/Tracker/MetaInfoTracker.h"
+#include "Passes/TestGeneration/FunctionInfoPass.h"
 #include "Passes/Util/DataProvider.hpp"
 #include "TestGen/PrototypesInfo.h"
 #include "TestGen/SourceLocations.h"
@@ -45,7 +45,7 @@ public:
     virtual ~TestDumpPass();
 private:
     TestManager * tm;
-    MetaInfoTracker * mit;
+    FunctionInfoPass * fip;
     std::ofstream testFile;
     llvm::StringRef testFileName;
     llvm::StringRef baseDirectory;

@@ -64,6 +64,13 @@ TestManager::TestMapPtr TestManager::getTestsForCompileUnit(llvm::DICompileUnit&
     return filteredTests;
 }
 
+std::vector<const llvm::Function*> TestManager::getFunctions() const {
+    std::vector<const llvm::Function*> result;
+    for (const auto& t : functionTests) {
+        result.push_back(t.first);
+    }
+    return result;
+}
 
 
 char TestManager::ID;

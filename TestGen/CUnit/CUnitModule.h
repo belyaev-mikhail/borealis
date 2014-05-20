@@ -8,9 +8,11 @@
 #ifndef CUNITMODULE_H_
 #define CUNITMODULE_H_
 
-#include "Passes/TestGeneration/TestManager.h"
-#include "TestGen/PrototypesInfo.h"
+#include "Passes/TestGeneration/FunctionInfoPass.h"
 #include "Passes/TestGeneration/TestDumpPass.h"
+#include "Passes/TestGeneration/TestManager.h"
+#include "TestGen/FunctionInfo.h"
+#include "TestGen/PrototypesInfo.h"
 
 namespace borealis {
 
@@ -28,13 +30,12 @@ public:
     CUnitModule() = delete;
     CUnitModule(const CUnitModule& orig) = default;
     CUnitModule(CUnitModule&& orig) = default;
-    CUnitModule(const TestMap& testMap,
-              const SlotTrackerPass& stp, const MetaInfoTracker& mit,
-              const FunctionAnnotationTracker& fat, PrototypesLocation& protoLoc,
-              const std::string& moduleName,
+    CUnitModule(const TestMap& testMap, const FunctionInfoPass& fip,
+              const SlotTrackerPass& stp, const FunctionAnnotationTracker& fat,
+              PrototypesLocation& protoLoc, const std::string& moduleName,
               const std::string& baseDirectory):
-                  testMap(testMap), stp(stp), mit(mit), fat(fat), prototypes(protoLoc.provide()),
-                  moduleName(moduleName), baseDirectory(baseDirectory) {};
+                  testMap(testMap), fip(fip), stp(stp), fat(fat),
+                  prototypes(protoLoc.provide()), moduleName(moduleName), baseDirectory(baseDirectory) {};
 
     friend std::ostream& operator<<(std::ostream& os, const CUnitModule& test);
 
@@ -42,8 +43,8 @@ private:
     void generateHeader(std::ostream& os) const;
 
     const TestMap& testMap;
+    const FunctionInfoPass& fip;
     const SlotTrackerPass& stp;
-    const MetaInfoTracker& mit;
     const FunctionAnnotationTracker& fat;
     PrototypesInfo prototypes;
     const std::string& moduleName;
