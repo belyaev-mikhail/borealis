@@ -152,7 +152,7 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
             makefile.setBaseDirectory(baseDirectory);
             makefile.addSource(cu.getFilename());
             makefile.addTest(testFileName);
-            makefile.addOracle(oracleFilename(cuName));
+            makefile.addOracle(oraclePath(cuName));
 
             testFile.open(testFileName.str(), std::ios::out);
             auto testMap = tm->getTestsForCompileUnit(cu);
