@@ -43,7 +43,6 @@
 #include "TestGen/CUnit/CUnitMain.h"
 #include "TestGen/CUnit/CUnitUserOracleStub.h"
 #include "TestGen/CUnit/CUnitMakefile.h"
-#include "TestGen/PrototypesInfo.h"
 #include "TestGen/util.h"
 
 
@@ -60,9 +59,9 @@ void TestDumpPass::getAnalysisUsage(llvm::AnalysisUsage & AU) const {
     AU.setPreservesAll();
 
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
-    AUX<MetaInfoTracker>::addRequiredTransitive(AU);
     AUX<TestGenerationPass>::addRequiredTransitive(AU);
     AUX<TestManager>::addRequiredTransitive(AU);
+    AUX<FunctionInfoPass>::addRequiredTransitive(AU);
     AUX<FunctionAnnotationTracker>::addRequiredTransitive(AU);
     AUX<PrototypesLocation>::addRequiredTransitive(AU);
 }
@@ -90,8 +89,8 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
     llvm::sys::fs::create_directories(oraclesDirectory, exists);
 
     tm = &GetAnalysis<TestManager>::doit(this);
+    fip = &GetAnalysis<FunctionInfoPass>::doit(this);
     auto * stp = &GetAnalysis<SlotTrackerPass>::doit(this);
-    mit = &GetAnalysis<MetaInfoTracker>::doit(this);
     
     FunctionAnnotationTracker& FAT = GetAnalysis<FunctionAnnotationTracker>::doit(this);
 
@@ -156,7 +155,7 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
             testFile.open(testFileName.str(), std::ios::out);
             auto testMap = tm->getTestsForCompileUnit(cu);
-            testFile << util::CUnitModule(*testMap, *stp, *mit, FAT, *protoLoc, cuName, baseDirectory);
+            testFile << util::CUnitModule(*testMap, *fip, *stp, FAT, *protoLoc, cuName, baseDirectory);
             testFile.close();
 
             auto funcs = util::viewContainer(*testMap)
@@ -175,14 +174,14 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
                     oraclePath(cuName),
                     srcLocs,
                     srcToInsert,
-                    *stp, *mit, *protoLoc,
+                    *fip, *protoLoc,
                     cuName.str(),
                     baseDirectory);
             util::createOrUpdateOracleFile<util::CUnitUserOracleStubHeader>(
                     oracleHeaderPath(cuName),
                     hdrLocs,
                     hdrToInsert,
-                    *stp, *mit, *protoLoc,
+                    *fip, *protoLoc,
                     cuName.str(),
                     baseDirectory);
         }

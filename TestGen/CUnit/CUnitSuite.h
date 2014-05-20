@@ -8,6 +8,7 @@
 #ifndef CUNITSUITE_H_
 #define CUNITSUITE_H_
 
+#include "Passes/TestGeneration/FunctionInfoPass.h"
 #include "TestGen/TestSuite.h"
 
 namespace borealis {
@@ -31,13 +32,13 @@ public:
     CUnitSuitePrototype() = delete;
     CUnitSuitePrototype(const CUnitSuitePrototype& prototype) = default;
     CUnitSuitePrototype(CUnitSuitePrototype&& prototype) = default;
-    CUnitSuitePrototype(TestSuite& suite, const MetaInfoTracker& mit,
-            const PrototypesInfo* prototypes) : suite(suite), mit(mit), prototypes(prototypes) {};
+    CUnitSuitePrototype(TestSuite& suite, const FunctionInfoPass& fip,
+            const PrototypesInfo* prototypes) : suite(suite), fip(fip), prototypes(prototypes) {};
 
     friend std::ostream& operator<<(std::ostream& os, const CUnitSuitePrototype& prototype);
 private:
     TestSuite& suite;
-    const MetaInfoTracker& mit;
+    const FunctionInfoPass& fip;
     const PrototypesInfo* prototypes;
 };
 
@@ -46,14 +47,13 @@ public:
     CUnitSuiteDefinitions() = delete;
     CUnitSuiteDefinitions(const CUnitSuiteDefinitions& defs) = default;
     CUnitSuiteDefinitions(CUnitSuiteDefinitions&& defs) = default;
-    CUnitSuiteDefinitions(const TestSuite& suite, const FactoryNest& fn,
-            const MetaInfoTracker& mit, const std::vector<Term::Ptr>& oracle):
-            suite(suite), fn(fn), mit(mit), oracle(oracle) {};
+    CUnitSuiteDefinitions(const TestSuite& suite, const FunctionInfoPass& fip,
+            const std::vector<Term::Ptr>& oracle):
+            suite(suite), fip(fip), oracle(oracle) {};
     friend std::ostream& operator<<(std::ostream& os, const CUnitSuiteDefinitions& defs);
 private:
     const TestSuite& suite;
-    const FactoryNest& fn;
-    const MetaInfoTracker& mit;
+    const FunctionInfoPass& fip;
     const std::vector<Term::Ptr>& oracle;
 };
 

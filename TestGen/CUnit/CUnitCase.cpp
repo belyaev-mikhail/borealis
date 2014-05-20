@@ -41,24 +41,23 @@ std::ostream& operator<<(std::ostream& os, const CUnitCaseDefinition& definition
     auto& suite = definition.suite;
     auto* function = suite.getFunction();
     os << "void " << cs.getTestName(function, definition.id) << "(void) {\n";
+    
+    auto fi = definition.fip.getFunctionInfo(function);
+    
     std::string args;
-    if (!function->arg_empty()) {
-        for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
-            auto arg_ = const_cast<llvm::Argument *>(&(*arg));
-            auto argTerm = definition.fn.Term->getArgumentTerm(arg_);
-            auto type = definition.mit.locate(arg_).front().type;
+    if (fi.getArgsCount() > 0) {
+        for (auto arg : fi) {
             os << "    "
-               << getCType(type, CTypeModifiersPolicy::DISCARD)
-               << " " << arg->getName() << " = " << formatToType(cs.getValue(argTerm), type) << ";\n";
-            args += arg->getName().str() + ", ";
+               << getCType(arg.type, CTypeModifiersPolicy::DISCARD)
+               << " " << arg.name << " = " << formatToType(cs.getValue(arg.term), arg.type) << ";\n";
+            args += arg.name + ", ";
         }
         args.erase(args.end() - 2, args.end());
     }
-    auto f = const_cast<llvm::Function *>(function);
     auto resultName = TestDumpPass::getResultNameForFunction(function);
     os << "    "
-       << getCType(definition.mit.locate(f).front().type, CTypeModifiersPolicy::DISCARD)
-       << " " << resultName << " = " << function->getName()
+       << getCType(fi.getReturnType(), CTypeModifiersPolicy::DISCARD)
+       << " " << resultName << " = " << fi.getName()
        << "(" << args << ");\n";
 
     for(auto& check : definition.oracle) {

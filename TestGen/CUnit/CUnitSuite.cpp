@@ -9,6 +9,7 @@
 #include "TestGen/Util/c_types.h"
 #include "TestGen/CUnit/CUnitCase.h"
 #include "TestGen/CUnit/CUnitSuite.h"
+#include "Passes/TestGeneration/FunctionInfoPass.h"
 
 namespace borealis {
 namespace util {
@@ -36,29 +37,26 @@ std::ostream& operator<<(std::ostream& os, const CUnitSuitePrototype& prototype)
     if (util::containsKey(prototype.prototypes->locations, function->getName().str())) {
         return os;
     }
+    
+    auto fi = prototype.fip.getFunctionInfo(function);
+    
     std::string args;
-    if (!function->arg_empty()) {
-        for (auto arg = function->arg_begin(); arg != function->arg_end(); arg++) {
-            args += util::getCType(
-                prototype.mit.locate(const_cast<llvm::Argument*>(&(*arg))).front().type,
-                util::CTypeModifiersPolicy::KEEP
-            );
+    if (fi.getArgsCount() > 0) {
+        for (const auto& arg : fi) {
+            args += util::getCType(arg.type, util::CTypeModifiersPolicy::KEEP);
             args += ", ";
         }
         args.erase(args.end() - 2, args.end());
     }
-    os << util::getCType(
-        prototype.mit.locate(const_cast<llvm::Function *>(function)).front().type,
-        util::CTypeModifiersPolicy::KEEP
-    );
-    os << " " << function->getName() << "(" << args << ");\n";
+    os << util::getCType(fi.getReturnType(), util::CTypeModifiersPolicy::KEEP);
+    os << " " << fi.getName() << "(" << args << ");\n";
     return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const CUnitSuiteDefinitions& defs) {
     int i = 0;
     for (auto& test: defs.suite) {
-        os << CUnitCaseDefinition(test, defs.suite, defs.fn, defs.mit, i++,
+        os << CUnitCaseDefinition(test, defs.suite, defs.fip, i++,
                 defs.oracle);
     }
     return os;

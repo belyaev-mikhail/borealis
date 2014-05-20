@@ -16,7 +16,7 @@
 #include "Util/filename_utils.h"
 
 #include "State/Transformer/ContractStupidifier.h"
-#include "Util/filename_utils.h"
+#include "TestGen/FunctionInfo.h"
 
 namespace borealis {
 
@@ -48,7 +48,7 @@ void CUnitModule::generateHeader(std::ostream& os) const {
     for (const auto& pair: testMap) {
         auto testSuite = pair.second;
         if (testSuite != nullptr) {
-            os << CUnitSuitePrototype(*testSuite, mit, &prototypes);
+            os << CUnitSuitePrototype(*testSuite, fip, &prototypes);
         }
     }
     os << "\n";
@@ -85,7 +85,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitModule& test) {
                              return cs.transform(anno->getTerm());
                           })
                          .toVector();
-            os << CUnitSuiteDefinitions(*testSuite, fn, test.mit, oracle);
+            os << CUnitSuiteDefinitions(*testSuite, test.fip, oracle);
 
         }
     }
