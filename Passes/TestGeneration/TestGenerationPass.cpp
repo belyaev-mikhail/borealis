@@ -14,7 +14,7 @@
 #include "SMT/MathSAT/Solver.h"
 #include "SMT/Z3/Solver.h"
 #include "TestGen/TestSuite.h"
-#include "TestGen/util.h"
+#include "TestGen/Util/util.h"
 #include "Util/macros.h"
 #include "Util/util.h"
 

@@ -22,11 +22,11 @@ bool copyWhitespaces(std::istream& from, std::ostream& to, unsigned int& rdBytes
 
 template<class Iter>
 std::vector<std::string> getIncludesForFunctions(
-        Iter begin, Iter end, PrototypesInfo prototypes) {
+        Iter begin, Iter end, FunctionsInfoData fInfoData) {
     std::unordered_set<std::string> userIncludes;
     for (const auto& f: util::view(begin, end)) {
-        auto loc = prototypes.locations.find(f->getName());
-        if (loc != prototypes.locations.end()) {
+        auto loc = fInfoData.locations.find(f->getName());
+        if (loc != fInfoData.locations.end()) {
             userIncludes.insert(loc->second);
         }
     }
@@ -59,7 +59,7 @@ void createOrUpdateOracleFile(const std::string& fileName,
         LocationAnalyseResult::Ptr locations,
         std::unordered_set<const llvm::Function*>& toInsert,
         FunctionInfoPass& fip,
-        TestDumpPass::PrototypesLocation& protoLoc,
+        TestDumpPass::FInfoData& fInfoData,
         const std::string& cuName,
         const std::string& baseDirectory) {
     if (nullptr == locations) {
@@ -68,11 +68,11 @@ void createOrUpdateOracleFile(const std::string& fileName,
             llvm::sys::fs::rename(fileName, fileName + ".backup");
         std::ofstream oracleFile;
         oracleFile.open(fileName, std::ios::out);
-        oracleFile << FileType(toInsert, fip, protoLoc,
+        oracleFile << FileType(toInsert, fip, fInfoData,
                                 cuName, baseDirectory);
         oracleFile.close();
     } else {
-        FileType(toInsert, fip, protoLoc,
+        FileType(toInsert, fip, fInfoData,
                 cuName, baseDirectory).addToFile(fileName, *locations);
     }
 }

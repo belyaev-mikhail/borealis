@@ -19,10 +19,11 @@ public:
     CUnitSuiteActivation() = delete;
     CUnitSuiteActivation(const CUnitSuiteActivation& activation) = default;
     CUnitSuiteActivation(CUnitSuiteActivation&& activation) = default;
-    CUnitSuiteActivation(TestSuite& suite): suite(suite) {};
+    CUnitSuiteActivation(TestSuite& suite, const FunctionInfoPass& fip): suite(suite), fip(fip) {};
     friend std::ostream& operator<<(std::ostream& os, const CUnitSuiteActivation& activation);
 private:
     TestSuite& suite;
+    const FunctionInfoPass& fip;
 
 };
 
@@ -33,13 +34,13 @@ public:
     CUnitSuitePrototype(const CUnitSuitePrototype& prototype) = default;
     CUnitSuitePrototype(CUnitSuitePrototype&& prototype) = default;
     CUnitSuitePrototype(TestSuite& suite, const FunctionInfoPass& fip,
-            const PrototypesInfo* prototypes) : suite(suite), fip(fip), prototypes(prototypes) {};
+            const FunctionsInfoData* fInfoData) : suite(suite), fip(fip), fInfoData(fInfoData) {};
 
     friend std::ostream& operator<<(std::ostream& os, const CUnitSuitePrototype& prototype);
 private:
     TestSuite& suite;
     const FunctionInfoPass& fip;
-    const PrototypesInfo* prototypes;
+    const FunctionsInfoData* fInfoData;
 };
 
 class CUnitSuiteDefinitions {

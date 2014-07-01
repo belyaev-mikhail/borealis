@@ -8,9 +8,8 @@
 #include <clang/AST/ASTContext.h>
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/Basic/SourceManager.h>
-#include <clang/Basic/FileManager.h>
 
-#include "TestGen/PrototypesInfo.h"
+#include "TestGen/FunctionsInfoData.h"
 
 #ifndef FINDPROTOTYPESVISITOR_H
 #define	FINDPROTOTYPESVISITOR_H
@@ -21,14 +20,14 @@ class FindPrototypesVisitor : public clang::RecursiveASTVisitor<FindPrototypesVi
 public:
 
     FindPrototypesVisitor(clang::ASTContext* context, clang::SourceManager* sm,
-            PrototypesInfo* prototypes) : context(context), sm(sm), prototypes(prototypes) {}
+            FunctionsInfoData* fInfoData) : context(context), sm(sm), fInfoData(fInfoData) {}
     
     bool VisitFunctionDecl(clang::FunctionDecl* s);
 
 private:
     clang::ASTContext* context;
     clang::SourceManager* sm;
-    PrototypesInfo* prototypes;
+    FunctionsInfoData* fInfoData;
 
 };    
 

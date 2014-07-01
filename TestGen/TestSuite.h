@@ -12,12 +12,15 @@
 
 #include "Factory/Nest.h"
 #include "Passes/Tracker/MetaInfoTracker.h"
-#include "TestGen/PrototypesInfo.h"
+#include "TestGen/FunctionsInfoData.h"
+#include "TestGen/FunctionInfo.h"
 #include "TestGen/TestCase.h"
 #include "Util/json_traits.hpp"
 
 namespace borealis {
 
+class FunctionInfoPass;
+    
 class TestSuite {
 private:
     typedef std::unordered_set<TestCase> TestSet;
@@ -36,9 +39,12 @@ public:
     void addTestSuite(const TestSuite& other);
     std::string getTestName() const;
     llvm::StringRef getFunctionName() const;
-    const llvm::Function* getFunction() const { return function; };
+    const llvm::Function* getFunction() const { return fi->getFunction(); }
+    const FunctionInfo* getFunctionInfo() const { return fi; }
     std::string getSuiteName() const;
     std::string getResultVariableName() const;
+    
+    void setFunctionInfo(FunctionInfoPass& fip);
 
     const_iterator begin() const { return tests.begin(); }
     const_iterator end() const { return tests.end(); }
@@ -48,6 +54,7 @@ private:
     void generateResultVariableName();
     
     const llvm::Function* function;
+    const FunctionInfo* fi;
     TestSet tests;
     std::string resultVariableName;
 };

@@ -41,7 +41,7 @@ public:
     virtual void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
     virtual ~FunctionInfoPass();
     
-    FunctionInfo getFunctionInfo(const llvm::Function* F) const;
+    const FunctionInfo& getFunctionInfo(const llvm::Function* F) const;
     
 private:
     TestManager * tm;

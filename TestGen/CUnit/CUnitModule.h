@@ -12,7 +12,7 @@
 #include "Passes/TestGeneration/TestDumpPass.h"
 #include "Passes/TestGeneration/TestManager.h"
 #include "TestGen/FunctionInfo.h"
-#include "TestGen/PrototypesInfo.h"
+#include "TestGen/FunctionsInfoData.h"
 
 namespace borealis {
 
@@ -22,7 +22,7 @@ class CUnitModule {
 
 public:
     typedef std::shared_ptr<CUnitModule> Ptr;
-    typedef DataProvider<PrototypesInfo> PrototypesLocation;
+    typedef DataProvider<FunctionsInfoData> FInfoData;
     typedef std::unordered_map<const llvm::Function*,
             TestSuite::Ptr> TestMap;
     typedef std::shared_ptr<TestMap> TestMapPtr;
@@ -32,10 +32,10 @@ public:
     CUnitModule(CUnitModule&& orig) = default;
     CUnitModule(const TestMap& testMap, const FunctionInfoPass& fip,
               const SlotTrackerPass& stp, const FunctionAnnotationTracker& fat,
-              PrototypesLocation& protoLoc, const std::string& moduleName,
+              FInfoData& fInfoData, const std::string& moduleName,
               const std::string& baseDirectory):
                   testMap(testMap), fip(fip), stp(stp), fat(fat),
-                  prototypes(protoLoc.provide()), moduleName(moduleName), baseDirectory(baseDirectory) {};
+                  fInfoData(fInfoData.provide()), moduleName(moduleName), baseDirectory(baseDirectory) {};
 
     friend std::ostream& operator<<(std::ostream& os, const CUnitModule& test);
 
@@ -46,7 +46,7 @@ private:
     const FunctionInfoPass& fip;
     const SlotTrackerPass& stp;
     const FunctionAnnotationTracker& fat;
-    PrototypesInfo prototypes;
+    FunctionsInfoData fInfoData;
     const std::string& moduleName;
     const std::string& baseDirectory;
 

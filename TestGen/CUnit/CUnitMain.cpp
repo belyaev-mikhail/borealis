@@ -3,6 +3,7 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/PathV2.h>
 
+#include "Passes/TestGeneration/TestDumpPass.h"
 #include "TestGen/CUnit/CUnitMain.h"
 #include "Util/filename_utils.h"
 #include "Util/util.h"
@@ -18,7 +19,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitMain& main) {
     auto* CUs = main.module.getNamedMetadata("llvm.dbg.cu");
     for (unsigned i = 0; i < CUs->getNumOperands(); i++) {
         llvm::DICompileUnit cu(CUs->getOperand(i));
-        auto cuName = llvm::sys::path::stem(cu.getFilename());
+        auto cuName = llvm::sys::path::stem(TestDumpPass::getCompileUnitFilename(cu.getFilename(), main.fInfoData)).str();
         os << "    run" << util::capitalize(cuName) << "Test();\n";
     }
     os << "}\n";
@@ -35,7 +36,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitHeader& hdr) {
     os << "#define " << includeGuard << "\n\n";
     for (unsigned i = 0; i < CUs->getNumOperands(); i++) {
         llvm::DICompileUnit cu(CUs->getOperand(i));
-        auto cuName = llvm::sys::path::stem(cu.getFilename());
+        auto cuName = llvm::sys::path::stem(TestDumpPass::getCompileUnitFilename(cu.getFilename(), hdr.fInfoData)).str();
         os << "int run" << util::capitalize(cuName) << "Test(void);\n";
     }
     os << "\n#endif /* " + includeGuard + " */\n";

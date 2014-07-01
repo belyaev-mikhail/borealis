@@ -6,8 +6,8 @@
  */
 
 #include "Passes/TestGeneration/FunctionInfoPass.h"
-#include "Passes/Tracker/SlotTrackerPass.h"
 #include "Passes/TestGeneration/TestGenerationPass.h"
+#include "Passes/Tracker/SlotTrackerPass.h"
 
 namespace borealis {
 
@@ -27,18 +27,35 @@ bool FunctionInfoPass::runOnModule(llvm::Module& M) {
     tm = &GetAnalysis<TestManager>::doit(this);
     auto * stp = &GetAnalysis<SlotTrackerPass>::doit(this);
     
+    std::unordered_map<std::string, FunctionInfo*> stubFuncs;
+    std::vector<FunctionInfo*> fakeFuncs;
+    
     for (const auto* f: tm->getFunctions()) {
         auto* st = stp->getSlotTracker(f);
         FunctionInfo fi(f, st);
-        functions.emplace(f, fi);
+        auto& fiInst = functions.emplace(f, fi).first->second;
+
+        if (fiInst.isStub()) {
+            stubFuncs.emplace("__" + fiInst.getRealName().str(), &fiInst);
+        }
+        
+        if (fiInst.isFake()) {
+            fakeFuncs.push_back(&fiInst);
+        }
     }
+    
+    for (auto sF: fakeFuncs) {
+        sF->setStubFunc(stubFuncs.at(sF->getRealName().str()));
+    }
+    
+    tm->setSuitesFunctionInfo(*this);
     
     return true;
 }
 
 FunctionInfoPass::~FunctionInfoPass() {}
 
-FunctionInfo FunctionInfoPass::getFunctionInfo(const llvm::Function* F) const {
+const FunctionInfo& FunctionInfoPass::getFunctionInfo(const llvm::Function* F) const {
     return functions.at(F);
 }
 

@@ -43,7 +43,7 @@
 #include "TestGen/CUnit/CUnitMain.h"
 #include "TestGen/CUnit/CUnitUserOracleStub.h"
 #include "TestGen/CUnit/CUnitMakefile.h"
-#include "TestGen/util.h"
+#include "TestGen/Util/util.h"
 
 
 
@@ -63,7 +63,7 @@ void TestDumpPass::getAnalysisUsage(llvm::AnalysisUsage & AU) const {
     AUX<TestManager>::addRequiredTransitive(AU);
     AUX<FunctionInfoPass>::addRequiredTransitive(AU);
     AUX<FunctionAnnotationTracker>::addRequiredTransitive(AU);
-    AUX<PrototypesLocation>::addRequiredTransitive(AU);
+    AUX<FInfoData>::addRequiredTransitive(AU);
 }
 
 bool TestDumpPass::runOnModule(llvm::Module & M) {
@@ -94,9 +94,9 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
     
     FunctionAnnotationTracker& FAT = GetAnalysis<FunctionAnnotationTracker>::doit(this);
 
-    auto * protoLoc = &GetAnalysis<PrototypesLocation>::doit(this);
-    prototypes = protoLoc->provide();
-
+    auto * fInfo = &GetAnalysis<FInfoData>::doit(this);
+    fInfoData = fInfo->provide();
+    
     auto* CUs = M.getNamedMetadata("llvm.dbg.cu");
     if ("json" == testFormat) {
         for (unsigned i = 0; i < CUs->getNumOperands(); i++) {
@@ -104,8 +104,8 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
             llvm::DICompileUnit cu(CUs->getOperand(i));
 
-            auto cuName = llvm::sys::path::stem(cu.getFilename());
-
+            auto cuName = llvm::sys::path::stem(getCompileUnitFilename(cu.getFilename()));
+            
             llvm::sys::path::append(testDir, testPrefixEntry.get("test") +  "_" +
                                     cuName + ".json");
 
@@ -139,7 +139,9 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
             llvm::SmallString<256> testDir(testDirectory);
 
             llvm::DICompileUnit cu(CUs->getOperand(i));
-            auto cuName = llvm::sys::path::stem(cu.getFilename());
+            
+            auto cuFilename = getCompileUnitFilename(cu.getFilename());
+            auto cuName = llvm::sys::path::stem(cuFilename);
 
             llvm::sys::path::append(testDir, testPrefixEntry.get("test") +  "_" +
                                     cuName + ".c");
@@ -149,13 +151,13 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
             baseDirectory = cu.getDirectory();
 
             makefile.setBaseDirectory(baseDirectory);
-            makefile.addSource(cu.getFilename());
+            makefile.addSource(cuFilename);
             makefile.addTest(testFileName);
             makefile.addOracle(oraclePath(cuName));
 
             testFile.open(testFileName.str(), std::ios::out);
             auto testMap = tm->getTestsForCompileUnit(cu);
-            testFile << util::CUnitModule(*testMap, *fip, *stp, FAT, *protoLoc, cuName, baseDirectory);
+            testFile << util::CUnitModule(*testMap, *fip, *stp, FAT, *fInfo, cuName, baseDirectory);
             testFile.close();
 
             auto funcs = util::viewContainer(*testMap)
@@ -174,22 +176,22 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
                     oraclePath(cuName),
                     srcLocs,
                     srcToInsert,
-                    *fip, *protoLoc,
-                    cuName.str(),
+                    *fip, *fInfo,
+                    cuName,
                     baseDirectory);
             util::createOrUpdateOracleFile<util::CUnitUserOracleStubHeader>(
                     oracleHeaderPath(cuName),
                     hdrLocs,
                     hdrToInsert,
-                    *fip, *protoLoc,
-                    cuName.str(),
+                    *fip, *fInfo,
+                    cuName,
                     baseDirectory);
         }
         
         makefile.addTest(testsMainFilename);
         
-        testsMainFile << util::CUnitMain(M);
-        testsHeaderFile << util::CUnitHeader(M);
+        testsMainFile << util::CUnitMain(M, *fInfo);
+        testsHeaderFile << util::CUnitHeader(M, *fInfo);
         testsMakefile << makefile;
 
         testsHeaderFile.close();
@@ -404,6 +406,22 @@ std::string TestDumpPass::generateUserOraclesStubs() {
 
 }
 
+std::string TestDumpPass::getCompileUnitFilename(const std::string& cuFilename, const FunctionsInfoData& fInfoData) {
+    auto result = cuFilename;
+    
+    for (const auto& mf: fInfoData.modifiedFiles) {
+        if (result == mf.second) {
+            result = mf.first;
+            break;
+        }
+    }
+
+    return result;
+}
+
+std::string TestDumpPass::getCompileUnitFilename(const std::string& cuFilename) {
+    return getCompileUnitFilename(cuFilename, fInfoData);
+}
 
 TestDumpPass::~TestDumpPass() {}
 

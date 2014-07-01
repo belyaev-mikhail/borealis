@@ -8,10 +8,9 @@
 #include <clang/AST/ASTConsumer.h>
 #include <clang/AST/ASTContext.h>
 #include <clang/Basic/SourceManager.h>
-#include <clang/Basic/FileManager.h>
 
 #include "Actions/FindPrototypesVisitor.h"
-#include "TestGen/PrototypesInfo.h"
+#include "TestGen/FunctionsInfoData.h"
 
 #ifndef FINDPROTOTYPESCONSUMER_H
 #define	FINDPROTOTYPESCONSUMER_H
@@ -22,7 +21,7 @@ class FindPrototypesConsumer : public clang::ASTConsumer {
 public:
 
     FindPrototypesConsumer(clang::ASTContext* context, clang::SourceManager* sm,
-            PrototypesInfo* prototypes) : visitor(context, sm, prototypes) {}
+            FunctionsInfoData* fInfoData) : visitor(context, sm, fInfoData) {}
 
     virtual void HandleTranslationUnit(clang::ASTContext& context) {
         visitor.TraverseDecl(context.getTranslationUnitDecl());

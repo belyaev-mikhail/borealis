@@ -74,17 +74,15 @@ class CUnitUserOracleStubModule {
 public:
     typedef std::shared_ptr<CUnitUserOracleStubModule> Ptr;
     typedef std::unordered_set<const llvm::Function*> FuncList;
-    typedef DataProvider<PrototypesInfo> prototypesLocation;
+    typedef DataProvider<FunctionsInfoData> FInfoData;
     CUnitUserOracleStubModule() = delete;
     CUnitUserOracleStubModule(const CUnitUserOracleStubModule& orig) = default;
     CUnitUserOracleStubModule(CUnitUserOracleStubModule&& orig) = default;
     CUnitUserOracleStubModule(const FuncList& funcs, const FunctionInfoPass& fip,
-            prototypesLocation& protoLoc, const std::string& moduleName,
+            FInfoData& fInfoData, const std::string& moduleName,
             const std::string& baseDirectory) :
-                funcs(funcs), fip(fip), moduleName(moduleName),
-                baseDirectory(baseDirectory) {
-        prototypes = protoLoc.provide();
-    };
+                funcs(funcs), fip(fip), fInfoData(fInfoData.provide()),
+                moduleName(moduleName), baseDirectory(baseDirectory) {}
     bool addToFile(const std::string& fileName, LocationAnalyseResult& oldLocs);
     friend std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubModule& module);
     template<class ToInsert, class Unit>
@@ -96,7 +94,7 @@ private:
     void writeIncludes(std::ostream& os, const IncludesLocationsInFile* oldLocs) const;
     const FuncList& funcs;
     const FunctionInfoPass& fip;
-    PrototypesInfo prototypes;
+    FunctionsInfoData fInfoData;
     const std::string& moduleName;
     const std::string& baseDirectory;
 };
@@ -105,16 +103,14 @@ class CUnitUserOracleStubHeader {
 public:
     typedef std::shared_ptr<CUnitUserOracleStubHeader> Ptr;
     typedef std::unordered_set<const llvm::Function*> FuncList;
-    typedef DataProvider<PrototypesInfo> prototypesLocation;
+    typedef DataProvider<FunctionsInfoData> FInfoData;
     CUnitUserOracleStubHeader() = delete;
     CUnitUserOracleStubHeader(const CUnitUserOracleStubHeader& orig) = default;
     CUnitUserOracleStubHeader(CUnitUserOracleStubHeader&& orig) = default;
     CUnitUserOracleStubHeader(const FuncList& funcs, const FunctionInfoPass& fip,
-            prototypesLocation& protoLoc, const std::string& moduleName, const std::string& baseDirectory) :
-                funcs(funcs), fip(fip), moduleName(moduleName),
-                baseDirectory(baseDirectory) {
-        prototypes = protoLoc.provide();
-    };
+            FInfoData& fInfoData, const std::string& moduleName, const std::string& baseDirectory) :
+                funcs(funcs), fip(fip), fInfoData(fInfoData.provide()),
+                moduleName(moduleName), baseDirectory(baseDirectory) {}
     bool addToFile(const std::string& fileName, LocationAnalyseResult& oldLocs);
     friend std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubHeader& hdr);
     template<class ToInsert, class Unit>
@@ -125,9 +121,9 @@ public:
 private:
     const FuncList& funcs;
     const FunctionInfoPass& fip;
+    FunctionsInfoData fInfoData;
     const std::string& moduleName;
     const std::string& baseDirectory;
-    PrototypesInfo prototypes;
 
 };
 } /* namespace util */
