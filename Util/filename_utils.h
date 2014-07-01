@@ -19,6 +19,8 @@ std::string getRelativePath(llvm::StringRef base, llvm::StringRef source, llvm::
 
 std::string getAbsolutePath(llvm::StringRef base, llvm::StringRef source);
 
+std::string normalizePath(llvm::StringRef path);
+
 } // namespace util
 } // namespace borealis
 
