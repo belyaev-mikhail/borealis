@@ -18,7 +18,7 @@
 #include "Driver/cl.h"
 #include "Driver/interviewer.h"
 #include "Logging/logger.hpp"
-#include "TestGen/PrototypesInfo.h"
+#include "TestGen/FunctionsInfoData.h"
 
 namespace borealis {
 namespace driver {
@@ -36,11 +36,11 @@ public:
     );
     ~clang_pipeline();
 
-    void invoke(const command&);
-    void invoke(const std::vector<command>&);
+    void invoke(const command&, bool forModify = false);
+    void invoke(const std::vector<command>&, bool forModify = false);
     AnnotatedModule::Ptr result();
     
-    PrototypesInfo* getPrototypesLocations();
+    FunctionsInfoData* getFunctionsInfoData();
 };
 
 } // namespace driver

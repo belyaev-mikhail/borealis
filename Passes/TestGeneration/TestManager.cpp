@@ -5,7 +5,8 @@
  * Created on 3 Март 2014 г., 16:51
  */
 
-#include "TestManager.h"
+#include "Passes/TestGeneration/FunctionInfoPass.h"
+#include "Passes/TestGeneration/TestManager.h"
 #include "Util/passes.hpp"
 
 #include "Util/macros.h"
@@ -72,6 +73,11 @@ std::vector<const llvm::Function*> TestManager::getFunctions() const {
     return result;
 }
 
+void TestManager::setSuitesFunctionInfo(FunctionInfoPass& fip) {
+    for (const auto& t : functionTests) {
+        t.second->setFunctionInfo(fip);
+    }
+}
 
 char TestManager::ID;
 static RegisterPass<TestManager>

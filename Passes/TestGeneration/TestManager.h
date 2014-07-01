@@ -16,6 +16,8 @@
 
 namespace borealis {
 
+class FunctionInfoPass;
+    
 class TestManager :
         public llvm::ImmutablePass,
         public borealis::logging::ClassLevelLogging<TestManager> {
@@ -39,6 +41,8 @@ public:
     TestSuite::Ptr getTests(const llvm::Function* F) const;
     TestMapPtr getTestsForCompileUnit(llvm::DICompileUnit& unit) const;
     std::vector<const llvm::Function*> getFunctions() const;
+    
+    void setSuitesFunctionInfo(FunctionInfoPass& fip);
 private:
     TestMap functionTests;
 

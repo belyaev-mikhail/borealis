@@ -15,6 +15,7 @@
 #include <llvm/Function.h>
 
 #include "Factory/Nest.h"
+#include "TestGen/TestCase.h"
 #include "Util/slottracker.h"
 
 namespace borealis {
@@ -22,8 +23,8 @@ namespace borealis {
 class FunctionInfo {
 public:
     FunctionInfo() = delete;
-    FunctionInfo(const FunctionInfo& orig) = default;
-    FunctionInfo(FunctionInfo&& orig) = default;
+    FunctionInfo(const FunctionInfo& orig);
+    FunctionInfo(FunctionInfo&& orig);
     
     FunctionInfo(const llvm::Function* f, SlotTracker* st);
     FunctionInfo(const llvm::Function* f, SlotTracker* st, FactoryNest* fn);
@@ -32,17 +33,41 @@ public:
         std::string name;
         llvm::DIType type;
         Term::Ptr term;
+        
+        FunctionInfo* parent;
+        int idx;
+        
+        std::string getValue(const TestCase& cs) const;
     };
     
-    llvm::StringRef getName() const {return f->getName();}
-    llvm::DIType getReturnType() const {return returnType;}
-    size_t getArgsCount() const {return args.size();}
-    ArgInfo getArg(int i) const {return args[i];}
-    std::vector<ArgInfo>::const_iterator begin() const {return args.begin();}
-    std::vector<ArgInfo>::const_iterator end() const {return args.end();}
+    llvm::StringRef getName() const;
+    llvm::DIType getReturnType() const;
+    size_t getArgsCount() const;
+    ArgInfo getArg(int i) const;
+    std::vector<ArgInfo>::const_iterator begin() const;
+    std::vector<ArgInfo>::const_iterator end() const;
+    const llvm::Function* getFunction() const;
+    
+    llvm::StringRef getRealName() const {return f->getName();}
+    size_t getRealArgsCount() const {return args.size();}
+    ArgInfo getRealArg(int i) const {return args[i];}
+    std::vector<ArgInfo>::const_iterator begin_real_args() const {return args.begin();}
+    std::vector<ArgInfo>::const_iterator end_real_args() const {return args.end();}
+    const llvm::Function* getRealFunction() const {return f;}
+    
+    bool isStub() const {return stub;}
+    
+    bool isFake() const {return fake;}
+    void setStubFunc(FunctionInfo* stub);
     
 private:
     const llvm::Function* f;
+    
+    bool stub;
+    FunctionInfo* realFunc;
+    
+    bool fake;
+    FunctionInfo* stubFunc;
     
     llvm::DIType returnType;
     std::vector<ArgInfo> args;

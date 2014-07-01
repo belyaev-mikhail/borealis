@@ -18,7 +18,7 @@
 #include "Passes/TestGeneration/TestManager.h"
 #include "Passes/TestGeneration/FunctionInfoPass.h"
 #include "Passes/Util/DataProvider.hpp"
-#include "TestGen/PrototypesInfo.h"
+#include "TestGen/FunctionsInfoData.h"
 #include "TestGen/SourceLocations.h"
 
 #include "Util/passes.hpp"
@@ -38,7 +38,7 @@ public:
 
     TestDumpPass();
     
-    typedef DataProvider<PrototypesInfo> PrototypesLocation;
+    typedef DataProvider<FunctionsInfoData> FInfoData;
     
     virtual bool runOnModule(llvm::Module & M) override;
     virtual void getAnalysisUsage(llvm::AnalysisUsage & AU) const override;
@@ -49,7 +49,7 @@ private:
     std::ofstream testFile;
     llvm::StringRef testFileName;
     llvm::StringRef baseDirectory;
-    PrototypesInfo prototypes;
+    FunctionsInfoData fInfoData;
 
 public:
     std::unordered_set<const llvm::Function*> getFunctionsToInsertOracles(
@@ -72,6 +72,8 @@ public:
     static std::string oracleHeaderPath(const std::string& moduleName);
     static std::string oracleFilePath(const std::string& moduleName);
     static std::string generateUserOraclesStubs();
+    static std::string getCompileUnitFilename(const std::string& cuFilename, const FunctionsInfoData& fInfoData);
+    std::string getCompileUnitFilename(const std::string& cuFilename);
 };
 
 } /* namespace borealis */

@@ -18,8 +18,15 @@ std::ostream& operator<<(std::ostream& os, const CUnitSuiteActivation& activatio
     if (activation.suite.empty()) {
         return os;
     }
+    
+    const auto& fi = *activation.suite.getFunctionInfo();
+    
+    if (fi.isStub()) {
+        return os;
+    }
+    
     os << "    CU_pSuite " << activation.suite.getSuiteName()
-               << " = CU_add_suite(\"Suite for " << activation.suite.getFunctionName()
+               << " = CU_add_suite(\"Suite for " << fi.getName()
                << "\", NULL, NULL);\n"
        << "    if (" << activation.suite.getSuiteName() << " == NULL) {\n"
        << "        CU_cleanup_registry();\n"
@@ -27,18 +34,21 @@ std::ostream& operator<<(std::ostream& os, const CUnitSuiteActivation& activatio
        << "    }\n";
     int id = 0;
     for (auto& t: activation.suite) {
-        os << CUnitCaseActivation(t, activation.suite, id++);
+        os << CUnitCaseActivation(t, activation.suite, activation.fip, id++);
     }
     return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const CUnitSuitePrototype& prototype) {
-    auto* function = prototype.suite.getFunction();
-    if (util::containsKey(prototype.prototypes->locations, function->getName().str())) {
+    const auto& fi = *prototype.suite.getFunctionInfo();
+    
+    if (fi.isStub()) {
         return os;
     }
     
-    auto fi = prototype.fip.getFunctionInfo(function);
+    if (util::containsKey(prototype.fInfoData->locations, fi.getName().str())) {
+        return os;
+    }
     
     std::string args;
     if (fi.getArgsCount() > 0) {

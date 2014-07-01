@@ -28,7 +28,7 @@ void CUnitModule::generateHeader(std::ostream& os) const {
     auto funcsView = util::view(testMap.begin(), testMap.end())
         .map([](decltype(*testMap.begin()) pair) { return pair.first; });
     auto includes = util::getIncludesForFunctions(
-            funcsView.begin(), funcsView.end(), prototypes);
+            funcsView.begin(), funcsView.end(), fInfoData);
 
     util::writeIncludes(includes.begin(), includes.end(), os, baseDirectory, moduleName);
     os << "\n";
@@ -48,7 +48,7 @@ void CUnitModule::generateHeader(std::ostream& os) const {
     for (const auto& pair: testMap) {
         auto testSuite = pair.second;
         if (testSuite != nullptr) {
-            os << CUnitSuitePrototype(*testSuite, fip, &prototypes);
+            os << CUnitSuitePrototype(*testSuite, fip, &fInfoData);
         }
     }
     os << "\n";
@@ -96,7 +96,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitModule& test) {
 
     for (auto& f: test.testMap) {
         auto testSuite = f.second;
-        os << CUnitSuiteActivation(*testSuite);
+        os << CUnitSuiteActivation(*testSuite, test.fip);
     }
 
     os << "    CU_basic_run_tests();\n";

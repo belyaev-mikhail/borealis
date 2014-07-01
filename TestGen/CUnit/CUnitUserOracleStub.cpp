@@ -63,7 +63,7 @@ bool updateOracleFile(Unit& unit,
 
     // Adding new includes
     auto includes = util::getIncludesForFunctions(unit.funcs.begin(), unit.funcs.end(),
-            unit.prototypes);
+            unit.fInfoData);
     auto filteredIncludes = util::view(includes.begin(), includes.end()).filter(
             [&oldLocs](decltype(*includes.begin()) inc) {
                 return std::find_if(oldLocs.includes_begin(),
@@ -173,10 +173,13 @@ bool CUnitUserOracleStubHeader::addToFile(const std::string& fileName,
 
 std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubModule& module) {
     auto includes = util::getIncludesForFunctions(module.funcs.begin(), module.funcs.end(),
-            module.prototypes);
+            module.fInfoData);
     util::writeIncludes(includes.begin(), includes.end(), os, module.baseDirectory, module.moduleName);
     os << "\n";
     for (auto& f: module.funcs) {
+        if (module.fip.getFunctionInfo(f).isStub()) {
+            continue;
+        }
         os << CUnitUserOracleStubDefinition(f, module.fip);
     }
     return os;
@@ -185,7 +188,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubModule& modu
 
 std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubHeader& hdr) {
     auto includes = util::getIncludesForFunctions(hdr.funcs.begin(), hdr.funcs.end(),
-            hdr.prototypes);
+            hdr.fInfoData);
     util::writeIncludes(includes.begin(), includes.end(), os, hdr.baseDirectory, hdr.moduleName);
     os << "\n";
     auto includeGuard =  util::toUpperCase(TestDumpPass::oracleHeaderPath(hdr.moduleName));
@@ -195,6 +198,9 @@ std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubHeader& hdr)
     os << "#ifndef " << includeGuard << "\n";
     os << "#define " << includeGuard << "\n\n";
     for (auto& f: hdr.funcs) {
+        if (hdr.fip.getFunctionInfo(f).isStub()) {
+            continue;
+        }
         os << CUnitUserOracleStubProto(f, hdr.fip);
     }
     os << "#endif /* " + includeGuard + " */\n";

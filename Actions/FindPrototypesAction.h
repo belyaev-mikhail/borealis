@@ -9,7 +9,7 @@
 #include <clang/Frontend/FrontendAction.h>
 
 #include "Actions/FindPrototypesConsumer.h"
-#include "TestGen/PrototypesInfo.h"
+#include "TestGen/FunctionsInfoData.h"
 #include "Util/util.hpp"
 
 #ifndef FINDPROTOTYPESACTION_H
@@ -20,17 +20,17 @@ namespace borealis {
 class FindPrototypesAction : public clang::ASTFrontendAction {
 public:
     
-    explicit FindPrototypesAction(PrototypesInfo* prototypes) : prototypes(prototypes) {}
+    explicit FindPrototypesAction(FunctionsInfoData* fInfoData) : fInfoData(fInfoData) {}
     
     virtual clang::ASTConsumer* CreateASTConsumer(clang::CompilerInstance& compiler,
                                                   llvm::StringRef inFile) {
         util::use(inFile);
         return new FindPrototypesConsumer(&compiler.getASTContext(),
-                &compiler.getSourceManager(), prototypes);
+                &compiler.getSourceManager(), fInfoData);
     }
     
 private:
-    PrototypesInfo* prototypes;
+    FunctionsInfoData* fInfoData;
     
 };
 

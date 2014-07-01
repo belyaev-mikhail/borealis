@@ -5,8 +5,10 @@
  *      Author: sam
  */
 
+#include <clang/Basic/SourceManager.h>
+
 #include "Codegen/intrinsics_manager.h"
-#include "TestGen/util.h"
+#include "TestGen/Util/util.h"
 
 namespace borealis {
 namespace util {
@@ -23,6 +25,10 @@ bool shouldSkipTest(llvm::Function* F) {
         return true;
 
     return false;
+}
+
+bool isSystem(const clang::SourceLocation& loc, clang::SourceManager& sm) {
+    return sm.isInSystemHeader(loc) || sm.isInSystemMacro(loc) || sm.isInExternCSystemHeader(loc);
 }
 
 } // namespace borealis

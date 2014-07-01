@@ -19,12 +19,13 @@ public:
     CUnitCaseActivation() = delete;
     CUnitCaseActivation(const CUnitCaseActivation& activation) = default;
     CUnitCaseActivation(CUnitCaseActivation&& activation) = default;
-    CUnitCaseActivation(const TestCase& cs, const TestSuite& suite, int id):
-        cs(cs), suite(suite), id(id) {};
+    CUnitCaseActivation(const TestCase& cs, const TestSuite& suite, const FunctionInfoPass& fip, int id):
+        cs(cs), suite(suite), fip(fip), id(id) {};
     friend std::ostream& operator<<(std::ostream& os, const CUnitCaseActivation& activation);
 private:
     const TestCase& cs;
     const TestSuite& suite;
+    const FunctionInfoPass& fip;
     int id;
 };
 

@@ -14,16 +14,6 @@
 namespace borealis {
 namespace util {
 
-static std::string formatToType(Term::Ptr trm, borealis::DIType type) {
-    while(DIAlias alias = type) type = alias.getOriginal();
-
-    if(auto integer = llvm::dyn_cast<OpaqueIntConstantTerm>(trm)) {
-        llvm::APInt app{ type.getSizeInBits(), integer->getValue(), !type.isUnsignedDIType() };
-        return app.toString(10, !type.isUnsignedDIType());
-    }
-    return trm->getName();
-}
-
 std::ostream& operator<<(std::ostream& os, const CUnitCaseActivation& activation) {
     auto& cs = activation.cs;
     auto& suite = activation.suite;
@@ -39,17 +29,22 @@ std::ostream& operator<<(std::ostream& os, const CUnitCaseActivation& activation
 std::ostream& operator<<(std::ostream& os, const CUnitCaseDefinition& definition) {
     auto& cs = definition.cs;
     auto& suite = definition.suite;
-    auto* function = suite.getFunction();
-    os << "void " << cs.getTestName(function, definition.id) << "(void) {\n";
+    const auto& fi = *suite.getFunctionInfo();
     
-    auto fi = definition.fip.getFunctionInfo(function);
+    if (fi.isStub()) {
+        return os;
+    }
+    
+    auto* function = fi.getFunction();
+    
+    os << "void " << cs.getTestName(function, definition.id) << "(void) {\n";
     
     std::string args;
     if (fi.getArgsCount() > 0) {
-        for (auto arg : fi) {
+        for (const auto& arg : fi) {
             os << "    "
                << getCType(arg.type, CTypeModifiersPolicy::DISCARD)
-               << " " << arg.name << " = " << formatToType(cs.getValue(arg.term), arg.type) << ";\n";
+               << " " << arg.name << " = " << arg.getValue(cs) << ";\n";
             args += arg.name + ", ";
         }
         args.erase(args.end() - 2, args.end());

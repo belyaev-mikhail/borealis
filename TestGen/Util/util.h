@@ -15,6 +15,8 @@ namespace util {
 
 bool shouldSkipTest(llvm::Function* F);
 
+bool isSystem(const clang::SourceLocation& loc, clang::SourceManager& sm);
+
 } // namespace borealis
 } // namespace util
 
