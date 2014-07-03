@@ -9,6 +9,7 @@
 #define MATHSAT_SYMBOLS_H_
 
 #include <gmp.h>
+#include <memory>
 #include <regex>
 
 #include "Factory/Nest.h"
@@ -121,7 +122,17 @@ public:
         msat_term_to_number(expr_.env(), expr_, q);
         // if q = m / 1, q is an integer
         if (mpz_get_si(mpq_denref(q)) == 1) {
-            return FN.Term->getIntTerm(mpz_get_si(mpq_numref(q)));
+            auto num = mpq_numref(q);
+            if (not mpz_fits_slong_p(num)) {
+                auto strSize =  mpz_sizeinbase(num, 10) + 2;
+                std::unique_ptr<char[]> str(new char[strSize]);
+                mpz_get_str(str.get(), 10, num);
+                auto val = util::fromString<long long>(str.get()).getUnsafe();
+                return FN.Term->getIntTerm(val);
+
+            } else {
+                return FN.Term->getIntTerm(mpz_get_si(num));
+            }
         } else {
             return FN.Term->getRealTerm(mpq_get_d(q));
         }

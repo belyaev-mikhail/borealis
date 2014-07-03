@@ -17,6 +17,7 @@
 #include <clang/CodeGen/CodeGenAction.h>
 #include <clang/Driver/Compilation.h>
 #include <clang/Driver/Driver.h>
+#include <clang/Driver/Options.h>
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Frontend/CompilerInvocation.h>
 #include <clang/Frontend/DiagnosticOptions.h>
@@ -64,6 +65,8 @@
 #include <llvm/Target/TargetMachine.h>
 
 #include <google/protobuf/stubs/common.h>
+#include <clang/Driver/ArgList.h>
+#include <clang/Driver/Arg.h>
 
 #include "Actions/comments.h"
 #include "Config/config.h"
@@ -77,6 +80,8 @@
 #include "Logging/logger.hpp"
 #include "Passes/Misc/PrinterPasses.h"
 #include "Passes/Util/DataProvider.hpp"
+#include "TestGen/FunctionsInfoData.h"
+#include "Util/filename_utils.h"
 #include "Util/util.h"
 
 namespace borealis {
@@ -154,12 +159,12 @@ int gestalt::main(int argc, const char** argv) {
 
     auto nativeClangCfg = borealis::config::StringConfigEntry("run", "clangExec");
 
-    interviewer nativeClang{ "clang", compilerArgs.data(), diags, nativeClangCfg };
-    nativeClang.assignLogger(*this);
+    interviewer nativeClangModify{ "clang", compilerArgs.data(), diags, nativeClangCfg };
+    nativeClangModify.assignLogger(*this);
 
-    auto compileCommands = nativeClang.getCompileCommands();
-
-    if (!skipClang) if (nativeClang.run() == interviewer::status::FAILURE) return E_CLANG_INVOKE;
+    auto compileCommands = nativeClangModify.getCompileCommands();
+    
+    if (!skipClang) if (nativeClangModify.run() == interviewer::status::FAILURE) return E_CLANG_INVOKE;
 
     // prep for borealis business
     // compile sources to llvm::Module
@@ -168,6 +173,46 @@ int gestalt::main(int argc, const char** argv) {
 
     clang_pipeline clang { "clang", diags };
     clang.assignLogger(*this);
+    
+    clang.invoke(compileCommands, true);
+    
+    auto fInfoData = clang.getFunctionsInfoData();
+    
+    auto newArgs = compilerArgs.data();
+    
+    auto argsCount = newArgs.size();
+    
+    std::unordered_set<std::string> incOpts;
+    
+    for (size_t i = 0; i < argsCount; i++) {
+        auto fIt = fInfoData->modifiedFiles.find(newArgs[i]);
+        if (fIt != fInfoData->modifiedFiles.end()) {
+            newArgs[i] = fIt->second.c_str();
+            
+            llvm::SmallString<256> incPath = llvm::StringRef(fIt->first);
+            
+            llvm::sys::path::remove_filename(incPath);
+            
+            auto incPathStr = incPath.str().str();
+            if (incPathStr.empty()) {
+                incOpts.insert("-I.");
+            } else {
+                incOpts.insert("-I" +  incPathStr);
+            }
+        }
+    }
+    
+    for (const auto& i: incOpts) {
+        newArgs.push_back(i.c_str());
+    }
+    
+    interviewer nativeClang{ "clang", newArgs, diags, nativeClangCfg };
+    nativeClang.assignLogger(*this);
+
+    compileCommands = nativeClang.getCompileCommands();
+    
+    if (!skipClang) if (nativeClang.run() == interviewer::status::FAILURE) return E_CLANG_INVOKE;
+    
     clang.invoke(compileCommands);
 
     auto annotatedModule = clang.result();
@@ -226,6 +271,8 @@ int gestalt::main(int argc, const char** argv) {
     for (StringRef pass : passes2run) {
         llvm.add(pass.str());
     }
+    
+    llvm.add(*fInfoData);
 
     llvm.run();
 

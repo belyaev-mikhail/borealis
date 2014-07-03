@@ -10,7 +10,12 @@
 
 #include "SMT/Z3/Divers.h"
 #include "SMT/Z3/Solver.h"
+#include "SMT/Z3/Unlogic/Unlogic.h"
 #include "Util/util.h"
+
+#include "Factory/Nest.h"
+#include "State/PredicateStateBuilder.h"
+#include "SMT/SMT.hpp"
 
 namespace {
 
@@ -98,13 +103,23 @@ TEST(ExecutionContext, mergeMemory) {
         Integer a = factory.getIntConst(0xdeadbeef);
         Integer b = factory.getIntConst(0xabcdefff);
         Integer z = factory.getIntConst(0xfeedbeef);
+        Real r = factory.getRealConst(1.125);
+        Real l = factory.getRealConst(2.0625);
+        Real x = factory.getRealConst(5.25);
+
 
         Integer cond = factory.getIntVar("cond");
         Bool cond_a = cond == a;
         Bool cond_b = cond == b;
+        Real rcond = factory.getRealVar("rcond");
+        Bool cond_r = rcond == r;
+        Bool cond_l = rcond == l;
 
         memory_with_a.writeExprToMemory(ptr, a);
+        memory_with_a.writeExprToFloatMemory(ptr, r);
         memory_with_b.writeExprToMemory(ptr, b);
+        memory_with_b.writeExprToFloatMemory(ptr, l);
+
 
         ExecutionContext merged = ExecutionContext::mergeMemory(
                 "merged",
@@ -115,6 +130,7 @@ TEST(ExecutionContext, mergeMemory) {
                 }
         );
         Integer c = merged.readExprFromMemory<Integer>(ptr);
+        Real d = merged.readExprFromFloatMemory(ptr);
 
         auto check_expr_in = [&](Bool e, Bool in)->bool {
 
@@ -163,6 +179,18 @@ TEST(ExecutionContext, mergeMemory) {
             c == a,   // expr
             cond == z // in
         ));
+        EXPECT_TRUE(check_expr_in(
+            d == r,   // expr
+            cond == a // in
+        ));
+        EXPECT_TRUE(check_expr_in(
+            d == l,   // expr
+            cond == b // in
+        ));
+        EXPECT_FALSE(check_expr_in(
+            d == r,   // expr
+            cond == z // in
+        ));
     }
 }
 
@@ -189,6 +217,22 @@ TEST(Solver, logic) {
         EXPECT_TRUE(check_expr( ! (b == c) ));
         EXPECT_TRUE(check_expr(   (b != c) ));
     }
+
+    {
+        auto r = Real::mkConst(ctx, 1.234e5);
+        auto l = Real::mkConst(ctx, 1.234e5);
+        auto k = Real::mkConst(ctx, 2.468e5);
+
+        EXPECT_TRUE(check_expr( r == l ));
+        EXPECT_TRUE(check_expr( (r + l) == k ));
+
+        if (auto d = llvm::dyn_cast<OpaqueFloatingConstantTerm>(z3_::unlogic::undoThat(r))) {
+            EXPECT_TRUE(1.234e5 == d->getValue());
+        } else {
+            EXPECT_TRUE(false);
+        }
+    }
+
 
     {
         auto d = BitVector<8>::mkConst(ctx, 0xff);

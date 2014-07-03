@@ -34,7 +34,7 @@ struct Z3 {
     // logic type to represent integers
     typedef z3_::logic::BitVector<Pointer::bitsize> Integer;
     // logic type to represent reals
-    typedef z3_::logic::BitVector<Pointer::bitsize> Real;
+    typedef z3_::logic::Real Real;
     // dynamic bit vector
     typedef z3_::logic::DynBitVectorExpr DynBV;
     // unsigned comparable type
@@ -52,6 +52,7 @@ struct Z3 {
 
     // memory array
     typedef z3_::logic::ScatterArray<Pointer, Byte::bitsize, ArrayImpl> MemArray;
+    typedef ArrayImpl<Real, Pointer> FloatMemArray;
 
 };
 

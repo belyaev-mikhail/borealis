@@ -86,6 +86,7 @@ ADDITIONAL_SOURCE_DIRS := \
 	$(PWD)/State \
 	$(PWD)/Statistics \
 	$(PWD)/Term \
+	$(PWD)/TestGen \
 	$(PWD)/Type \
 	$(PWD)/Util \
 	$(PWD)/lib/poolalloc/src

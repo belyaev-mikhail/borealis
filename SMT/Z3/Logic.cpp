@@ -147,6 +147,8 @@ REDEF_BOOL_BOOL_OP(!=)
 REDEF_BOOL_BOOL_OP(&&)
 REDEF_BOOL_BOOL_OP(||)
 
+#undef REDEF_BOOL_BOOL_OP
+
 Bool operator^(Bool bv0, Bool bv1) {
     z3::expr bv0_raw = z3impl::getExpr(bv0);
     z3::expr bv1_raw = z3impl::getExpr(bv1);
@@ -158,13 +160,93 @@ Bool operator^(Bool bv0, Bool bv1) {
     };
 }
 
-#undef REDEF_BOOL_BOOL_OP
-
-
 Bool operator!(Bool bv0) {
     return Bool{ !z3impl::getExpr(bv0), z3impl::getAxiom(bv0) };
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+namespace impl {
+    std::string doubleToZ3string(long double d) {
+        std::ostringstream oss;
+        oss.precision(std::numeric_limits< double >::digits10);
+        oss << std::fixed << d;
+        return oss.str();
+    }
+} // namespace impl
+
+#define REDEF_REAL_OP(OP, RET)\
+        RET operator OP(Real r0, Real r1) {\
+            return RET{ \
+                z3impl::getExpr(r0) OP z3impl::getExpr(r1), \
+                z3impl::spliceAxioms(r0, r1) \
+            }; \
+        }
+
+REDEF_REAL_OP(==, Bool)
+REDEF_REAL_OP(!=, Bool)
+REDEF_REAL_OP(>, Bool)
+REDEF_REAL_OP(>=, Bool)
+REDEF_REAL_OP(<=, Bool)
+REDEF_REAL_OP(<, Bool)
+
+REDEF_REAL_OP(+, Real)
+REDEF_REAL_OP(-, Real)
+REDEF_REAL_OP(*, Real)
+REDEF_REAL_OP(/, Real)
+REDEF_REAL_OP(|, Real)
+REDEF_REAL_OP(&, Real)
+REDEF_REAL_OP(^, Real)
+
+#undef REDEF_REAL_OP
+
+
+#define REDEF_REAL_INT_BIN_OP(OP) \
+        Real operator OP(Real r, int v) {\
+            return Real{ \
+                z3impl::getExpr(r) OP v, \
+                z3impl::getAxiom(r) \
+            }; \
+        }
+
+REDEF_REAL_INT_BIN_OP(+)
+REDEF_REAL_INT_BIN_OP(-)
+REDEF_REAL_INT_BIN_OP(*)
+REDEF_REAL_INT_BIN_OP(/)
+
+#undef REDEF_REAL_INT_BIN_OP
+
+
+#define REDEF_INT_REAL_BIN_OP(OP) \
+        Real operator OP(int v, Real r) {\
+            return Real{ \
+                v OP z3impl::getExpr(r), \
+                z3impl::getAxiom(r) \
+            }; \
+        }
+
+REDEF_INT_REAL_BIN_OP(+)
+REDEF_INT_REAL_BIN_OP(-)
+REDEF_INT_REAL_BIN_OP(*)
+REDEF_INT_REAL_BIN_OP(/)
+
+#undef REDEF_INT_REAL_BIN_OP
+
+
+#define REDEF_UN_OP(OP) \
+        Real operator OP(Real r) { \
+            return Real{ \
+                OP z3impl::getExpr(r), \
+                z3impl::getAxiom(r) \
+            }; \
+        }
+
+REDEF_UN_OP(~)
+REDEF_UN_OP(-)
+
+#undef REDEF_UN_OP
+
+////////////////////////////////////////////////////////////////////////////////
 
 #define REDEF_OP(OP) \
     Bool operator OP(const ComparableExpr& lhv, const ComparableExpr& rhv) { \
@@ -172,7 +254,7 @@ Bool operator!(Bool bv0) {
             z3impl::getExpr(lhv) OP z3impl::getExpr(rhv), \
             z3impl::spliceAxioms(lhv, rhv) \
         }; \
-    }
+    }\
 
     REDEF_OP(<)
     REDEF_OP(>)
@@ -183,6 +265,7 @@ Bool operator!(Bool bv0) {
 
 #undef REDEF_OP
 
+////////////////////////////////////////////////////////////////////////////////
 
 #define BIN_OP(OP) \
     DynBitVectorExpr operator OP(const DynBitVectorExpr& lhv, const DynBitVectorExpr& rhv) { \

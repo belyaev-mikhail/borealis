@@ -19,19 +19,26 @@
 #include <llvm/Bitcode/ReaderWriter.h>
 #include <llvm/Linker.h>
 #include <llvm/Support/Host.h>
-#include <llvm/Support/TypeBuilder.h>
 #include <llvm/Support/IRReader.h>
+#include <llvm/Support/Path.h>
+#include <llvm/Support/TypeBuilder.h>
 #include <llvm/Support/SourceMgr.h>
 
 #include <fstream>
 #include <unordered_map>
+#include <clang/Basic/FileManager.h>
+#include <llvm/Support/FileSystem.h>
 
+#include "Actions/FindPrototypesAction.h"
+#include "Actions/SplitStructAction.h"
 #include "Codegen/intrinsics_manager.h"
 #include "Codegen/llvm.h"
 #include "Driver/clang_pipeline.h"
 #include "Factory/Nest.h"
 #include "Passes/Transform/MetaInserter.h"
 #include "Protobuf/Converter.hpp"
+#include "TestGen/FunctionsInfoData.h"
+#include "Util/filename_utils.h"
 #include "Util/locations.h"
 #include "Util/util.hpp"
 
@@ -96,6 +103,7 @@ struct clang_pipeline::impl: public DelegateLogging {
     clang::CompilerInstance ci;
     std::unordered_map<std::string, AnnotatedModule::Ptr> fileCache;
     FactoryNest fn;
+    FunctionsInfoData fInfoData;
 
     impl(clang_pipeline* abs): DelegateLogging(*abs), fn(nullptr) {};
 
@@ -147,6 +155,68 @@ struct clang_pipeline::impl: public DelegateLogging {
         fileCache[ci.getFrontendOpts().OutputFile] = AnnotatedModule::Ptr{
             new AnnotatedModule{ module, annotations }
         };
+    }
+    
+    void modifyCompile(const clang::driver::InputArgList& args) {
+        std::unique_ptr<CompilerInvocation> CI { new CompilerInvocation() };
+        std::vector<const char*> ccArgs;
+        ccArgs.reserve(args.getNumInputArgStrings());
+
+        for (auto i = 0U, size = args.getNumInputArgStrings(); i < size; ++i) {
+            auto* arg = args.getArgString(i);
+            ccArgs.push_back(arg);
+        }
+
+        {
+            auto info = infos();
+            info << "cc " << borealis::util::head(ccArgs);
+            for (const auto& arg: borealis::util::tail(ccArgs)) info << " " << arg;
+            info << endl;
+        }
+
+        ASSERT(
+            CompilerInvocation::CreateFromArgs(
+                *CI,
+                const_cast<const char**>(ccArgs.data()),
+                const_cast<const char**>(ccArgs.data()) + ccArgs.size(),
+                ci.getDiagnostics()
+            ),
+            "No CompilerInvocation for clang_pipeline"
+        );
+
+        ci.setInvocation(CI.release());
+        ASSERT(ci.hasInvocation(), "No CompilerInvocation for clang_pipeline");
+
+        ci.getCodeGenOpts().EmitDeclMetadata = true;
+        ci.getCodeGenOpts().DebugInfo = true;
+        ci.getDiagnosticOpts().ShowCarets = false;
+
+        clang::EmitLLVMOnlyAction compile_to_llvm{ &llvm::getGlobalContext() };
+        borealis::FindPrototypesAction findPrototypes(&fInfoData);
+
+        ASSERTC(ci.ExecuteAction(compile_to_llvm));
+        std::shared_ptr<llvm::Module> module{ compile_to_llvm.takeModule() };
+
+        postProcessClangGeneratedModule(ci.getSourceManager(), *module);
+
+        ASSERTC(ci.ExecuteAction(findPrototypes));
+        
+        clang::Rewriter rewriter(ci.getSourceManager(), ci.getLangOpts());
+        borealis::SplitStructAction splitStruct(&rewriter);
+        ASSERTC(ci.ExecuteAction(splitStruct));
+        
+        for (const auto& b: util::view(rewriter.buffer_begin(), rewriter.buffer_end())) {
+            std::string origName = ci.getSourceManager().getFileEntryForID(b.first)->getName();
+            
+            int fd;
+            llvm::SmallString<256> filePath;
+            llvm::sys::fs::unique_file("borealis/" + llvm::sys::path::stem(origName).str() + "-%%%%%%%%.c", fd, filePath, true);
+            
+            fInfoData.modifiedFiles.emplace(origName, filePath.str().str());
+            
+            llvm::raw_fd_ostream outFile(fd, true);
+            b.second.write(outFile);
+        }
     }
 
     void claim(const std::string& fname) {
@@ -282,19 +352,26 @@ clang_pipeline::clang_pipeline(
     pimpl->ci.setDiagnostics(diags.getPtr());
 }
 
-void clang_pipeline::invoke(const command& cmd) {
-    if (cmd.operation == command::COMPILE) pimpl->compile(*cmd.cl);
-    else if (cmd.operation == command::LINK) pimpl->link(*cmd.cl);
+void clang_pipeline::invoke(const command& cmd, bool forModify) {
+    
+    if (cmd.operation == command::COMPILE) {
+        if (forModify) pimpl->modifyCompile(*cmd.cl);
+        else pimpl->compile(*cmd.cl);
+    } else if (cmd.operation == command::LINK) pimpl->link(*cmd.cl);
 }
 
-void clang_pipeline::invoke(const std::vector<command>& cmds) {
+void clang_pipeline::invoke(const std::vector<command>& cmds, bool forModify) {
     for (const auto& cmd: cmds) {
-        invoke(cmd);
+        invoke(cmd, forModify);
     }
 }
 
 AnnotatedModule::Ptr clang_pipeline::result() {
     return pimpl->result();
+}
+
+FunctionsInfoData* clang_pipeline::getFunctionsInfoData() {
+    return &pimpl->fInfoData;
 }
 
 } // namespace driver

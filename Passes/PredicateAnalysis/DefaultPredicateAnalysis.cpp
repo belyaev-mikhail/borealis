@@ -60,7 +60,7 @@ public:
         );
     }
 
-    void visitICmpInst(llvm::ICmpInst& I) {
+    void visitCmpInst(llvm::CmpInst& I) {
         using llvm::ConditionType;
         using llvm::Value;
 
@@ -179,24 +179,32 @@ public:
         Value* lhv = &I;
         Value* rhv = I.getOperand(0);
 
-        Term::Ptr lhvt = pass->FN.Term->getValueTerm(lhv);
-        Term::Ptr rhvt = pass->FN.Term->getValueTerm(rhv);
+        auto cast = I.getOpcode();
 
-        if (isa<type::Bool>(lhvt->getType()) && ! isa<type::Bool>(rhvt->getType())) {
-            rhvt = pass->FN.Term->getCmpTerm(
-                ConditionType::NEQ,
-                rhvt,
-                pass->FN.Term->getIntTerm(0ULL)
-            );
-        } else if (! isa<type::Bool>(lhvt->getType()) && isa<type::Bool>(rhvt->getType())) {
-            lhvt = pass->FN.Term->getCmpTerm(
-                ConditionType::NEQ,
-                lhvt,
-                pass->FN.Term->getIntTerm(0ULL)
-            );
+        Term::Ptr lhvt;
+        Term::Ptr rhvt;
+        if (Instruction::CastOps::FPToSI ==  cast) {
+            lhvt = pass->FN.Term->getValueTerm(lhv, Signedness::Signed);
+        } else {
+            lhvt = pass->FN.Term->getValueTerm(lhv, Signedness::Unsigned);
         }
 
-        pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
+        if (Instruction::CastOps::SIToFP ==  cast) {
+            rhvt = pass->FN.Term->getValueTerm(rhv, Signedness::Signed);
+        } else {
+            rhvt = pass->FN.Term->getValueTerm(rhv, Signedness::Unsigned);
+        }
+
+        if (Instruction::CastOps::FPExt == cast) {
+            pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
+                lhvt,
+                rhvt,
+                pass->SLT->getLocFor(&I)
+            );
+            return;
+        }
+
+        pass->PM[&I] = pass->FN.Predicate->getCastPredicate(
             lhvt,
             rhvt,
             pass->SLT->getLocFor(&I)
