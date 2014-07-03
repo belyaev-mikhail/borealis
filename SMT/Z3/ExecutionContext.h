@@ -216,7 +216,6 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 
     Integer getBound(const Pointer& p) {
-
         auto base = factory.getPtrVar("$$__base__$$(" + p.getName() + ")");
         auto zero = factory.getIntConst(0);
 

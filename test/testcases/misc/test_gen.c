@@ -11,9 +11,9 @@ int foo(int a, char b) {
     return c;
 }
 
-// @requires a > 0
-// @ensures \result > 0
-// @ensures \result == (a + 1)
+// // @requires a > 0
+// // @ensures \result > 0
+// // @ensures \result == (a + 1)
 int bar(int a) {
     return ++a;
 }
@@ -27,7 +27,14 @@ int bar(int a) {
     }
 */
 
-int main() {
-    int res = foo(1, 2);
-    return bar(res);
+// // @requires arg > 0
+// // @requires arg < 15
+// // @ensures \result > 0
+long factoriall(long arg) {
+    int i; // This causes a bug in test generation
+    long res = 1;
+    for (i = arg; i > 0; i--) {
+        res *= i;
+    }
+    return res;
 }

@@ -195,11 +195,8 @@ public:
             rhvt = pass->FN.Term->getValueTerm(rhv, Signedness::Unsigned);
         }
 
-        if (Instruction::CastOps::FPToSI == cast ||
-            Instruction::CastOps::FPToUI == cast ||
-            Instruction::CastOps::SIToFP == cast ||
-            Instruction::CastOps::UIToFP == cast) {
-            pass->PM[&I] = pass->FN.Predicate->getCastPredicate(
+        if (Instruction::CastOps::FPExt == cast) {
+            pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
                 lhvt,
                 rhvt,
                 pass->SLT->getLocFor(&I)
@@ -207,10 +204,10 @@ public:
             return;
         }
 
-        pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
-            lhvt,
-            rhvt,
-            pass->SLT->getLocFor(&I)
+        pass->PM[&I] = pass->FN.Predicate->getCastPredicate(
+           lhvt,
+           rhvt,
+           pass->SLT->getLocFor(&I)
         );
     }
 

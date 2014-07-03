@@ -65,6 +65,8 @@ public:
 
 template<class Impl>
 struct SMTImpl<Impl, CastPredicate> {
+
+public:
     static Bool<Impl> doit(
             const CastPredicate* p,
             ExprFactory<Impl>& ef,
@@ -72,30 +74,47 @@ struct SMTImpl<Impl, CastPredicate> {
         TRACE_FUNC;
         USING_SMT_IMPL(Impl);
 
+        using llvm::isa;
+
         auto to = p->getToType();
         auto from = p->getFromType();
 
         auto lhvz3 = SMT<Impl>::doit(p->getLhv(), ef, ctx);
         auto rhvz3 = SMT<Impl>::doit(p->getRhv(), ef, ctx);
 
-        if (llvm::isa<type::Bool>(to) && not llvm::isa<type::Bool>(from)) {
-            auto rhvi = rhvz3.template to<Integer>().getUnsafe();
+        if (isa<type::Bool>(to) && not isa<type::Bool>(from)) {
+            auto rhvi = rhvz3.template to<Long>().getUnsafe();
             return ef.getIntConst(0) != rhvi;
-        } else if (not llvm::isa<type::Bool>(to) && llvm::isa<type::Bool>(from)) {
-            auto lhvi = lhvz3.template to<Integer>().getUnsafe();
+        } else if (not isa<type::Bool>(to) && isa<type::Bool>(from)) {
+            auto lhvi = lhvz3.template to<Long>().getUnsafe();
             return lhvi != ef.getIntConst(0);
-        } else if (llvm::isa<type::Float>(to) && llvm::isa<type::Integer>(from)) {
+        } else if (isa<type::Float>(to) && isa<type::Integer>(from)) {
             auto lhvr = lhvz3.template to<Real>().getUnsafe();
             auto rhvi = rhvz3.template to<Integer>().getUnsafe();
             auto isSigned = (TypeUtils::isSigned(from) == llvm::Signedness::Signed);
             auto rhvr = Dynamic::template convert<Integer, Real>(rhvi, isSigned);
             return lhvr == rhvr;
-        } else if (llvm::isa<type::Integer>(to) && llvm::isa<type::Float>(from)) {
+        } else if (isa<type::Integer>(to) && isa<type::Float>(from)) {
             auto lhvi = lhvz3.template to<Integer>().getUnsafe();
             auto rhvr = rhvz3.template to<Real>().getUnsafe();
             auto isSigned = (TypeUtils::isSigned(to) == llvm::Signedness::Signed);
             auto rhvi = Dynamic::template convert<Real, Integer>(rhvr, isSigned);
             return lhvi == rhvi;
+        } else if (isa<type::Integer>(to) && isa<type::Integer>(from)) {
+            auto isFromLong = ( ef.sizeForType(from) > 32 );
+            auto isToLong = ( ef.sizeForType(to) > 32 );
+            if (isFromLong && not isToLong) {
+                auto lhvi = lhvz3.template to<Integer>().getUnsafe();
+                auto rhvl = rhvz3.template to<Long>().getUnsafe();
+                auto rhvi = Dynamic::template convert<Long, Integer>(rhvl);
+                return lhvi == rhvi;
+            } else if (not isFromLong && isToLong) {
+                auto lhvl = lhvz3.template to<Long>().getUnsafe();
+                auto rhvi = rhvz3.template to<Integer>().getUnsafe();
+                auto isSigned = (TypeUtils::isSigned(from) == llvm::Signedness::Signed);
+                auto rhvl = Dynamic::template convert<Integer, Long>(rhvi, isSigned);
+                return lhvl == rhvl;
+            }
         }
         return lhvz3 == rhvz3;
     }
