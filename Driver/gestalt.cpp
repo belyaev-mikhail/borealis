@@ -194,7 +194,9 @@ int gestalt::main(int argc, const char** argv) {
             llvm::sys::path::remove_filename(incPath);
             
             auto incPathStr = incPath.str().str();
-            if (!incPathStr.empty()) {
+            if (incPathStr.empty()) {
+                incOpts.insert("-I.");
+            } else {
                 incOpts.insert("-I" +  incPathStr);
             }
         }
