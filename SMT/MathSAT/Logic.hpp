@@ -243,7 +243,7 @@ struct generator< BitVector<N> > {
 
     static mathsat::Sort sort(mathsat::Env& env) { return env.bv_sort(N); }
     static bool check(mathsat::Expr e) { return e.is_bv() && e.get_sort().bv_size() == N; }
-    static mathsat::Expr mkConst(mathsat::Env& env, int n) { return env.bv_val(n, N); }
+    static mathsat::Expr mkConst(mathsat::Env& env, long long n) { return env.bv_val(n, N); }
 };
 } // namespace impl
 
@@ -258,18 +258,39 @@ ASPECT_END
 template<size_t N0, size_t N1>
 inline
 GUARDED(BitVector<N0>, N0 == N1)
-grow(BitVector<N1> bv) {
+grow(BitVector<N1> bv, bool isSigned = true) {
+    util::use(isSigned);
     return bv;
 }
 
 template<size_t N0, size_t N1>
 inline
 GUARDED(BitVector<N0>, N0 > N1)
-grow(BitVector<N1> bv) {
+grow(BitVector<N1> bv, bool isSigned = true) {
+    mathsat::Env env = msatimpl::getEnvironment(bv);
+
+    if (isSigned) {
+        return BitVector<N0>{
+            mathsat::Expr(env, msat_make_bv_sext(env, N0-N1, msatimpl::getExpr(bv))),
+            msatimpl::getAxiom(bv)
+        };
+    } else {
+        return BitVector<N0>{
+            mathsat::Expr(env, msat_make_bv_zext(env, N0-N1, msatimpl::getExpr(bv))),
+            msatimpl::getAxiom(bv)
+        };
+    }
+}
+
+template<size_t N0, size_t N1>
+inline
+GUARDED(BitVector<N0>, N0 < N1)
+grow(BitVector<N1> bv, bool isSigned = true) {
+    util::use(isSigned);
     mathsat::Env env = msatimpl::getEnvironment(bv);
 
     return BitVector<N0>{
-        mathsat::Expr(env, msat_make_bv_sext(env, N0-N1, msatimpl::getExpr(bv))),
+        mathsat::Expr(env, msat_make_bv_extract(env, N0-1, 0, msatimpl::getExpr(bv))),
         msatimpl::getAxiom(bv)
     };
 }
@@ -631,6 +652,16 @@ struct Converter{
         BYE_BYE(To, "Unknown conversion!");
     }
 };
+
+
+template<size_t N0, size_t N1>
+struct Converter<BitVector<N0>, BitVector<N1>>{
+    static BitVector<N1> convert(BitVector<N0> expr, bool isSigned = true) {
+        util::use(isSigned);
+        return grow<N1, N0>(expr, isSigned);
+    }
+};
+
 
 template<typename From>
 struct Converter<From, From>{

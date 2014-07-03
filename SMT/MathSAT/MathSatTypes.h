@@ -32,6 +32,8 @@ struct MathSAT {
     typedef mathsat_::logic::BitVector<Pointer::bitsize> Byte;
     // logic type to represent integers
     typedef mathsat_::logic::BitVector<Pointer::bitsize> Integer;
+    // logic type to represent integers
+    typedef mathsat_::logic::BitVector<Integer::bitsize * 2> Long;
     // logic type to represent reals
     typedef mathsat_::logic::BitVector<Pointer::bitsize> Real;
     // dynamic bit vector

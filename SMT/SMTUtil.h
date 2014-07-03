@@ -22,6 +22,7 @@ BRING_FROM_IMPL(Bool)
 BRING_FROM_IMPL(Byte)
 BRING_FROM_IMPL(Pointer)
 BRING_FROM_IMPL(Integer)
+BRING_FROM_IMPL(Long)
 BRING_FROM_IMPL(Real)
 BRING_FROM_IMPL(DynBV)
 BRING_FROM_IMPL(Dynamic)
@@ -38,6 +39,7 @@ BRING_FROM_IMPL(FloatMemArray)
     typedef typename IMPL::Byte Byte; \
     typedef typename IMPL::Pointer Pointer; \
     typedef typename IMPL::Integer Integer; \
+    typedef typename IMPL::Long Long; \
     typedef typename IMPL::Real Real; \
     typedef typename IMPL::DynBV DynBV; \
     typedef typename IMPL::UComparable UComparable; \

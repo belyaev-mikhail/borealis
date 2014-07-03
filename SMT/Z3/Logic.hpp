@@ -333,7 +333,7 @@ struct generator< BitVector<N> > {
 
     static z3::sort sort(z3::context& ctx) { return ctx.bv_sort(N)  ; }
     static bool check(z3::expr e) { return e.is_bv() && e.get_sort().bv_size() == N; }
-    static z3::expr mkConst(z3::context& ctx, int n) { return ctx.bv_val(n, N); }
+    static z3::expr mkConst(z3::context& ctx, long long n) { return ctx.bv_val(n, N); }
 };
 } // namespace impl
 
@@ -348,18 +348,39 @@ ASPECT_END
 template<size_t N0, size_t N1>
 inline
 GUARDED(BitVector<N0>, N0 == N1)
-grow(BitVector<N1> bv) {
+grow(BitVector<N1> bv, bool isSigned = true) {
+    util::use(isSigned);
     return bv;
 }
 
 template<size_t N0, size_t N1>
 inline
 GUARDED(BitVector<N0>, N0 > N1)
-grow(BitVector<N1> bv) {
+grow(BitVector<N1> bv, bool isSigned = true) {
+    z3::context& ctx = z3impl::getContext(bv);
+
+    if (isSigned) {
+        return BitVector<N0>{
+            z3::to_expr(ctx, Z3_mk_sign_ext(ctx, N0-N1, z3impl::getExpr(bv))),
+            z3impl::getAxiom(bv)
+        };
+    } else {
+        return BitVector<N0>{
+            z3::to_expr(ctx, Z3_mk_zero_ext(ctx, N0-N1, z3impl::getExpr(bv))),
+            z3impl::getAxiom(bv)
+        };
+    }
+}
+
+template<size_t N0, size_t N1>
+inline
+GUARDED(BitVector<N0>, N0 < N1)
+grow(BitVector<N1> bv, bool isSigned = true) {
+    util::use(isSigned);
     z3::context& ctx = z3impl::getContext(bv);
 
     return BitVector<N0>{
-        z3::to_expr(ctx, Z3_mk_sign_ext(ctx, N0-N1, z3impl::getExpr(bv))),
+        z3::to_expr(ctx, Z3_mk_extract(ctx, N0-1, 0, z3impl::getExpr(bv))),
         z3impl::getAxiom(bv)
     };
 }
@@ -838,6 +859,14 @@ struct Converter<Real, BitVector<N>>{
     static BitVector<N> convert(Real expr, bool isSigned = true) {
         util::use(isSigned);
         return BitVector<N>{z3impl::toBV(z3impl::getExpr(expr), N)};
+    }
+};
+
+template<size_t N0, size_t N1>
+struct Converter<BitVector<N0>, BitVector<N1>>{
+    static BitVector<N1> convert(BitVector<N0> expr, bool isSigned = true) {
+        util::use(isSigned);
+        return grow<N1, N0>(expr, isSigned);
     }
 };
 

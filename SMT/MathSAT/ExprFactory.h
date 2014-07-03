@@ -23,15 +23,25 @@ class ExprFactory {
 
 public:
 
+#include "Util/macros.h"
     static size_t sizeForType(Type::Ptr type) {
         using llvm::isa;
-        return isa<type::Integer>(type) ? Integer::bitsize :
-               isa<type::Pointer>(type) ? Pointer::bitsize :
-               isa<type::Array>(type)   ? Pointer::bitsize : // FIXME: ???
-               isa<type::Float>(type)   ? Real::bitsize :
-               util::sayonara<size_t>(__FILE__, __LINE__, __PRETTY_FUNCTION__,
-                        "Cannot acquire bitsize for type " + util::toString(*type));
+        using llvm::dyn_cast;
+        if (auto integer = dyn_cast<type::Integer>(type))
+            if (integer->getBitsize() > Integer::bitsize)
+                return Long::bitsize;
+            else
+                return Integer::bitsize;
+        else if (isa<type::Pointer>(type))
+            return Pointer::bitsize;
+        else if (isa<type::Array>(type))
+            return Pointer::bitsize; // FIXME: ???
+        else if (isa<type::Float>(type))
+            return Real::bitsize;
+        BYE_BYE(size_t,  "Cannot acquire bitsize for type "
+                          + util::toString(*type));
     }
+#include "Util/unmacros.h"
 
     ExprFactory();
     ExprFactory(const ExprFactory&) = delete;
@@ -54,6 +64,8 @@ public:
     // Integers
     Integer getIntVar(const std::string& name, bool fresh = false);
     Integer getIntConst(int v);
+    Long getLongVar(const std::string& name, bool fresh = false);
+    Long getLongConst(long long v);
     // Reals
     Real getRealVar(const std::string& name, bool fresh = false);
     Real getRealConst(int v);

@@ -68,6 +68,15 @@ Z3::Integer ExprFactory::getIntConst(int v) {
     return Integer::mkConst(*ctx, v);
 }
 
+Z3::Long ExprFactory::getLongVar(const std::string& name, bool fresh) {
+    return fresh ? Long::mkFreshVar(*ctx, name) : Long::mkVar(*ctx, name);
+}
+
+Z3::Long ExprFactory::getLongConst(long long v) {
+    return Long::mkConst(*ctx, v);
+}
+
+
 Z3::Real ExprFactory::getRealVar(const std::string& name, bool fresh) {
     return fresh ? Real::mkFreshVar(*ctx, name) : Real::mkVar(*ctx, name);
 }
@@ -135,10 +144,14 @@ Z3::Dynamic ExprFactory::getVarByTypeAndName(
         const std::string& name,
         bool fresh) {
     using llvm::isa;
+    using llvm::dyn_cast;
 
-    if (isa<type::Integer>(type))
-        return getIntVar(name, fresh);
-    else if (isa<type::Float>(type))
+    if (auto integer = dyn_cast<type::Integer>(type)) {
+        if (integer->getBitsize() > Z3::Integer::bitsize)
+            return getLongVar(name, fresh);
+        else
+            return getIntVar(name, fresh);
+    } else if (isa<type::Float>(type))
         return getRealVar(name, fresh);
     else if (isa<type::Bool>(type))
         return getBoolVar(name, fresh);
