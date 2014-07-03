@@ -169,6 +169,24 @@ void FunctionInfo::setStubFunc(FunctionInfo* stub) {
     }
 }
 
+std::string getStructureValue(const DIStructType& s, std::vector<FunctionInfo::ArgInfo>::iterator& argIt, const TestCase& cs) {
+    auto mems = s.getMembers();
+    std::string result;
+    if (mems.getNumElements() > 0) {
+        for (unsigned i = 0; i < mems.getNumElements(); i++) {
+            if (mems.getElement(i).getType().getTag() == llvm::dwarf::DW_TAG_structure_type) {
+                auto s = DIStructType(mems.getElement(i).getType());
+                result += getStructureValue(s, argIt, cs) + ", ";
+            } else {
+                result += formatToType(cs.getValue(argIt->term), argIt->type) + ", ";
+                argIt++;
+            }
+        }
+        result.erase(result.end() - 2, result.end());
+    }
+    return "{" + result + "}";
+}
+
 std::string FunctionInfo::ArgInfo::getValue(const TestCase& cs) const {
     if (parent->isStub()) {
         int realIdx = 0;
@@ -185,16 +203,8 @@ std::string FunctionInfo::ArgInfo::getValue(const TestCase& cs) const {
         
         if (type.getTag() == llvm::dwarf::DW_TAG_structure_type) {
             auto s = DIStructType(type);
-            auto mems = s.getMembers();
-            std::string result;
-            if (mems.getNumElements() > 0) {
-                for (unsigned i = 0; i < mems.getNumElements(); i++) {
-                    auto arg = parent->realFunc->args[realIdx + i];
-                    result += formatToType(cs.getValue(arg.term), arg.type) + ", ";
-                }
-                result.erase(result.end() - 2, result.end());
-            }
-            return "{" + result + "}";
+            auto argIt = parent->realFunc->args.begin() + realIdx;
+            return getStructureValue(s, argIt, cs);
         } else {
             auto arg = parent->realFunc->args[realIdx];
             return formatToType(cs.getValue(arg.term), arg.type);
