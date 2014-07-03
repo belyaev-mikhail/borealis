@@ -36,4 +36,9 @@ PredicateState::Ptr PredicateStateFactory::Basic() {
     return basic;
 }
 
+PredicateState::Ptr PredicateStateFactory::SliceOn(PredicateState::Ptr what, PredicateState::Ptr where) {
+    if(*what == *where) return Basic();
+    return what->sliceOn(where);
+}
+
 } /* namespace borealis */

@@ -10,6 +10,7 @@
 
 #include <utility>
 #include <vector>
+#include <unordered_map>
 
 namespace borealis {
 namespace util {
@@ -44,8 +45,6 @@ struct hasher {
 };
 
 typedef hasher<3, 17> defaultHasher;
-
-
 
 namespace impl_ {
 
@@ -102,6 +101,7 @@ struct hash< const std::vector<T> > {
         return res;
     }
 };
+
 
 template<>
 struct hash<std::tuple<>> {

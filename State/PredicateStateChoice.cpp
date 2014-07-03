@@ -93,7 +93,10 @@ PredicateState::Ptr PredicateStateChoice::sliceOn(PredicateState::Ptr base) cons
     slices.reserve(choices.size());
 
     std::transform(choices.begin(), choices.end(), std::back_inserter(slices),
-        [&](const PredicateState::Ptr& choice) { return choice->sliceOn(base); });
+        [&](const PredicateState::Ptr& choice) {
+            return PredicateState::sliceOn(choice, base);
+        }
+    );
 
     if (std::all_of(slices.begin(), slices.end(),
         [](const PredicateState::Ptr& slice) { return slice != nullptr; }

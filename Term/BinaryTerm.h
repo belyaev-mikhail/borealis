@@ -137,6 +137,27 @@ struct SMTImpl<Impl, BinaryTerm> {
             }
         }
 
+        auto lhvr = lhvz3.template to<Real>();
+        auto rhvr = rhvz3.template to<Real>();
+
+        if(!lhvr.empty() && !rhvr.empty()) {
+            auto lhv = lhvr.getUnsafe();
+            auto rhv = rhvr.getUnsafe();
+
+            switch(t->getOpcode()) {
+            case llvm::ArithType::ADD:  return lhv +  rhv;
+            case llvm::ArithType::BAND: return lhv &  rhv;
+            case llvm::ArithType::BOR:  return lhv |  rhv;
+            case llvm::ArithType::DIV:  return lhv /  rhv;
+            case llvm::ArithType::MUL:  return lhv *  rhv;
+            case llvm::ArithType::SUB:  return lhv -  rhv;
+            case llvm::ArithType::XOR:  return lhv ^  rhv;
+            default: BYE_BYE(Dynamic,
+                             "Unsupported floating opcode: " +
+                             llvm::arithString(t->getOpcode()));
+            }
+        }
+
         BYE_BYE(Dynamic, "Unreachable!");
     }
 };

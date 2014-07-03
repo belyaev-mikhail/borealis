@@ -79,7 +79,7 @@ PredicateState::Ptr PredicateStateChain::sliceOn(PredicateState::Ptr on) const {
         return curr;
     }
 
-    auto slice = base->sliceOn(on);
+    auto slice = PredicateState::sliceOn(base, on);
     if (slice != nullptr) {
         return Simplified(new Self{ slice, curr });
     }
