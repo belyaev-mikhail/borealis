@@ -63,6 +63,10 @@ std::string getRelativePath(llvm::StringRef base, llvm::StringRef source, llvm::
         result += *sEnd;
     }
     
+    if (result.empty()) {
+        result = ".";
+    }
+    
     return result;
 }
 
