@@ -177,9 +177,6 @@ std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubModule& modu
     util::writeIncludes(includes.begin(), includes.end(), os, module.baseDirectory, module.moduleName);
     os << "\n";
     for (auto& f: module.funcs) {
-        if (module.fip.getFunctionInfo(f).isStub()) {
-            continue;
-        }
         os << CUnitUserOracleStubDefinition(f, module.fip);
     }
     return os;
@@ -198,9 +195,6 @@ std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubHeader& hdr)
     os << "#ifndef " << includeGuard << "\n";
     os << "#define " << includeGuard << "\n\n";
     for (auto& f: hdr.funcs) {
-        if (hdr.fip.getFunctionInfo(f).isStub()) {
-            continue;
-        }
         os << CUnitUserOracleStubProto(f, hdr.fip);
     }
     os << "#endif /* " + includeGuard + " */\n";
