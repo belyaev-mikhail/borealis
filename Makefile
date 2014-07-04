@@ -2,6 +2,8 @@
 # Defs
 ################################################################################
 
+CC := clang
+
 CXX := clang++
 
 RTTIFLAG := -fno-rtti
@@ -298,7 +300,7 @@ clean.yaml-cpp:
 
 .dbglog:
 	[[ -e $(DBGLOG_DIR)/Makefile ]] && $(MAKE) CXX=$(CXX) -C $(DBGLOG_DIR) distclean || true
-	cd $(DBGLOG_DIR); $(DBGLOG_DIR)/configure --prefix=$(DBGLOG_DIST)
+	cd $(DBGLOG_DIR); CC=$(CC) CXX=$(CXX) $(DBGLOG_DIR)/configure --prefix=$(DBGLOG_DIST)
 	$(MAKE) CXX=$(CXX) -C $(DBGLOG_DIR) install
 	touch $@
 
@@ -310,7 +312,7 @@ clean.dbglog:
 
 .cfgparser: .dbglog
 	[[ -e $(CFGPARSER_DIR)/Makefile ]] && $(MAKE) CXX=$(CXX) -C $(CFGPARSER_DIR) distclean || true
-	cd $(CFGPARSER_DIR); $(CFGPARSER_DIR)/configure --prefix=$(CFGPARSER_DIR)/dist --with-dbglog=$(DBGLOG_DIST)
+	cd $(CFGPARSER_DIR); CC=$(CC) CXX=$(CXX) $(CFGPARSER_DIR)/configure --prefix=$(CFGPARSER_DIR)/dist --with-dbglog=$(DBGLOG_DIST)
 	$(MAKE) CXX=$(CXX) -C $(CFGPARSER_DIR) install
 	touch $@
 
