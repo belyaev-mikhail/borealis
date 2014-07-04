@@ -31,7 +31,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitCaseDefinition& definition
     auto& suite = definition.suite;
     const auto& fi = *suite.getFunctionInfo();
     
-    if (fi.isStub()) {
+    if (fi.isStub() || fi.hasPtrArgs()) {
         return os;
     }
     

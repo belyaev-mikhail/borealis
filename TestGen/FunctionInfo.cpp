@@ -23,7 +23,8 @@ static std::string formatToType(Term::Ptr trm, borealis::DIType type) {
 }
 
 FunctionInfo::FunctionInfo(const FunctionInfo& orig) : f(orig.f), stub(orig.stub),
-        fake(orig.fake), stubFunc(orig.stubFunc), returnType(orig.returnType), args(orig.args) {
+        fake(orig.fake), stubFunc(orig.stubFunc), returnType(orig.returnType),
+        args(orig.args), hasPtrs(orig.hasPtrs) {
     for (auto& a: args) {
         a.parent = this;
     }
@@ -32,7 +33,7 @@ FunctionInfo::FunctionInfo(const FunctionInfo& orig) : f(orig.f), stub(orig.stub
 FunctionInfo::FunctionInfo(FunctionInfo&& orig) : f(std::move(orig.f)),
         stub(std::move(orig.stub)), fake(std::move(orig.fake)),
         stubFunc(std::move(orig.stubFunc)), returnType(std::move(orig.returnType)),
-        args(std::move(orig.args)) {
+        args(std::move(orig.args)), hasPtrs(std::move(orig.hasPtrs)) {
     for (auto& a: args) {
         a.parent = this;
     }
@@ -47,6 +48,24 @@ FunctionInfo::FunctionInfo(const llvm::Function* f, SlotTracker* st, FactoryNest
     initialize(st, fn);
 }
 
+bool checkStructForPtrs(const DIStructType& s) {
+    auto mems = s.getMembers();
+    for (unsigned i = 0; i < mems.getNumElements(); i++) {
+        auto memType = mems.getElement(i).getType();
+        switch (memType.getTag()) {
+            case llvm::dwarf::DW_TAG_structure_type:
+                if (checkStructForPtrs(DIStructType(memType))) {
+                    return true;
+                }
+                break;
+            case llvm::dwarf::DW_TAG_pointer_type:
+                return true;
+                break;
+        }
+    }
+    return false;
+}
+
 void FunctionInfo::initialize(SlotTracker* st, FactoryNest* fn) {
     st->initialize();
     
@@ -56,6 +75,8 @@ void FunctionInfo::initialize(SlotTracker* st, FactoryNest* fn) {
     
     fake = f->getName().startswith("__");
     
+    hasPtrs = false;
+    
     for (const auto& mdn: util::view(st->mdn_begin(), st->mdn_end())) {
         auto d = llvm::DIDescriptor(mdn.first);
         if (d.getTag() == llvm::dwarf::DW_TAG_arg_variable) {
@@ -63,8 +84,16 @@ void FunctionInfo::initialize(SlotTracker* st, FactoryNest* fn) {
             auto sp = llvm::DISubprogram(v.getContext());
             if (sp.getFunction() == f) {
                 args.emplace(v.getArgNumber() - 1, std::make_pair(v.getName().str(), v.getType()));
-                if (v.getType().getTag() == llvm::dwarf::DW_TAG_structure_type) {
-                    stub = true;
+                switch (v.getType().getTag()) {
+                    case llvm::dwarf::DW_TAG_structure_type:
+                        stub = true;
+                        if (checkStructForPtrs(DIStructType(v.getType()))) {
+                            hasPtrs = true;
+                        }
+                        break;
+                    case llvm::dwarf::DW_TAG_pointer_type:
+                        hasPtrs = true;
+                        break;
                 }
             }
         } else if (d.getTag() == llvm::dwarf::DW_TAG_subprogram) {
@@ -77,11 +106,6 @@ void FunctionInfo::initialize(SlotTracker* st, FactoryNest* fn) {
     }
     
     this->args.resize(args.size());
-    
-    /*llvm::dbgs() << f->getName() << ": " << util::isTypesEqual(returnType, f->getReturnType()) << "\n";
-    if (f->getReturnType()->isPointerTy()) {
-        llvm::dbgs() << ": " << util::isTypesEqual(returnType, f->getReturnType()->getPointerElementType());
-    }*/
     
     for (unsigned i = 0; i < args.size(); i++) {
         auto& _args = args[i];
@@ -161,6 +185,14 @@ const llvm::Function* FunctionInfo::getFunction() const {
         return f;
     }
 }
+
+bool FunctionInfo::hasPtrArgs() const {
+    if (fake) {
+        return stubFunc->hasPtrs;
+    } else {
+        return hasPtrs;
+    }
+};
 
 void FunctionInfo::setStubFunc(FunctionInfo* stub) {
     if (fake && stub->stub) {
