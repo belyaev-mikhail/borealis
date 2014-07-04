@@ -208,7 +208,8 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 std::unordered_set<const llvm::Function*> TestDumpPass::getFunctionsToInsertOracles(
         LocationAnalyseResult* locations, TestManager::TestMap* testMap) {
     auto funcs = util::viewContainer(*testMap)
-                 .filter([](decltype(*testMap->begin()) pair) { return !pair.second->getFunctionInfo()->isFake(); })
+                 .filter([](decltype(*testMap->begin()) pair) { return !pair.second->getFunctionInfo()->isFake() &&
+                                                                       !pair.second->getFunctionInfo()->hasPtrArgs(); })
                  .map([](decltype(*testMap->begin()) pair) { return pair.first; });
     std::unordered_set<const llvm::Function*> functionOracles;
     if ("preserve" == generateUserOraclesStubs()) {

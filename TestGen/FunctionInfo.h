@@ -60,6 +60,9 @@ public:
     bool isFake() const {return fake;}
     void setStubFunc(FunctionInfo* stub);
     
+    bool hasRealPtrArgs() const {return hasPtrs;}
+    bool hasPtrArgs() const;
+    
 private:
     const llvm::Function* f;
     
@@ -71,6 +74,8 @@ private:
     
     llvm::DIType returnType;
     std::vector<ArgInfo> args;
+    
+    bool hasPtrs;
     
     void initialize(SlotTracker* st, FactoryNest* fn);
 

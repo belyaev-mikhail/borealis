@@ -21,7 +21,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitSuiteActivation& activatio
     
     const auto& fi = *activation.suite.getFunctionInfo();
     
-    if (fi.isStub()) {
+    if (fi.isStub() || fi.hasPtrArgs()) {
         return os;
     }
     
@@ -42,7 +42,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitSuiteActivation& activatio
 std::ostream& operator<<(std::ostream& os, const CUnitSuitePrototype& prototype) {
     const auto& fi = *prototype.suite.getFunctionInfo();
     
-    if (fi.isStub()) {
+    if (fi.isStub() || fi.hasPtrArgs()) {
         return os;
     }
     
