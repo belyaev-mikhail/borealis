@@ -839,7 +839,7 @@ namespace z3impl {
     }
 }
 
-template<typename From, typename To>
+template<typename From, typename To, typename Enable = void>
 struct Converter{
     static To convert(From expr, bool isSigned = true){
         util::use(expr); util::use(isSigned);
@@ -863,7 +863,7 @@ struct Converter<Real, BitVector<N>>{
 };
 
 template<size_t N0, size_t N1>
-struct Converter<BitVector<N0>, BitVector<N1>>{
+struct Converter<BitVector<N0>, BitVector<N1>, typename std::enable_if<N0 != N1>::type>{
     static BitVector<N1> convert(BitVector<N0> expr, bool isSigned = true) {
         util::use(isSigned);
         return grow<N1, N0>(expr, isSigned);

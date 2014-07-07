@@ -112,15 +112,6 @@ public:
                 new InequalityPredicate(lhv, rhv, loc, type));
     }
 
-    Predicate::Ptr getCastPredicate(
-            Term::Ptr lhv,
-            Term::Ptr rhv,
-            const Locus& loc = Locus()) {
-        return Predicate::Ptr(
-                new CastPredicate(lhv, rhv, loc));
-    }
-
-
 
     Predicate::Ptr getGlobalsPredicate(
             const std::vector<Term::Ptr>& globals,

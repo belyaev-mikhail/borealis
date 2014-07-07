@@ -13,7 +13,6 @@
 #include "Protobuf/Gen/Predicate/Predicate.pb.h"
 
 #include "Protobuf/Gen/Predicate/AllocaPredicate.pb.h"
-#include "Protobuf/Gen/Predicate/CastPredicate.pb.h"
 #include "Protobuf/Gen/Predicate/DefaultSwitchCasePredicate.pb.h"
 #include "Protobuf/Gen/Predicate/EqualityPredicate.pb.h"
 #include "Protobuf/Gen/Predicate/GlobalsPredicate.pb.h"
@@ -72,34 +71,6 @@ struct protobuf_traits_impl<AllocaPredicate> {
         auto origNumElems = TermConverter::fromProtobuf(fn, p.orignumelements());
         return Predicate::Ptr{
             new AllocaPredicate(lhv, numElems, origNumElems, base->getLocation(), base->getType())
-        };
-    }
-};
-
-template<>
-struct protobuf_traits_impl<CastPredicate> {
-
-    typedef protobuf_traits<Term> TermConverter;
-
-    static std::unique_ptr<proto::CastPredicate> toProtobuf(const CastPredicate& p) {
-        auto res = util::uniq(new proto::CastPredicate());
-        res->set_allocated_lhv(
-            TermConverter::toProtobuf(*p.getLhv()).release()
-        );
-        res->set_allocated_rhv(
-            TermConverter::toProtobuf(*p.getRhv()).release()
-        );
-        return std::move(res);
-    }
-
-    static Predicate::Ptr fromProtobuf(
-            const FactoryNest& fn,
-            Predicate::Ptr base,
-            const proto::CastPredicate& p) {
-        auto lhv = TermConverter::fromProtobuf(fn, p.lhv());
-        auto rhv = TermConverter::fromProtobuf(fn, p.rhv());
-        return Predicate::Ptr{
-            new CastPredicate(lhv, rhv, base->getLocation())
         };
     }
 };

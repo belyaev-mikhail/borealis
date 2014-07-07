@@ -441,6 +441,14 @@ public:
         };
     }
 
+    Term::Ptr getCastTerm(llvm::CastType opc, Term::Ptr rhv) {
+        return Term::Ptr{
+            new CastTerm(
+                opc, rhv
+            )
+        };
+    }
+
     static TermFactory::Ptr get(
             SlotTracker* st,
             TypeFactory::Ptr TyF) {
