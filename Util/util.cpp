@@ -12,6 +12,8 @@
 #include <cstdlib>
 #include <unordered_set>
 
+#include "Type/Type.def"
+#include "Type/TypeFactory.h"
 #include "Util/util.h"
 
 #include "Util/macros.h"
@@ -211,6 +213,34 @@ std::string unaryArithString(UnaryArithType opCode) {
     case UnaryArithType::BNOT: return "~";
     case UnaryArithType::NEG:  return "-";
     default: BYE_BYE(std::string, "Unreachable!");
+    }
+}
+
+CastType castType(Instruction::CastOps llops, Type* lhvt, Type* rhvt) {
+    typedef llvm::Instruction::CastOps ops;
+
+    int lhvSize = lhvt->getPrimitiveSizeInBits();
+    int rhvSize = rhvt->getPrimitiveSizeInBits();
+    switch (llops) {
+    case ops::Trunc:    return CastType::LongToInt;
+    case ops::ZExt:     return CastType::IntToULong;
+    case ops::SExt:     return CastType::IntToSLong;
+    case ops::FPToUI:   return lhvSize > 32 ?
+                            CastType::FloatToUInt : CastType::FloatToULong;
+    case ops::FPToSI:   return lhvSize > 32 ?
+                            CastType::FloatToSInt : CastType::FloatToSLong;
+    case ops::UIToFP:   return rhvSize > 32 ?
+                            CastType::UIntToFloat : CastType::ULongToFloat;
+    case ops::SIToFP:   return rhvSize > 32 ?
+                            CastType::SIntToFloat : CastType::SLongToFloat;
+    case ops::FPTrunc:  return CastType::NoCast;
+    case ops::FPExt:    return CastType::NoCast;
+    case ops::PtrToInt: return lhvSize > 32 ?
+                            CastType::NoCast : CastType::IntToSLong;
+    case ops::IntToPtr: return rhvSize > 32 ?
+                            CastType::NoCast : CastType::LongToInt;
+    case ops::BitCast:  return CastType::NoCast;
+    default: BYE_BYE(CastType, "Unreachable!");
     }
 }
 

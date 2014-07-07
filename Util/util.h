@@ -157,6 +157,43 @@ enum class Signedness {
     Signed   = 2
 };
 
+
+/** protobuf -> Util/CastType.proto
+package borealis.proto;
+
+enum CastType {
+    SIntToFloat  = 0;
+    SLongToFloat = 1;
+    UIntToFloat  = 2;
+    ULongToFloat = 3;
+    FloatToSInt  = 4;
+    FloatToSLong = 5;
+    FloatToUInt  = 6;
+    FloatToULong = 7;
+    LongToInt    = 8;
+    IntToSLong   = 9;
+    IntToULong   = 10;
+    NoCast       = 11;
+}
+
+**/
+enum class CastType {
+    SIntToFloat  = 0,
+    SLongToFloat = 1,
+    UIntToFloat  = 2,
+    ULongToFloat = 3,
+    FloatToSInt  = 4,
+    FloatToSLong = 5,
+    FloatToUInt  = 6,
+    FloatToULong = 7,
+    LongToInt    = 8,
+    IntToSLong   = 9,
+    IntToULong   = 10,
+    NoCast       = 11
+};
+
+CastType castType(Instruction::CastOps llops, Type* lhvt, Type* rhvt);
+
 ////////////////////////////////////////////////////////////////////////////////
 
 llvm::Constant* getBoolConstant(bool b);

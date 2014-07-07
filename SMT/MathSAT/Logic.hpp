@@ -645,26 +645,23 @@ ASPECT_END
 
 ////////////////////////////////////////////////////////////////////////////////
 
-template<typename From, typename To>
-struct Converter{
+template<typename From, typename To, typename Enable = void>
+struct Converter {
     static To convert(From expr, bool isSigned = true){
         util::use(expr); util::use(isSigned);
         BYE_BYE(To, "Unknown conversion!");
     }
 };
 
-
 template<size_t N0, size_t N1>
-struct Converter<BitVector<N0>, BitVector<N1>>{
+struct Converter<BitVector<N0>, BitVector<N1>, typename std::enable_if<N0 != N1>::type> {
     static BitVector<N1> convert(BitVector<N0> expr, bool isSigned = true) {
-        util::use(isSigned);
         return grow<N1, N0>(expr, isSigned);
     }
 };
 
-
 template<typename From>
-struct Converter<From, From>{
+struct Converter<From, From> {
     static From convert(From expr, bool isSigned = true) {
         util::use(isSigned);
         return expr;
