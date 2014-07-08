@@ -114,6 +114,19 @@ struct TypeUtils {
         }
     }
 
+    static bool isSame(Type::Ptr lhvt, Type::Ptr rhvt) {
+        using llvm::dyn_cast;
+        if (lhvt->getClassTag() == rhvt->getClassTag()) {
+            if (auto lhvi = dyn_cast<type::Integer>(lhvt)) {
+                if (auto rhvi = dyn_cast<type::Integer>(rhvt)) {
+                    return lhvi->getBitsize() == rhvi->getBitsize();
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
 };
 
 } // namespace borealis
