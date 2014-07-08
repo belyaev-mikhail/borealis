@@ -13,8 +13,6 @@
 
 namespace borealis {
 
-#include "Util/macros.h"
-
 /** protobuf -> Term/CastTerm.proto
 import "Term/Term.proto";
 import "Util/CastType.proto";
@@ -79,35 +77,12 @@ public:
     }
 
 
-    static Type::Ptr resultTypeForCast(llvm::CastType opCode, Type::Ptr rhvt) {
-        using llvm::CastType;
-        using llvm::Signedness;
-        auto TyF = TypeFactory::get();
-
-        switch(opCode) {
-        case CastType::SIntToFloat:     case CastType::SLongToFloat :
-        case CastType::UIntToFloat:     case CastType::ULongToFloat :
-                return TyF->getFloat();
-        case CastType::FloatToSInt:     return TyF->getInteger(32, Signedness::Signed);
-        case CastType::FloatToSLong:    return TyF->getInteger(64, Signedness::Signed);
-        case CastType::FloatToUInt:     return TyF->getInteger(32, Signedness::Unsigned);
-        case CastType::FloatToULong:    return TyF->getInteger(64, Signedness::Unsigned);
-        case CastType::LongToInt: {
-            auto rhvSign = Signedness::Unknown;
-            if (auto integer = llvm::dyn_cast<borealis::type::Integer>(rhvt)) {
-                rhvSign = integer->getSignedness();
-            }
-            return TyF->getInteger(32, rhvSign);
-        }
-        case CastType::IntToSLong:      return TyF->getInteger(64, Signedness::Signed);
-        case CastType::IntToULong:      return TyF->getInteger(64, Signedness::Unsigned);
-        case CastType::NoCast:          return rhvt;
-        default: BYE_BYE(Type::Ptr, "Unreachable!");
-        }
-    }
+    static Type::Ptr resultTypeForCast(llvm::CastType opCode, Type::Ptr rhvt);
+    static llvm::CastType castForTypes(Type::Ptr lhvt, Type::Ptr rhvt);
 
 };
 
+#include "Util/macros.h"
 
 template<class Impl>
 struct SMTImpl<Impl, CastTerm> {

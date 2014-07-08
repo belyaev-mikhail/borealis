@@ -280,6 +280,8 @@ public:
         auto lhvt = trm->getLhv()->getType();
         auto rhvt = trm->getRhv()->getType();
 
+        Term::Ptr pterm = trm;
+
         // XXX: Tricky stuff follows...
         //      CmpTerm from annotations is signed by default,
         //      need to change that to unsigned when needed
@@ -293,14 +295,43 @@ public:
                         match->first->getSignedness() != llvm::Signedness::Signed
                     )
             ) {
-                return factory().getCmpTerm(
-                    llvm::forceUnsigned(trm->getOpcode()),
-                    trm->getLhv(),
-                    trm->getRhv()
+                pterm = factory().getCmpTerm(
+                                llvm::forceUnsigned(trm->getOpcode()),
+                                trm->getLhv(),
+                                trm->getRhv()
                 );
             }
         }
 
+        if (not TypeUtils::isSame(lhvt, rhvt)) {
+            auto cmpTerm = llvm::dyn_cast<CmpTerm>(pterm);
+            return FN.Term->getCmpTerm(
+                        cmpTerm->getOpcode(),
+                        cmpTerm->getLhv(),
+                        FN.Term->getCastTerm(
+                                CastTerm::castForTypes(lhvt, rhvt),
+                                cmpTerm->getRhv())
+                        );
+        }
+        return pterm;
+    }
+
+
+    Term::Ptr transformBinaryTerm(BinaryTermPtr trm) {
+        using llvm::isa;
+
+        auto lhvt = trm->getLhv()->getType();
+        auto rhvt = trm->getRhv()->getType();
+
+        if (not TypeUtils::isSame(lhvt, rhvt)) {
+            return FN.Term->getBinaryTerm(
+                        trm->getOpcode(),
+                        trm->getLhv(),
+                        FN.Term->getCastTerm(
+                                CastTerm::castForTypes(lhvt, rhvt),
+                                trm->getRhv())
+                        );
+        }
         return trm;
     }
 };
