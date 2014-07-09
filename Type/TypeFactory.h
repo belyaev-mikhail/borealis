@@ -136,9 +136,10 @@ public:
         static std::unordered_map<const llvm::Type*,std::string> unnamedStructs;
         static long literalStructs = 0;
 
-        if(type->isIntegerTy())
-            return (type->getIntegerBitWidth() == 1) ? getBool() : getInteger(32, sign); // XXX: 32 -> ???
-        else if(type->isFloatingPointTy())
+        if(type->isIntegerTy()){
+            auto width = type->getIntegerBitWidth();
+            return (width == 1) ? getBool() : getInteger(width, sign);
+        } else if(type->isFloatingPointTy())
             return getFloat();
         else if(type->isPointerTy())
             return getPointer(cast(type->getPointerElementType()));

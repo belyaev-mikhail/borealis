@@ -50,15 +50,24 @@ public:
 
 };
 
+
+#include "Util/macros.h"
 template<class Impl>
 struct SMTImpl<Impl, OpaqueIntConstantTerm> {
     static Dynamic<Impl> doit(
             const OpaqueIntConstantTerm* t,
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>*) {
-        return ef.getIntConst(t->getValue());
+        if (auto integer = llvm::dyn_cast<type::Integer>(t->getType())) {
+            if (integer->getBitsize() > 32)     // XXX
+                return ef.getLongConst(t->getValue());
+            else
+                return ef.getIntConst(t->getValue());
+        }
+        BYE_BYE(Dynamic<Impl>, "Unreachable!");
     }
 };
+#include "Util/unmacros.h"
 
 } /* namespace borealis */
 

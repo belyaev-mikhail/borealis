@@ -6,7 +6,6 @@
 #undef INCLUDE_MODE
 
 #include "Predicate/AllocaPredicate.h"
-#include "Predicate/CastPredicate.h"
 #include "Predicate/DefaultSwitchCasePredicate.h"
 #include "Predicate/EqualityPredicate.h"
 #include "Predicate/GlobalsPredicate.h"
@@ -22,7 +21,6 @@
 #endif
 
 HANDLE_PREDICATE(Alloca, AllocaPredicate)
-HANDLE_PREDICATE(Cast, CastPredicate)
 HANDLE_PREDICATE(DefaultSwitchCase, DefaultSwitchCasePredicate)
 HANDLE_PREDICATE(Equality, EqualityPredicate)
 HANDLE_PREDICATE(Globals, GlobalsPredicate)

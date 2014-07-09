@@ -33,12 +33,14 @@ double cosinus(double x) {
     return s;
 }
 
-
+// @ensures (\result <= 1) && (\result >= -1)
 float sine(float x) {
     float res = 0, pow = x, fact = 1;
     int ii;
     if (x == M_PI) {
         return 0;
+    } else if (x == M_PI / 2) {
+        return 1;
     }
     for(ii = 0; ii < 100; ++ii) {
         float i = (float) ii;
