@@ -387,5 +387,22 @@ prod_t operator~(const prod_t& op0) {
     return productionFactory::createUnary(un_opcode::OPCODE_BNOT, op0);
 }
 
+void printingCoerceStructsVisitor::onBinary(bin_opcode opc, const prod_t& op0, const prod_t& op1) {
+    if (opc == bin_opcode::OPCODE_PROPERTY) {
+        auto fpa = firstPropertyAccess;
+        if (fpa) {
+            oss << "__";
+            firstPropertyAccess = false;
+        }
+        (*op0).accept(*this);
+        oss << "_";
+        (*op1).accept(*this);
+        firstPropertyAccess = fpa;
+        modified = true;
+    } else {
+        printingVisitor::onBinary(opc, op0, op1);
+    }
+}
+
 } /* namespace anno */
 } /* namespace borealis */

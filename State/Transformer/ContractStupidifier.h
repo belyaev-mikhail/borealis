@@ -104,6 +104,17 @@ public:
         }
         return trm;
     }
+    
+    Term::Ptr transformOpaqueVarTerm(OpaqueVarTermPtr trm) {
+        auto name = llvm::StringRef(trm->getVName());
+        if (name.startswith("__")) {
+            auto oldName = name.drop_front(2).str();
+            auto newName = util::replace("_", ".", oldName);
+            return FN.Term->getOpaqueVarTerm(newName);
+        } else {
+            return trm;
+        }
+    }
 };
 
 

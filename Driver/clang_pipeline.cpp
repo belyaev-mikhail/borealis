@@ -29,6 +29,7 @@
 #include <clang/Basic/FileManager.h>
 #include <llvm/Support/FileSystem.h>
 
+#include "Actions/comments_location.h"
 #include "Actions/FindPrototypesAction.h"
 #include "Actions/SplitStructAction.h"
 #include "Codegen/intrinsics_manager.h"
@@ -151,7 +152,7 @@ struct clang_pipeline::impl: public DelegateLogging {
 
         ASSERTC(ci.ExecuteAction(gatherAnnotations));
         AnnotationContainer::Ptr annotations{ new AnnotationContainer(gatherAnnotations, fn.Term) };
-
+        
         fileCache[ci.getFrontendOpts().OutputFile] = AnnotatedModule::Ptr{
             new AnnotatedModule{ module, annotations }
         };
@@ -193,7 +194,7 @@ struct clang_pipeline::impl: public DelegateLogging {
 
         clang::EmitLLVMOnlyAction compile_to_llvm{ &llvm::getGlobalContext() };
         borealis::FindPrototypesAction findPrototypes(&fInfoData);
-
+        
         ASSERTC(ci.ExecuteAction(compile_to_llvm));
         std::shared_ptr<llvm::Module> module{ compile_to_llvm.takeModule() };
 
@@ -201,7 +202,22 @@ struct clang_pipeline::impl: public DelegateLogging {
 
         ASSERTC(ci.ExecuteAction(findPrototypes));
         
+        borealis::comments::GatherCommentsSourceLocationAction gatherAnnotationsSourceLocations;
+        ASSERTC(ci.ExecuteAction(gatherAnnotationsSourceLocations));
+
         clang::Rewriter rewriter(ci.getSourceManager(), ci.getLangOpts());
+        
+        for (const auto& comment: gatherAnnotationsSourceLocations.getComments()) {
+            anno::printingCoerceStructsVisitor pcsv;
+            for (const auto& arg: comment.second.args_) {
+                arg->accept(pcsv);
+            }
+            if (pcsv.isModified()) {
+                auto newAnno = "// @" + comment.second.name_ + " " + pcsv.getResult();
+                rewriter.ReplaceText(comment.first, newAnno);
+            }
+        }
+
         borealis::SplitStructAction splitStruct(&rewriter);
         ASSERTC(ci.ExecuteAction(splitStruct));
         
