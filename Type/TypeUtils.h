@@ -34,7 +34,13 @@ struct TypeUtils {
         using llvm::isa;
         using llvm::dyn_cast;
 
-        if(isa<type::Integer>(type)) return "Integer";
+        if(auto* integer = dyn_cast<type::Integer>(&type)) {
+            if (integer->getBitsize() > 32) {
+                return "Long";
+            } else {
+                return "Integer";
+            }
+        }
         if(isa<type::Float>(type)) return "Float";
         if(isa<type::Bool>(type)) return "Bool";
         if(isa<type::UnknownType>(type)) return "Unknown";
@@ -106,6 +112,19 @@ struct TypeUtils {
         } else {
             return llvm::Signedness::Unknown;
         }
+    }
+
+    static bool isSame(Type::Ptr lhvt, Type::Ptr rhvt) {
+        using llvm::dyn_cast;
+        if (lhvt->getClassTag() == rhvt->getClassTag()) {
+            if (auto lhvi = dyn_cast<type::Integer>(lhvt)) {
+                if (auto rhvi = dyn_cast<type::Integer>(rhvt)) {
+                    return lhvi->getBitsize() == rhvi->getBitsize();
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
 };

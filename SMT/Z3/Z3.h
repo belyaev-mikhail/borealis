@@ -33,6 +33,8 @@ struct Z3 {
     typedef z3_::logic::BitVector<Pointer::bitsize> Byte;
     // logic type to represent integers
     typedef z3_::logic::BitVector<Pointer::bitsize> Integer;
+    // logic type to represent long integers
+    typedef z3_::logic::BitVector<Integer::bitsize * 2> Long;
     // logic type to represent reals
     typedef z3_::logic::Real Real;
     // dynamic bit vector

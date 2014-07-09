@@ -78,11 +78,15 @@ public:
             return getNullPtrTerm(null);
 
         } else if (auto* cInt = dyn_cast<ConstantInt>(c)) {
-            if (cInt->getType()->getPrimitiveSizeInBits() == 1) {
+            auto size = cInt->getType()->getPrimitiveSizeInBits();
+            if (size == 1) {
                 if (cInt->isOne()) return getTrueTerm();
                 else if (cInt->isZero()) return getFalseTerm();
             } else {
-                return getIntTerm(cInt->getValue().getSExtValue(), sign);
+                if (size > 32)
+                    return getLongTerm(cInt->getValue().getSExtValue(), sign);
+                else
+                    return getIntTerm(cInt->getValue().getSExtValue(), sign);
             }
 
         } else if (auto* cFP = dyn_cast<ConstantFP>(c)) {
@@ -159,12 +163,21 @@ public:
         return getBooleanTerm(false);
     }
 
-    Term::Ptr getIntTerm(long long i, llvm::Signedness sign = llvm::Signedness::Unknown) {
+    Term::Ptr getIntTerm(long long i, size_t size,
+                         llvm::Signedness sign = llvm::Signedness::Unknown) {
         return Term::Ptr{
             new OpaqueIntConstantTerm(
-                TyF->getInteger(32, sign), i // XXX: 32 -> ???
+                TyF->getInteger(size, sign), i // XXX: 32 -> ???
             )
         };
+    }
+
+    Term::Ptr getIntTerm(long long i, llvm::Signedness sign = llvm::Signedness::Unknown) {
+        return getIntTerm(i, 32, sign);
+    }
+
+    Term::Ptr getLongTerm(long long i, llvm::Signedness sign = llvm::Signedness::Unknown) {
+        return getIntTerm(i, 64, sign);
     }
 
     Term::Ptr getRealTerm(double d) {
@@ -330,9 +343,15 @@ public:
         };
     }
 
+    Term::Ptr getOpaqueConstantTerm(int v) {
+            return Term::Ptr{
+                new OpaqueIntConstantTerm(TyF->getInteger(32), v)
+            };
+        }
+
     Term::Ptr getOpaqueConstantTerm(long long v) {
         return Term::Ptr{
-            new OpaqueIntConstantTerm(TyF->getInteger(), v)
+            new OpaqueIntConstantTerm(TyF->getInteger(64), v)
         };
     }
 
@@ -419,6 +438,14 @@ public:
                 TyF->getInteger(32, llvm::Signedness::Unsigned), // XXX: 32 -> ???
                 rhv
             }
+        };
+    }
+
+    Term::Ptr getCastTerm(llvm::CastType opc, Term::Ptr rhv) {
+        return Term::Ptr{
+            new CastTerm(
+                opc, rhv
+            )
         };
     }
 
