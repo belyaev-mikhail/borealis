@@ -16,53 +16,88 @@
 
 namespace borealis {
 
-std::string getStructureParamReplace(clang::RecordDecl* sd, std::string& qualsStr, std::string prefix) {
-    
-    std::string result;
-    for (auto f: util::view(sd->field_begin(), sd->field_end())) {
-        if (f->getType()->isStructureType()) {
-            result += getStructureParamReplace(f->getType()->getAsStructureType()->getDecl(),
-                    qualsStr, prefix + f->getNameAsString() + "_") + ", ";
-        } else {
-            result += qualsStr + f->getType().getAsString() + " " +
-                    prefix + f->getNameAsString() + ", ";
+std::string getParamReplace(clang::QualType t, std::string& qualsStr, std::string name) {
+    if (t->isStructureType()) {
+        std::string result;
+        auto* sd = t->getAsStructureType()->getDecl();
+        if (!sd->field_empty()) {
+            for (auto f: util::view(sd->field_begin(), sd->field_end())) {
+                result += getParamReplace(f->getType(), qualsStr, name + "_" + f->getNameAsString()) + ", ";
+            }
+            result.erase(result.end() - 2, result.end());
         }
+        return result;
+    } else if (t->isConstantArrayType()) {
+        std::string result;
+        auto at = llvm::dyn_cast<clang::ConstantArrayType>(t);
+        auto eType = at->getElementType();
+        int arraySize = *(at->getSize().getRawData());
+        if (arraySize > 0) {
+            for (int i = 0; i < arraySize; i++) {
+                result += getParamReplace(eType, qualsStr, name + "_" + util::toString(i)) + ", ";
+            }
+            result.erase(result.end() - 2, result.end());
+        }
+        return result;
+    } else {
+        return qualsStr + t.getAsString() + " " + name;
     }
-    result.erase(result.end() - 2, result.end());
-    
-    return result;
 }
 
-std::string getStructureInit(clang::RecordDecl* sd, std::string prefix) {
-    
-    std::string result;
-    for (auto f: util::view(sd->field_begin(), sd->field_end())) {
-        if (f->getType()->isStructureType()) {
-            result += getStructureInit(f->getType()->getAsStructureType()->getDecl(),
-                    prefix + f->getNameAsString() + "_") + ", ";
-        } else {
-            result += prefix + f->getNameAsString() + ", ";
+std::string getInit(clang::QualType t, std::string name) {
+    if (t->isStructureType()) {
+        std::string result;
+        auto* sd = t->getAsStructureType()->getDecl();
+        if (!sd->field_empty()) {
+            for (auto f: util::view(sd->field_begin(), sd->field_end())) {
+                result += getInit(f->getType(), name + "_" + f->getNameAsString()) + ", ";
+            }
+            result.erase(result.end() - 2, result.end());
         }
+        return "{" + result + "}";
+    } else if (t->isConstantArrayType()) {
+        std::string result;
+        auto at = llvm::dyn_cast<clang::ConstantArrayType>(t);
+        auto eType = at->getElementType();
+        int arraySize = *(at->getSize().getRawData());
+        if (arraySize > 0) {
+            for (int i = 0; i < arraySize; i++) {
+                result += getInit(eType, name + "_" + util::toString(i)) + ", ";
+            }
+            result.erase(result.end() - 2, result.end());
+        }
+        return "{" + result + "}";
+    } else {
+        return name;
     }
-    result.erase(result.end() - 2, result.end());
-    
-    return "{" + result + "}";
 }
 
-std::string getStructureArgReplace(clang::RecordDecl* sd, std::string prefix) {
-    
-    std::string result;
-    for (auto f: util::view(sd->field_begin(), sd->field_end())) {
-        if (f->getType()->isStructureType()) {
-            result += getStructureArgReplace(f->getType()->getAsStructureType()->getDecl(),
-                    prefix + f->getNameAsString() + ".") + ", ";
-        } else {
-            result += prefix + f->getNameAsString() + ", ";
+std::string getArgReplace(clang::QualType t, std::string name) {
+    if (t->isStructureType()) {
+        std::string result;
+        auto* sd = t->getAsStructureType()->getDecl();
+        if (!sd->field_empty()) {
+            for (auto f: util::view(sd->field_begin(), sd->field_end())) {
+                result += getArgReplace(f->getType(), name + "." + f->getNameAsString()) + ", ";
+            }
+            result.erase(result.end() - 2, result.end());
         }
+        return result;
+    } else if (t->isConstantArrayType()) {
+        std::string result;
+        auto at = llvm::dyn_cast<clang::ConstantArrayType>(t);
+        auto eType = at->getElementType();
+        int arraySize = *(at->getSize().getRawData());
+        if (arraySize > 0) {
+            for (int i = 0; i < arraySize; i++) {
+                result += getArgReplace(eType, name + "[" + util::toString(i) + "]") + ", ";
+            }
+            result.erase(result.end() - 2, result.end());
+        }
+        return result;
+    } else {
+        return name;
     }
-    result.erase(result.end() - 2, result.end());
-    
-    return result;
 }
 
 bool SplitStructVisitor::VisitFunctionDecl(clang::FunctionDecl* s) {
@@ -78,16 +113,17 @@ bool SplitStructVisitor::VisitFunctionDecl(clang::FunctionDecl* s) {
     auto stubFuction = rewriter->getRewrittenText(clang::SourceRange(s->getLocStart(), s->getBody()->getLocStart()));
     
     for (auto p : util::view(s->param_begin(), s->param_end())) {
-        if (p->getType()->isStructureType()) {
-            auto sd = p->getType()->getAsStructureType()->getDecl();
-            auto quals = p->getType().getQualifiers();
+        auto t = p->getType();
+        auto name = p->getNameAsString();
+        if (t->isStructureType()) {
+            auto quals = t.getQualifiers();
             auto qualsStr = (quals.empty() ? "" : quals.getAsString() + " ");
             
-            auto tempArgs = getStructureParamReplace(sd, qualsStr, "__" + p->getNameAsString() + "_");
-            auto tempInit = getStructureInit(sd, "__" + p->getNameAsString() + "_");
+            auto tempArgs = getParamReplace(t, qualsStr, "__" + name);
+            auto tempInit = getInit(t, "__" + name);
             
-            tempInit = p->getType().getAsString() + " " + 
-                    p->getNameAsString() + " = " + tempInit + ";\n";
+            tempInit = t.getAsString() + " " + 
+                    name + " = " + tempInit + ";\n";
             
             rewriter->ReplaceText(p->getSourceRange(), tempArgs);
             if (!s->getBody()->children().empty()) {
@@ -107,13 +143,7 @@ bool SplitStructVisitor::VisitFunctionDecl(clang::FunctionDecl* s) {
         
         if (s->getNumParams() > 0) {
             for (auto p : util::view(s->param_begin(), s->param_end())) {
-                if (p->getType()->isStructureType()) {
-                    auto sd = p->getType()->getAsStructureType()->getDecl();
-                    origFunctionArgs += getStructureArgReplace(sd, p->getNameAsString() + ".");
-                } else {
-                    origFunctionArgs += p->getNameAsString();
-                }
-                origFunctionArgs += ", ";
+                origFunctionArgs += getArgReplace(p->getType(), p->getNameAsString()) + ", ";
             }
         
             origFunctionArgs.erase(origFunctionArgs.end() - 2, origFunctionArgs.end());
