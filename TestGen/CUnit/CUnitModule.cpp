@@ -64,15 +64,12 @@ std::ostream& operator<<(std::ostream& os, const CUnitModule& test) {
         auto fn = FactoryNest(st);
 
         auto testSuite = pair.second;
-
+        
         if (testSuite != nullptr) {
+            
+            auto fi = testSuite->getFunctionInfo();
 
-            ContractStupidifier cs{
-                util::view(f->arg_begin(), f->arg_end())
-                     .map([&](llvm::Argument& a){
-                          return fn.Term->getArgumentTerm(&a);
-                      })
-                     .toVector(),
+            ContractStupidifier cs{fi,
                 fn.Term->getValueTerm(fn.Type->getUnknownType(), testSuite->getResultVariableName()),
                 fn
             };

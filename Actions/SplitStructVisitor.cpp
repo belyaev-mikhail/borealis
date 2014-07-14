@@ -22,7 +22,9 @@ std::string getParamReplace(clang::QualType t, std::string& qualsStr, std::strin
         auto* sd = t->getAsStructureType()->getDecl();
         if (!sd->field_empty()) {
             for (auto f: util::view(sd->field_begin(), sd->field_end())) {
-                result += getParamReplace(f->getType(), qualsStr, name + "_" + f->getNameAsString()) + ", ";
+                auto fName = f->getNameAsString();
+                util::replaceAll("_", "__", fName);
+                result += getParamReplace(f->getType(), qualsStr, name + "_p_" + fName) + ", ";
             }
             result.erase(result.end() - 2, result.end());
         }
@@ -34,7 +36,7 @@ std::string getParamReplace(clang::QualType t, std::string& qualsStr, std::strin
         int arraySize = *(at->getSize().getRawData());
         if (arraySize > 0) {
             for (int i = 0; i < arraySize; i++) {
-                result += getParamReplace(eType, qualsStr, name + "_" + util::toString(i)) + ", ";
+                result += getParamReplace(eType, qualsStr, name + "_ib_" + util::toString(i) + "_ie_") + ", ";
             }
             result.erase(result.end() - 2, result.end());
         }
@@ -50,7 +52,9 @@ std::string getInit(clang::QualType t, std::string name) {
         auto* sd = t->getAsStructureType()->getDecl();
         if (!sd->field_empty()) {
             for (auto f: util::view(sd->field_begin(), sd->field_end())) {
-                result += getInit(f->getType(), name + "_" + f->getNameAsString()) + ", ";
+                auto fName = f->getNameAsString();
+                util::replaceAll("_", "__", fName);
+                result += getInit(f->getType(), name + "_p_" + fName) + ", ";
             }
             result.erase(result.end() - 2, result.end());
         }
@@ -62,7 +66,7 @@ std::string getInit(clang::QualType t, std::string name) {
         int arraySize = *(at->getSize().getRawData());
         if (arraySize > 0) {
             for (int i = 0; i < arraySize; i++) {
-                result += getInit(eType, name + "_" + util::toString(i)) + ", ";
+                result += getInit(eType, name + "_ib_" + util::toString(i) + "_ie_") + ", ";
             }
             result.erase(result.end() - 2, result.end());
         }
@@ -115,6 +119,7 @@ bool SplitStructVisitor::VisitFunctionDecl(clang::FunctionDecl* s) {
     for (auto p : util::view(s->param_begin(), s->param_end())) {
         auto t = p->getType();
         auto name = p->getNameAsString();
+        util::replaceAll("_", "__", name);
         if (t->isStructureType()) {
             auto quals = t.getQualifiers();
             auto qualsStr = (quals.empty() ? "" : quals.getAsString() + " ");

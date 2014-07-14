@@ -250,9 +250,11 @@ class printingCoerceStructsVisitor: public virtual printingVisitor {
     std::ostringstream oss;
     bool modified;
     bool firstPropertyAccess;
+    bool structInside;
     
 protected:
     virtual void onBinary(bin_opcode opc, const prod_t& op0, const prod_t& op1) override;
+    virtual void onVariable(const std::string& name) override;
 public:
     printingCoerceStructsVisitor() : printingVisitor(oss), modified(false), firstPropertyAccess(true) {};
     
