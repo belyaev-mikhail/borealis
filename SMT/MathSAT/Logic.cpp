@@ -170,6 +170,26 @@ Bool operator!(Bool bv0) {
 
 #undef BIN_OP
 
+#define INT_BIN_OP(OP) \
+    DynBitVectorExpr operator OP(int lhv, const DynBitVectorExpr& rhv) { \
+        return DynBitVectorExpr{ \
+            lhv OP msatimpl::getExpr(rhv), \
+            msatimpl::getAxiom(rhv) \
+        }; \
+    } \
+    DynBitVectorExpr operator OP(const DynBitVectorExpr& lhv, int rhv) { \
+        return DynBitVectorExpr{ \
+            msatimpl::getExpr(lhv) OP rhv, \
+            msatimpl::getAxiom(lhv) \
+        }; \
+    }
+
+    INT_BIN_OP(+)
+    INT_BIN_OP(-)
+    INT_BIN_OP(*)
+    INT_BIN_OP(/)
+#undef INT_BIN_OP
+
 DynBitVectorExpr operator>>(const DynBitVectorExpr& lhv, const DynBitVectorExpr& rhv) {
     size_t sz = std::max(lhv.getBitSize(), rhv.getBitSize());
     DynBitVectorExpr dlhv = lhv.growTo(sz);
@@ -189,6 +209,20 @@ DynBitVectorExpr operator<<(const DynBitVectorExpr& lhv, const DynBitVectorExpr&
     auto axm = msatimpl::spliceAxioms(lhv, rhv);
     return DynBitVectorExpr{ res, axm };
 }
+
+#define REDEF_UN_OP(OP) \
+        DynBitVectorExpr operator OP(DynBitVectorExpr bv) { \
+            return DynBitVectorExpr{ \
+                OP msatimpl::getExpr(bv), \
+                msatimpl::getAxiom(bv) \
+            }; \
+        }
+
+
+REDEF_UN_OP(~)
+REDEF_UN_OP(-)
+
+#undef REDEF_UN_OP
 
 } // namespace logic
 } // namespace mathsat

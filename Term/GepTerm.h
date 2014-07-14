@@ -131,7 +131,7 @@ struct SMTImpl<Impl, GepTerm> {
                "Encountered a GEP term with non-pointer operand");
 
         Pointer p = base.getUnsafe();
-        Integer shift = ef.getIntConst(0);
+        DynBV shift = DynBV(ef.getIntConst(0));
 
         auto* baseType = llvm::dyn_cast<type::Pointer>(t->getBase()->getType());
         ASSERTC(!!baseType);
@@ -142,7 +142,7 @@ struct SMTImpl<Impl, GepTerm> {
             auto tp = baseType->getPointed();
             auto size = TypeUtils::getTypeSizeInElems(tp);
 
-            auto by = SMT<Impl>::doit(h, ef, ctx).template to<Integer>();
+            auto by = SMT<Impl>::doit(h, ef, ctx).template to<DynBV>();
             ASSERT(!by.empty(),
                    "Encountered a GEP term with incorrect shifts");
 
@@ -163,7 +163,7 @@ struct SMTImpl<Impl, GepTerm> {
                     tp = GepTerm::getAggregateElement(tp, s);
                     auto size = TypeUtils::getTypeSizeInElems(tp);
 
-                    auto by = SMT<Impl>::doit(s, ef, ctx).template to<Integer>();
+                    auto by = SMT<Impl>::doit(s, ef, ctx).template to<DynBV>();
                     ASSERT(!by.empty(),
                            "Encountered a GEP term with incorrect shifts");
 
@@ -176,11 +176,13 @@ struct SMTImpl<Impl, GepTerm> {
 
         Integer bound = ctx->getBound(p);
 
-        return ef.if_(ef.isInvalidPtrExpr(p) || UComparable(shift).uge(bound))
-                 .then_(ef.getInvalidPtr())
+        auto bvshift = Dynamic::template convert<DynBV, Integer>(shift);
+
+        return ef.if_(ef.isInvalidPtrExpr(p) || UComparable(bvshift).uge(bound))
+                 .then_(DynBV(ef.getInvalidPtr()))
                  .else_(
-                     (p + shift).withAxiom(
-                         !ef.isInvalidPtrExpr(p + shift)
+                     (DynBV(p) + bvshift).withAxiom(
+                        !ef.isInvalidPtrExpr(p + bvshift)
                      )
                  );
     }

@@ -87,7 +87,7 @@ struct SMTImpl<Impl, UnaryTerm> {
 
         auto rhvz3 = SMT<Impl>::doit(t->getRhv(), ef, ctx);
 
-        auto rhvi = rhvz3.template to<Integer>();
+        auto rhvi = rhvz3.template to<DynBV>();
         if (not rhvi.empty()) {
             auto rhv = rhvi.getUnsafe();
             switch (t->getOpcode()) {

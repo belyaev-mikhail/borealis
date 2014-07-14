@@ -103,7 +103,8 @@ public:
     inline Pointer getGlobalPtr(size_t offsetSize = 1U) {
         return getGlobalPtr(offsetSize, factory.getIntConst(offsetSize));
     }
-    inline Pointer getGlobalPtr(size_t offsetSize, Integer origSize) {
+    template<class SizeType>
+    inline Pointer getGlobalPtr(size_t offsetSize, SizeType origSize) {
         auto ret = factory.getPtrConst(globalPtr);
         globalPtr += offsetSize;
         gepBounds( gepBounds().store(ret, origSize) );
@@ -113,7 +114,8 @@ public:
     inline Pointer getLocalPtr(size_t offsetSize = 1U) {
         return getLocalPtr(offsetSize, factory.getIntConst(offsetSize));
     }
-    inline Pointer getLocalPtr(size_t offsetSize, Integer origSize) {
+    template<class SizeType>
+    inline Pointer getLocalPtr(size_t offsetSize, SizeType origSize) {
         auto ret = factory.getPtrConst(localPtr);
         localPtr += offsetSize;
         gepBounds( gepBounds().store(ret, origSize) );

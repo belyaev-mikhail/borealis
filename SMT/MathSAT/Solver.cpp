@@ -200,7 +200,7 @@ std::vector<Term::Ptr> getPathVars(PredicateState::Ptr state) {
         } else if (auto pp = llvm::dyn_cast<InequalityPredicate>(p)) {
             pathTerms.push_back(pp->getLhv());
             return p;
-        } else if (auto pp = llvm::dyn_cast<DefaultSwitchCasePredicate>(p)) {
+        } else if (llvm::isa<DefaultSwitchCasePredicate>(p)) {
             return p;
         } else {
             BYE_BYE(Predicate::Ptr, "Wrong path predicate type. " + p->toString());

@@ -104,6 +104,10 @@ public:
         }
         return trm;
     }
+
+    Term::Ptr transformCastTerm(CastTermPtr trm) {
+        return trm->getRhv();
+    }
 };
 
 

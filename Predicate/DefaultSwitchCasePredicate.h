@@ -76,14 +76,16 @@ struct SMTImpl<Impl, DefaultSwitchCasePredicate> {
 
         USING_SMT_IMPL(Impl)
 
-        auto le = SMT<Impl>::doit(p->getCond(), ef, ctx).template to<Integer>();
-        ASSERT(!le.empty(), "Encountered switch with non-Integer condition");
+        auto le = SMT<Impl>::doit(p->getCond(), ef, ctx);
+        auto ld = le.template to<DynBV>();
+        ASSERT(!ld.empty(), "Encountered switch with non-Integer condition");
 
         auto res = ef.getTrue();
         for (const auto& c : p->getCases()) {
-            auto re = SMT<Impl>::doit(c, ef, ctx).template to<Integer>();
-            ASSERT(!re.empty(), "Encountered switch with non-Integer case");
-            res = res && le.getUnsafe() != re.getUnsafe();
+            auto re = SMT<Impl>::doit(c, ef, ctx);
+            auto rd = re.template to<DynBV>();
+            ASSERT(!rd.empty(), "Encountered switch with non-Integer case");
+            res = res && le != re;
         }
         return res;
     }
