@@ -320,7 +320,19 @@ std::string toUpperCase(std::string str) {
     return str;
 }
 
-
+std::string& replaceAll(const std::string& from, const std::string& to, std::string& in) {
+    std::string::size_type pos = 0;
+    while (true) {
+        pos = in.find(from, pos);
+        if (pos == std::string::npos) {
+            break;
+        } else {
+            in.replace(pos, from.length(), to);
+            pos += to.length();
+        }
+    }
+    return in;
+}
 
 } // namespace util
 } // namespace borealis

@@ -110,19 +110,20 @@ void FunctionInfo::initialize(SlotTracker* st, FactoryNest* fn) {
         this->args[i].type = _args.second;
         this->args[i].parent = this;
         this->args[i].idx = i;
+        if (stub) {
+            this->args[i].term = fn->Term->getValueTerm(fn->Type->getUnknownType(), _args.first);
+        }
     }
     
-    if (stub) {
-        return;
-    }
-    
-    auto arg = f->arg_begin();
-    for (unsigned i = 0; i < args.size(); i++) {
-        auto arg_ = const_cast<llvm::Argument *>(&(*arg));
-        auto argTerm = fn->Term->getArgumentTerm(arg_);
+    if (!stub) {
+        auto arg = f->arg_begin();
+        for (unsigned i = 0; i < args.size(); i++) {
+            auto arg_ = const_cast<llvm::Argument *>(&(*arg));
+            auto argTerm = fn->Term->getArgumentTerm(arg_);
 
-        this->args[i].term = argTerm;
-        arg++;
+            this->args[i].term = argTerm;
+            arg++;
+        }
     }
 }
 
@@ -254,7 +255,7 @@ std::string FunctionInfo::ArgInfo::getValue(const TestCase& cs) const {
                 auto s = DIStructType(arg.type);
                 realIdx += s.getMembers().getNumElements();
             } else if (arg.type.getTag() == llvm::dwarf::DW_TAG_array_type) {
-                auto dt = llvm::DIDerivedType(type);
+                auto dt = llvm::DIDerivedType(arg.type);
                 realIdx += dt.getSizeInBits() / dt.getTypeDerivedFrom().getSizeInBits();
             } else{
                 realIdx++;
