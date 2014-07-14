@@ -20,7 +20,7 @@ Term::Ptr undoBv(const z3::expr& expr, const FactoryNest& FN) {
     long long i;
     auto res = Z3_get_numeral_int64(expr.ctx(), expr, &i);
     ASSERT(res != 0, "Something bad occurs while getting int value from Z3 expression");
-    return FN.Term->getIntTerm(i, llvm::Signedness::Signed);
+    return FN.Term->getIntTerm(i, expr.get_sort().bv_size(), llvm::Signedness::Signed);
 }
 
 Term::Ptr undoBool(const z3::expr& expr, const FactoryNest& FN) {

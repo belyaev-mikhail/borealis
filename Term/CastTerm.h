@@ -77,8 +77,8 @@ public:
     }
 
 
-    static Type::Ptr resultTypeForCast(llvm::CastType opCode, Type::Ptr rhvt);
-    static llvm::CastType castForTypes(Type::Ptr lhvt, Type::Ptr rhvt);
+    static Type::Ptr resultTypeForCast(llvm::CastType opCode, Type::Ptr from);
+    static llvm::CastType castForTypes(Type::Ptr from, Type::Ptr to);
 
 };
 
