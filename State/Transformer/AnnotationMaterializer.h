@@ -303,16 +303,14 @@ public:
             }
         }
 
-        if (not TypeUtils::isSame(lhvt, rhvt)) {
-            auto cmpTerm = llvm::dyn_cast<CmpTerm>(pterm);
-            return FN.Term->getCmpTerm(
-                        cmpTerm->getOpcode(),
-                        cmpTerm->getLhv(),
-                        FN.Term->getCastTerm(
-                                CastTerm::castForTypes(lhvt, rhvt),
-                                cmpTerm->getRhv())
-                        );
-        }
+        auto cmpTerm = llvm::dyn_cast<CmpTerm>(pterm);
+        auto whatToWhat = FN.Term->getCastTerm(trm->getLhv(), trm->getRhv());
+        return FN.Term->getCmpTerm(
+                    cmpTerm->getOpcode(),
+                    whatToWhat.first,
+                    whatToWhat.second
+        );
+
         return pterm;
     }
 
@@ -320,19 +318,12 @@ public:
     Term::Ptr transformBinaryTerm(BinaryTermPtr trm) {
         using llvm::isa;
 
-        auto lhvt = trm->getLhv()->getType();
-        auto rhvt = trm->getRhv()->getType();
-
-        if (not TypeUtils::isSame(lhvt, rhvt)) {
-            return FN.Term->getBinaryTerm(
-                        trm->getOpcode(),
-                        trm->getLhv(),
-                        FN.Term->getCastTerm(
-                                CastTerm::castForTypes(lhvt, rhvt),
-                                trm->getRhv())
-                        );
-        }
-        return trm;
+        auto whatToWhat = FN.Term->getCastTerm(trm->getLhv(), trm->getRhv());
+        return FN.Term->getBinaryTerm(
+                    trm->getOpcode(),
+                    whatToWhat.first,
+                    whatToWhat.second
+        );
     }
 };
 

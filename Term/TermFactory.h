@@ -26,6 +26,7 @@ class TermFactory {
 public:
 
     typedef std::shared_ptr<TermFactory> Ptr;
+    typedef std::pair<Term::Ptr, Term::Ptr> WhatToWhat;
 
     Term::Ptr getArgumentTerm(const llvm::Argument* arg, llvm::Signedness sign = llvm::Signedness::Unknown) {
         ASSERT(st, "Missing SlotTracker");
@@ -447,6 +448,34 @@ public:
                 opc, rhv
             )
         };
+    }
+
+    WhatToWhat getCastTerm(Term::Ptr lhv, Term::Ptr rhv) {
+        using llvm::isa;
+        using borealis::util::match_pair;
+
+        auto lhvt = lhv->getType();
+        auto rhvt = rhv->getType();
+
+        // no cast if types are same
+        if (TypeUtils::isSame(lhvt, rhvt))
+            return WhatToWhat{lhv, rhv};
+
+        // cast Integer to Float
+        if (isa<type::Float>(lhvt))
+            return WhatToWhat{lhv, getCastTerm(CastTerm::castForTypes(rhvt, lhvt), rhv)};
+        if (isa<type::Float>(rhvt))
+            return WhatToWhat{getCastTerm(CastTerm::castForTypes(lhvt, rhvt), lhv), rhv};
+
+        // cast Integer to Long (extend instead of extract)
+        if (auto match = match_pair<type::Integer, type::Integer>(lhvt, rhvt)) {
+            if (match->first->getBitsize() > match->second->getBitsize())
+                return WhatToWhat{lhv, getCastTerm(CastTerm::castForTypes(rhvt, lhvt), rhv)};
+            if (match->first->getBitsize() < match->second->getBitsize())
+                return WhatToWhat{getCastTerm(CastTerm::castForTypes(lhvt, rhvt), lhv), rhv};
+        }
+
+        return WhatToWhat{lhv, getCastTerm(CastTerm::castForTypes(rhvt, lhvt), rhv)};
     }
 
     static TermFactory::Ptr get(

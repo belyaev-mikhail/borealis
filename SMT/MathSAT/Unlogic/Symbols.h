@@ -131,7 +131,7 @@ public:
                 return FN.Term->getIntTerm(val);
 
             } else {
-                return FN.Term->getIntTerm(mpz_get_si(num));
+                return FN.Term->getIntTerm(mpz_get_si(num), expr_.get_sort().bv_size());
             }
         } else {
             return FN.Term->getRealTerm(mpq_get_d(q));
