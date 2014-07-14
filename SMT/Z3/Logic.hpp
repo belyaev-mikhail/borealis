@@ -809,13 +809,39 @@ ASPECT_END
     BIN_OP(%)
     BIN_OP(>>)
     BIN_OP(<<)
-
 #undef BIN_OP
+
+#define INT_BIN_OP(OP) \
+    DynBitVectorExpr operator OP(int lhv, const DynBitVectorExpr& rhv); \
+    DynBitVectorExpr operator OP(const DynBitVectorExpr& lhv, int rhv);
+
+    INT_BIN_OP(+)
+    INT_BIN_OP(-)
+    INT_BIN_OP(*)
+    INT_BIN_OP(/)
+#undef INT_BIN_OP
+
+#define REDEF_UN_OP(OP) \
+    DynBitVectorExpr operator OP(DynBitVectorExpr bv);
+
+    REDEF_UN_OP(~)
+    REDEF_UN_OP(-)
+#undef REDEF_UN_OP
+
+
+template<>
+struct merger<DynBitVectorExpr, DynBitVectorExpr> {
+    typedef DynBitVectorExpr type;
+
+    static type app(DynBitVectorExpr bv) {
+        return bv;
+    }
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace z3impl {
-    inline z3::expr toReal(z3::expr e, bool is_signed) {
+    inline z3::expr toReal(const z3::expr& e, bool is_signed) {
         if (e.is_real()) return e;
         ASSERTC(e.is_bv());
         auto integer = Z3_mk_bv2int(e.ctx(), e, is_signed);
@@ -823,7 +849,7 @@ namespace z3impl {
         return z3::to_expr(e.ctx(), real);
     }
 
-    inline z3::expr toBV(z3::expr e, size_t n) {
+    inline z3::expr toBV(const z3::expr& e, size_t n) {
         if (e.is_bv()) return e;
         ASSERTC(e.is_real());
         auto integer = Z3_mk_real2int(e.ctx(), e);
@@ -841,7 +867,7 @@ namespace z3impl {
 
 template<typename From, typename To, typename Enable = void>
 struct Converter{
-    static To convert(From expr, bool isSigned = true){
+    static To convert(const From& expr, bool isSigned = true){
         util::use(expr); util::use(isSigned);
         BYE_BYE(To, "Unknown conversion!");
     }
@@ -849,30 +875,52 @@ struct Converter{
 
 template<size_t N>
 struct Converter<BitVector<N>, Real>{
-    static Real convert(BitVector<N> expr, bool isSigned = true) {
+    static Real convert(const BitVector<N>& expr, bool isSigned = true) {
         return Real{z3impl::toReal(z3impl::getExpr(expr), isSigned)};
     }
 };
 
 template<size_t N>
 struct Converter<Real, BitVector<N>>{
-    static BitVector<N> convert(Real expr, bool isSigned = true) {
+    static BitVector<N> convert(const Real& expr, bool isSigned = true) {
         util::use(isSigned);
         return BitVector<N>{z3impl::toBV(z3impl::getExpr(expr), N)};
     }
 };
 
 template<size_t N0, size_t N1>
-struct Converter<BitVector<N0>, BitVector<N1>, typename std::enable_if<N0 != N1>::type>{
-    static BitVector<N1> convert(BitVector<N0> expr, bool isSigned = true) {
-        util::use(isSigned);
+struct Converter<BitVector<N0>, BitVector<N1>,
+                 typename std::enable_if<N0 != N1>::type>{
+    static BitVector<N1> convert(const BitVector<N0>& expr, bool isSigned = true) {
         return grow<N1, N0>(expr, isSigned);
+    }
+};
+
+template<size_t N>
+struct Converter<BitVector<N>, DynBitVectorExpr> {
+    static DynBitVectorExpr convert(const BitVector<N>& expr, bool isSigned = true) {
+        util::use(isSigned);
+        return DynBitVectorExpr(expr);
+    }
+};
+
+template<size_t N>
+struct Converter<DynBitVectorExpr, BitVector<N>> {
+    static BitVector<N> convert(const DynBitVectorExpr& expr, bool isSigned = true) {
+        util::use(isSigned);
+        int DN = expr.getBitSize();
+        if (N >= static_cast<size_t>(DN)) {
+            return BitVector<N>(expr);
+        } else {
+            DynBitVectorExpr copy(expr);
+            return BitVector<N>(expr.extract(N-1, 0));
+        }
     }
 };
 
 template<typename From>
 struct Converter<From, From>{
-    static From convert(From expr, bool isSigned = true) {
+    static From convert(const From& expr, bool isSigned = true) {
         util::use(isSigned);
         return expr;
     }
@@ -895,6 +943,8 @@ public:
     }
 
     static SomeExpr mkDynamic(Bool b) { return SomeExpr{ b }; }
+
+    static SomeExpr mkDynamic(Real r) { return SomeExpr{ r }; }
 
     template<size_t N>
     static SomeExpr mkDynamic(BitVector<N> bv) { return SomeExpr{ bv }; }

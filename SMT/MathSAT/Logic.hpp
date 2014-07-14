@@ -643,6 +643,32 @@ ASPECT_END
 
 #undef BIN_OP
 
+#define INT_BIN_OP(OP) \
+    DynBitVectorExpr operator OP(int lhv, const DynBitVectorExpr& rhv); \
+    DynBitVectorExpr operator OP(const DynBitVectorExpr& lhv, int rhv);
+
+    INT_BIN_OP(+)
+    INT_BIN_OP(-)
+    INT_BIN_OP(*)
+    INT_BIN_OP(/)
+#undef INT_BIN_OP
+
+#define REDEF_UN_OP(OP) \
+        DynBitVectorExpr operator OP(DynBitVectorExpr bv);
+
+    REDEF_UN_OP(~)
+    REDEF_UN_OP(-)
+#undef REDEF_UN_OP
+
+template<>
+struct merger<DynBitVectorExpr, DynBitVectorExpr> {
+    typedef DynBitVectorExpr type;
+
+    static type app(DynBitVectorExpr bv) {
+        return bv;
+    }
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 
 template<typename From, typename To, typename Enable = void>
@@ -657,6 +683,14 @@ template<size_t N0, size_t N1>
 struct Converter<BitVector<N0>, BitVector<N1>, typename std::enable_if<N0 != N1>::type> {
     static BitVector<N1> convert(BitVector<N0> expr, bool isSigned = true) {
         return grow<N1, N0>(expr, isSigned);
+    }
+};
+
+template<size_t N>
+struct Converter<BitVector<N>, DynBitVectorExpr> {
+    static DynBitVectorExpr convert(BitVector<N> expr, bool isSigned = true) {
+        util::use(isSigned);
+        return DynBitVectorExpr{msatimpl::getExpr(expr), msatimpl::getAxiom(expr)};
     }
 };
 

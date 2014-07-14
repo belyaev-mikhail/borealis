@@ -93,15 +93,13 @@ struct SMTImpl<Impl, MallocPredicate> {
             BYE_BYE(Bool, "Encountered malloc with non-integer element number");
         }
 
-        auto origSize = SMT<Impl>::doit(p->getOrigNumElems(), ef, ctx).template to<Integer>();
-        ASSERT(!origSize.empty(), "Malloc with non-integer original size");
-        auto origSizeInt = origSize.getUnsafe();
+        auto origSize = SMT<Impl>::doit(p->getOrigNumElems(), ef, ctx);
 
         static config::ConfigEntry<bool> NullableMallocs("analysis", "nullable-mallocs");
         if(NullableMallocs.get(true)) {
-            return lhvp == ef.getNullPtr() || lhvp == ctx->getLocalPtr(elems, origSizeInt);
+            return lhvp == ef.getNullPtr() || lhvp == ctx->getLocalPtr(elems, origSize);
         } else {
-            return lhvp == ctx->getLocalPtr(elems, origSizeInt);
+            return lhvp == ctx->getLocalPtr(elems, origSize);
         }
     }
 };

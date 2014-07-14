@@ -288,6 +288,26 @@ REDEF_UN_OP(-)
 
 #undef BIN_OP
 
+#define INT_BIN_OP(OP) \
+    DynBitVectorExpr operator OP(int lhv, const DynBitVectorExpr& rhv) { \
+        return DynBitVectorExpr{ \
+            lhv OP z3impl::getExpr(rhv), \
+            z3impl::getAxiom(rhv) \
+        }; \
+    } \
+    DynBitVectorExpr operator OP(const DynBitVectorExpr& lhv, int rhv) { \
+        return DynBitVectorExpr{ \
+            z3impl::getExpr(lhv) OP rhv, \
+            z3impl::getAxiom(lhv) \
+        }; \
+    }
+
+    INT_BIN_OP(+)
+    INT_BIN_OP(-)
+    INT_BIN_OP(*)
+    INT_BIN_OP(/)
+#undef INT_BIN_OP
+
 DynBitVectorExpr operator%(const DynBitVectorExpr& lhv, const DynBitVectorExpr& rhv) {
     size_t sz = std::max(lhv.getBitSize(), rhv.getBitSize());
     DynBitVectorExpr dlhv = lhv.growTo(sz);
@@ -320,6 +340,21 @@ DynBitVectorExpr operator<<(const DynBitVectorExpr& lhv, const DynBitVectorExpr&
     auto axm = z3impl::spliceAxioms(lhv, rhv);
     return DynBitVectorExpr{ res, axm };
 }
+
+#define REDEF_UN_OP(OP) \
+        DynBitVectorExpr operator OP(DynBitVectorExpr bv) { \
+            return DynBitVectorExpr{ \
+                OP z3impl::getExpr(bv), \
+                z3impl::getAxiom(bv) \
+            }; \
+        }
+
+
+    REDEF_UN_OP(~)
+    REDEF_UN_OP(-)
+
+#undef REDEF_UN_OP
+
 
 } // namespace logic
 } // namespace z3_

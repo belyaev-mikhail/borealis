@@ -92,11 +92,8 @@ struct SMTImpl<Impl, AllocaPredicate> {
             BYE_BYE(Bool, "Encountered alloca with non-integer element number");
         }
 
-        auto origSize = SMT<Impl>::doit(p->getOrigNumElems(), ef, ctx).template to<Integer>();
-        ASSERT(!origSize.empty(), "Encountered alloca with non-integer original size");
-        auto origSizeInt = origSize.getUnsafe();
-
-        return lhvp == ctx->getLocalPtr(elems, origSizeInt);
+        auto origSize = SMT<Impl>::doit(p->getOrigNumElems(), ef, ctx);
+        return lhvp == ctx->getLocalPtr(elems, origSize);
     }
 };
 #include "Util/unmacros.h"

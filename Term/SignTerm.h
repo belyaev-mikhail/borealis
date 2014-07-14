@@ -96,7 +96,7 @@ struct SMTImpl<Impl, SignTerm> {
         auto rhv = rhvbv.getUnsafe();
         auto size = rhv.getBitSize();
 
-        return rhv.extract(size-1, size-1).zgrowTo(Integer::bitsize);
+        return rhv.extract(size-1, size-1).zgrowTo(ef.sizeForType(t->getType()));
     }
 };
 #include "Util/unmacros.h"
