@@ -37,11 +37,11 @@ public:
 
         Value* lhv = &I;
         Value* rhv = I.getPointerOperand();
-
+        
         pass->PM[&I] = pass->FN.Predicate->getLoadPredicate(
-            pass->FN.Term->getValueTerm(lhv),
+            getValueTermWithTypes(lhv),
             pass->FN.Term->getLoadTerm(
-                pass->FN.Term->getValueTerm(rhv)
+                getValueTermWithTypes(rhv)
             ),
             pass->SLT->getLocFor(&I)
         );
@@ -54,8 +54,8 @@ public:
         Value* rhv = I.getValueOperand();
 
         pass->PM[&I] = pass->FN.Predicate->getStorePredicate(
-            pass->FN.Term->getValueTerm(lhv),
-            pass->FN.Term->getValueTerm(rhv),
+            getValueTermWithTypes(lhv),
+            getValueTermWithTypes(rhv),
             pass->SLT->getLocFor(&I)
         );
     }
@@ -70,11 +70,11 @@ public:
         ConditionType cond = conditionType(I.getPredicate());
 
         pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
-            pass->FN.Term->getValueTerm(lhv),
+            getValueTermWithTypes(lhv),
             pass->FN.Term->getCmpTerm(
                 cond,
-                pass->FN.Term->getValueTerm(op1),
-                pass->FN.Term->getValueTerm(op2)
+                getValueTermWithTypes(op1),
+                getValueTermWithTypes(op2)
             ),
             pass->SLT->getLocFor(&I)
         );
@@ -85,7 +85,7 @@ public:
 
         if (I.isUnconditional()) return;
 
-        Term::Ptr condTerm = pass->FN.Term->getValueTerm(I.getCondition());
+        Term::Ptr condTerm = getValueTermWithTypes(I.getCondition());
         const BasicBlock* trueSucc = I.getSuccessor(0);
         const BasicBlock* falseSucc = I.getSuccessor(1);
 
@@ -106,7 +106,7 @@ public:
     void visitSwitchInst(llvm::SwitchInst& I) {
         using llvm::BasicBlock;
 
-        Term::Ptr condTerm = pass->FN.Term->getValueTerm(I.getCondition());
+        Term::Ptr condTerm = getValueTermWithTypes(I.getCondition());
 
         std::vector<Term::Ptr> cases;
         cases.reserve(I.getNumCases());
@@ -144,11 +144,11 @@ public:
         Value* fls = I.getFalseValue();
 
         pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
-            pass->FN.Term->getValueTerm(lhv),
+            getValueTermWithTypes(lhv),
             pass->FN.Term->getTernaryTerm(
-                pass->FN.Term->getValueTerm(cnd),
-                pass->FN.Term->getValueTerm(tru),
-                pass->FN.Term->getValueTerm(fls)
+                getValueTermWithTypes(cnd),
+                getValueTermWithTypes(tru),
+                getValueTermWithTypes(fls)
             ),
             pass->SLT->getLocFor(&I)
         );
@@ -167,7 +167,7 @@ public:
         }
 
         pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
-            pass->FN.Term->getValueTerm(lhv),
+            getValueTermWithTypes(lhv),
             pass->FN.Term->getGepTerm(rhv, idxs),
             pass->SLT->getLocFor(&I)
         );
@@ -184,15 +184,15 @@ public:
         Term::Ptr lhvt;
         Term::Ptr rhvt;
         if (Instruction::CastOps::FPToSI ==  cast) {
-            lhvt = pass->FN.Term->getValueTerm(lhv, Signedness::Signed);
+            lhvt = getValueTermWithTypes(lhv, Signedness::Signed);
         } else {
-            lhvt = pass->FN.Term->getValueTerm(lhv, Signedness::Unsigned);
+            lhvt = getValueTermWithTypes(lhv, Signedness::Unsigned);
         }
 
         if (Instruction::CastOps::SIToFP ==  cast) {
-            rhvt = pass->FN.Term->getValueTerm(rhv, Signedness::Signed);
+            rhvt = getValueTermWithTypes(rhv, Signedness::Signed);
         } else {
-            rhvt = pass->FN.Term->getValueTerm(rhv, Signedness::Unsigned);
+            rhvt = getValueTermWithTypes(rhv, Signedness::Unsigned);
         }
 
         if (Instruction::CastOps::FPExt == cast) {
@@ -219,8 +219,8 @@ public:
             Value* v = I.getIncomingValue(i);
 
             pass->PPM[{from, &I}] = pass->FN.Predicate->getEqualityPredicate(
-                pass->FN.Term->getValueTerm(&I),
-                pass->FN.Term->getValueTerm(v),
+                getValueTermWithTypes(&I),
+                getValueTermWithTypes(v),
                 pass->SLT->getLocFor(&I)
             );
         }
@@ -237,11 +237,11 @@ public:
         ArithType type = arithType(I.getOpcode());
 
         pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
-            pass->FN.Term->getValueTerm(lhv),
+            getValueTermWithTypes(lhv),
             pass->FN.Term->getBinaryTerm(
                 type,
-                pass->FN.Term->getValueTerm(op1),
-                pass->FN.Term->getValueTerm(op2)
+                getValueTermWithTypes(op1),
+                getValueTermWithTypes(op2)
             ),
             pass->SLT->getLocFor(&I)
         );
@@ -255,13 +255,24 @@ public:
 
         pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
             pass->FN.Term->getReturnValueTerm(I.getParent()->getParent()),
-            pass->FN.Term->getValueTerm(rv),
+            getValueTermWithTypes(rv),
             pass->SLT->getLocFor(&I)
         );
     }
 
 private:
 
+    Term::Ptr getValueTermWithTypes(llvm::Value* v, llvm::Signedness sign = llvm::Signedness::Unknown) {
+        auto vds = pass->MIT->locate(v);
+        
+        auto types = util::viewContainer(vds)
+                .map([](decltype(*vds.begin()) vd){return vd.type;})
+                .toVector();
+                
+        return pass->FN.Term->getValueTerm(v, sign, types);
+    }
+
+    
     DefaultPredicateAnalysis* pass;
 
 };
@@ -280,6 +291,7 @@ void DefaultPredicateAnalysis::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
     AUX<SourceLocationTracker>::addRequiredTransitive(AU);
     AUX<llvm::TargetData>::addRequiredTransitive(AU);
+    AUX<MetaInfoTracker>::addRequiredTransitive(AU);
 }
 
 bool DefaultPredicateAnalysis::runOnFunction(llvm::Function& F) {
@@ -290,6 +302,7 @@ bool DefaultPredicateAnalysis::runOnFunction(llvm::Function& F) {
 
     SLT = &GetAnalysis<SourceLocationTracker>::doit(this, F);
     TD = &GetAnalysis<llvm::TargetData>::doit(this, F);
+    MIT = &GetAnalysis<MetaInfoTracker>::doit(this, F);
 
     DPAInstVisitor visitor(this);
     visitor.visit(F);

@@ -78,6 +78,19 @@ static VarInfo mkVI(const clang::FileManager&, const DIBorealisVarDesc& desc,
     return ret;
 }
 
+static VarInfo mkVI(const clang::FileManager&, const DIEnumerationType& enum_, const llvm::DIEnumerator& enum_mem,
+        clang::Decl* ast = nullptr, bool allocated = false) {
+
+    VarInfo ret{
+        just(enum_mem.getName().str()),
+        just(Locus(enum_.getFilename().str(), enum_.getLineNumber(), 0U)),
+        allocated ? VarInfo::Allocated : VarInfo::Plain,
+        DIType(enum_),
+        ast
+    };
+    return ret;
+}
+
 bool MetaInfoTracker::runOnModule(llvm::Module& M) {
     using borealis::util::takePtr;
     using borealis::util::view;
@@ -123,7 +136,20 @@ bool MetaInfoTracker::runOnModule(llvm::Module& M) {
         DISubprogram sp(msp);
         vars.put(sp.getFunction(), mkVI(sm, sp));
     }
+    
+    for (auto& t : view(dfi.type_begin(), dfi.type_end())) {
+        DIEnumerationType en(t);
+        if (!en.Verify()) continue;
 
+        auto enMems = en.getMembers();
+        
+        for (auto i = 0U; i < enMems.getNumElements(); i++) {
+            auto enMem = enMems.getElement(i);
+            auto enV = llvm::ConstantInt::get(*ctx, llvm::APInt(32, enMem.getEnumValue(), true));
+            vars.put(enV, mkVI(sm, en, enMem));
+        }
+    }
+    
 // FIXME: decide whether we want this or not
 //    {
 //        auto clangGlobals = M.getNamedMetadata("bor.global.decls");
