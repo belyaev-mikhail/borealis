@@ -186,18 +186,51 @@ public:
         };
     }
 
-    Term::Ptr getValueTerm(llvm::Value* v, llvm::Signedness sign = llvm::Signedness::Unknown) {
+    Term::Ptr getValueTerm(llvm::Value* v, std::vector<DIType> types) {
+        return getValueTerm(v, llvm::Signedness::Unknown, types);
+    }
+    
+    Term::Ptr getValueTerm(llvm::Value* v, llvm::Signedness sign = llvm::Signedness::Unknown,
+                           std::vector<DIType> types = std::vector<DIType>()) {
         ASSERT(st, "Missing SlotTracker");
         using namespace llvm;
+        
+        std::unordered_set<uint64_t> possibleValues;
+        
+        for (const auto& t: types) {
+            if (t.getTag() == llvm::dwarf::DW_TAG_enumeration_type) {
+                auto enMems = DIEnumerationType(t).getMembers();
+                
+                for (auto i = 0U; i < enMems.getNumElements(); i++)  {
+                    possibleValues.insert(enMems.getElement(i).getEnumValue());
+                }
+            }
+        }
 
+        Term::Ptr result;
+        
         if (auto* gv = dyn_cast<GlobalValue>(v))
-            return getGlobalValueTerm(gv, sign);
+            result = getGlobalValueTerm(gv, sign);
         else if (auto* c = dyn_cast<Constant>(v))
-            return getConstTerm(c, sign);
+            result = getConstTerm(c, sign);
         else if (auto* arg = dyn_cast<Argument>(v))
-            return getArgumentTerm(arg, sign);
+            result = getArgumentTerm(arg, sign);
         else
-            return getLocalValueTerm(v, sign);
+            result = getLocalValueTerm(v, sign);
+        
+        if (possibleValues.empty()) {
+            return result;
+        } else {
+            auto pvIt = possibleValues.begin();
+            auto limitation = getCmpTerm(llvm::ConditionType::EQ, result, getIntTerm(*pvIt, llvm::Signedness::Unsigned));
+            pvIt++;
+            for (; pvIt != possibleValues.end(); pvIt++) {
+                limitation = getBinaryTerm(llvm::ArithType::LOR, limitation,
+                        getCmpTerm(llvm::ConditionType::EQ, result, getIntTerm(*pvIt, llvm::Signedness::Unsigned)));
+            }
+            result = getAxiomTerm(result, limitation);
+            return result;
+        }
     }
 
     Term::Ptr getValueTerm(Type::Ptr type, const std::string& name) {
