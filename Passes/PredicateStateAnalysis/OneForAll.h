@@ -20,6 +20,7 @@
 #include "Passes/PredicateAnalysis/AbstractPredicateAnalysis.h"
 #include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
 #include "Passes/Tracker/SourceLocationTracker.h"
+#include "Passes/Tracker/MetaInfoTracker.h"
 #include "Passes/Util/ProxyFunctionPass.h"
 #include "Util/passes.hpp"
 
@@ -58,6 +59,7 @@ private:
     FunctionManager* FM;
     llvm::DominatorTree* DT;
     SourceLocationTracker* SLT;
+    MetaInfoTracker* MIT;
 
     FactoryNest FN;
 
