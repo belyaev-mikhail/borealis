@@ -16,6 +16,16 @@ static std::string formatToType(Term::Ptr trm, borealis::DIType type) {
     while(DIAlias alias = type) type = alias.getOriginal();
 
     if(auto integer = llvm::dyn_cast<OpaqueIntConstantTerm>(trm)) {
+        
+        if (DIEnumerationType en = type) {
+            auto enMems = en.getMembers();
+            for (auto i = 0U; i < enMems.getNumElements(); i++) {
+                if ((long long)enMems.getElement(i).getEnumValue() == integer->getValue()) {
+                    return enMems.getElement(i).getName().str();
+                }
+            }
+        }
+        
         llvm::APInt app{ type.getSizeInBits(), integer->getValue(), !type.isUnsignedDIType() };
         return app.toString(10, !type.isUnsignedDIType());
     }

@@ -32,6 +32,7 @@ void OneForAll::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AUX<FunctionManager>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
     AUX<SourceLocationTracker>::addRequiredTransitive(AU);
+    AUX<MetaInfoTracker>::addRequiredTransitive(AU);
 
 #define HANDLE_ANALYSIS(CLASS) \
     AUX<CLASS>::addRequiredTransitive(AU);
@@ -44,6 +45,7 @@ bool OneForAll::runOnFunction(llvm::Function& F) {
     FM = &GetAnalysis< FunctionManager >::doit(this, F);
     DT = &GetAnalysis< llvm::DominatorTree >::doit(this, F);
     SLT = &GetAnalysis< SourceLocationTracker >::doit(this, F);
+    MIT = &GetAnalysis< MetaInfoTracker >::doit(this, F);
 
     auto* st = GetAnalysis< SlotTrackerPass >::doit(this, F).getSlotTracker(F);
     FN = FactoryNest(st);
@@ -73,6 +75,23 @@ bool OneForAll::runOnFunction(llvm::Function& F) {
     // Register arguments as visited values
     for (const auto& arg : F.getArgumentList()) {
         initialState = initialState << SLT->getLocFor(&arg);
+        
+        auto arg_ = const_cast<llvm::Argument *>(&arg);
+        
+        auto vds = MIT->locate(arg_);
+        auto types = util::viewContainer(vds)
+                .map([](decltype(*vds.begin()) vd){return vd.type;})
+                .toVector();
+                
+        auto valTerm = FN.Term->getValueTerm(arg_, types);
+            
+        auto axTerm = llvm::dyn_cast<AxiomTerm>(valTerm);
+        
+        if (axTerm != nullptr) {
+            initialState = initialState + 
+                    FN.Predicate->getEqualityPredicate(axTerm->getRhv(),
+                                                       FN.Term->getTrueTerm());
+        }
     }
 
     // Save initial state
