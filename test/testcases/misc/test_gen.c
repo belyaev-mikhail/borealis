@@ -27,11 +27,11 @@ int bar(int a) {
     }
 */
 
-// @requires arg > 0
+// @requires arg > 0L
 // @requires arg < 15
 // @ensures \result > 0
 long factoriall(long arg) {
-    int i; // This causes a bug in test generation
+    int i;
     long res = 1;
     for (i = arg; i > 0; i--) {
         res *= i;

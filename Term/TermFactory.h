@@ -475,6 +475,7 @@ public:
                 return WhatToWhat{getCastTerm(CastTerm::castForTypes(lhvt, rhvt), lhv), rhv};
         }
 
+        // in other cases cast rhv to lhv
         return WhatToWhat{lhv, getCastTerm(CastTerm::castForTypes(rhvt, lhvt), rhv)};
     }
 

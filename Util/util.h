@@ -193,6 +193,7 @@ enum class CastType {
 };
 
 CastType castType(Instruction::CastOps llops, Type* lhvt, Type* rhvt);
+std::string castString(CastType opCode);
 
 ////////////////////////////////////////////////////////////////////////////////
 

@@ -225,22 +225,40 @@ CastType castType(Instruction::CastOps llops, Type* lhvt, Type* rhvt) {
     case ops::Trunc:    return CastType::LongToInt;
     case ops::ZExt:     return CastType::IntToULong;
     case ops::SExt:     return CastType::IntToSLong;
-    case ops::FPToUI:   return lhvSize > 32 ?
+    case ops::FPToUI:   return lhvSize <= 32 ?
                             CastType::FloatToUInt : CastType::FloatToULong;
-    case ops::FPToSI:   return lhvSize > 32 ?
+    case ops::FPToSI:   return lhvSize <= 32 ?
                             CastType::FloatToSInt : CastType::FloatToSLong;
-    case ops::UIToFP:   return rhvSize > 32 ?
+    case ops::UIToFP:   return rhvSize <= 32 ?
                             CastType::UIntToFloat : CastType::ULongToFloat;
-    case ops::SIToFP:   return rhvSize > 32 ?
+    case ops::SIToFP:   return rhvSize <= 32 ?
                             CastType::SIntToFloat : CastType::SLongToFloat;
     case ops::FPTrunc:  return CastType::NoCast;
     case ops::FPExt:    return CastType::NoCast;
-    case ops::PtrToInt: return lhvSize > 32 ?
+    case ops::PtrToInt: return lhvSize <= 32 ?
                             CastType::NoCast : CastType::IntToSLong;
-    case ops::IntToPtr: return rhvSize > 32 ?
+    case ops::IntToPtr: return rhvSize <= 32 ?
                             CastType::NoCast : CastType::LongToInt;
     case ops::BitCast:  return CastType::NoCast;
     default: BYE_BYE(CastType, "Unreachable!");
+    }
+}
+
+std::string castString(CastType opCode) {
+    switch(opCode) {
+    case CastType::SIntToFloat:     return "SIntToFloat";
+    case CastType::SLongToFloat:    return "SLongToFloat";
+    case CastType::UIntToFloat:     return "UIntToFloat";
+    case CastType::ULongToFloat:    return "ULongToFloat";
+    case CastType::FloatToSInt:     return "FloatToSInt";
+    case CastType::FloatToSLong:    return "FloatToSLong";
+    case CastType::FloatToUInt:     return "FloatToUInt";
+    case CastType::FloatToULong:    return "FloatToULong";
+    case CastType::LongToInt:       return "LongToInt";
+    case CastType::IntToSLong:      return "IntToSLong";
+    case CastType::IntToULong:      return "IntToULong";
+    case CastType::NoCast:          return "NoCast";
+    default: BYE_BYE(std::string, "Unreachable!");
     }
 }
 
