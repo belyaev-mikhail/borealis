@@ -198,7 +198,7 @@ public:
             );
         }
 
-        auto opcode = llvm::castType(cast, lhv->getType(), lhv->getType());
+        auto opcode = llvm::castType(cast, lhv->getType(), rhv->getType());
 
         pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
            lhvt,
