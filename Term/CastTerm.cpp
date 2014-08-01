@@ -40,11 +40,20 @@ Type::Ptr CastTerm::resultTypeForCast(llvm::CastType opCode, Type::Ptr from) {
 
 llvm::CastType CastTerm::castForTypes(Type::Ptr from, Type::Ptr to) {
     using llvm::dyn_cast;
+    using llvm::isa;
     using llvm::CastType;
     using llvm::Signedness;
 
-    if (auto toi = dyn_cast<type::Integer>(to)) {
-        if (auto fromi = dyn_cast<type::Integer>(from)) {
+    // ToDo: fix this... Add special cast types for pointer casts
+    auto ptrType = TypeFactory::get()->getInteger(32, llvm::Signedness::Unsigned);
+    Type::Ptr wrapTo = to, wrapFrom = from;
+    if (isa<type::Pointer>(to))
+        wrapTo = ptrType;
+    if (isa<type::Pointer>(from))
+        wrapFrom = ptrType;
+
+    if (auto toi = dyn_cast<type::Integer>(wrapTo)) {
+        if (auto fromi = dyn_cast<type::Integer>(wrapFrom)) {
             if (toi->getBitsize() > 32) {
                 return fromi->getSignedness() == Signedness::Signed ?
                                             CastType::IntToSLong :
@@ -52,7 +61,7 @@ llvm::CastType CastTerm::castForTypes(Type::Ptr from, Type::Ptr to) {
             } else {
                 return CastType::LongToInt;
             }
-        } else if (llvm::isa<type::Float>(from)) {
+        } else if (isa<type::Float>(wrapFrom)) {
             if (toi->getBitsize() > 32) {
                 return toi->getSignedness() == Signedness::Signed ?
                                             CastType::FloatToSLong :
@@ -63,8 +72,8 @@ llvm::CastType CastTerm::castForTypes(Type::Ptr from, Type::Ptr to) {
                                             CastType::FloatToUInt;
             }
         }
-    } else if (llvm::isa<type::Float>(to)) {
-        if (auto fromi = dyn_cast<type::Integer>(from)) {
+    } else if (isa<type::Float>(wrapTo)) {
+        if (auto fromi = dyn_cast<type::Integer>(wrapFrom)) {
             if (fromi->getBitsize() > 32) {
                 return fromi->getSignedness() == Signedness::Signed ?
                                             CastType::SLongToFloat :
@@ -76,7 +85,7 @@ llvm::CastType CastTerm::castForTypes(Type::Ptr from, Type::Ptr to) {
             }
         }
     }
-    BYE_BYE(CastType, "Unreachable!");
+    return CastType::NoCast;
 }
 
 #include "Util/unmacros.h"

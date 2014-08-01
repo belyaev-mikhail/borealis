@@ -86,7 +86,6 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
 
     if (util::shouldSkipTest(&F))
         return false;
-
     FM = &GetAnalysis<FunctionManager>::doit(this, F);
     PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, F);
 
@@ -96,6 +95,7 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
     TM = &GetAnalysis<TestManager>::doit(this, F);
 
     dbgs() << "name: " << F.getName() << endl;
+
 
     TestSuite::Ptr testSuite(new TestSuite(&F));
 

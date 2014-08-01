@@ -476,6 +476,9 @@ public:
         }
 
         // in other cases cast rhv to lhv
+        auto cast = CastTerm::castForTypes(rhvt, lhvt);
+        if (cast == llvm::CastType::NoCast)
+            return WhatToWhat{lhv, rhv};
         return WhatToWhat{lhv, getCastTerm(CastTerm::castForTypes(rhvt, lhvt), rhv)};
     }
 

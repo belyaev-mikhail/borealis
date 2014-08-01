@@ -92,10 +92,11 @@ public:
                     auto pointed = ptrType->getPointed();
 
                     auto bval = builder(val);
+                    auto size = factory().getIntTerm((TypeUtils::getTypeSizeInElems(pointed)));
 
                     return bval != null()
                         && bval != invalid()
-                        && bval.bound().uge (builder(TypeUtils::getTypeSizeInElems(pointed)));
+                        && bval.bound().uge (size);
                   } else failWith("Illegal \\is_valid_ptr access " + trm->getName() + ": called on non-pointer");
             } else if(builtin->getVName() == "old") {
                 // all \old's should be already taken care of, let's try to guess the problem
@@ -280,51 +281,30 @@ public:
         auto lhvt = trm->getLhv()->getType();
         auto rhvt = trm->getRhv()->getType();
 
-        Term::Ptr pterm = trm;
-
         // XXX: Tricky stuff follows...
         //      CmpTerm from annotations is signed by default,
         //      need to change that to unsigned when needed
         if (auto match = match_pair<type::Integer, type::Integer>(lhvt, rhvt)) {
             if (
-                    (
-                        match->first->getSignedness() == llvm::Signedness::Unsigned &&
-                        match->second->getSignedness() != llvm::Signedness::Signed
-                    ) || (
-                        match->second->getSignedness() == llvm::Signedness::Unsigned &&
-                        match->first->getSignedness() != llvm::Signedness::Signed
-                    )
+                   (
+                       match->first->getSignedness() == llvm::Signedness::Unsigned &&
+                       match->second->getSignedness() != llvm::Signedness::Signed
+                   ) || (
+                       match->second->getSignedness() == llvm::Signedness::Unsigned &&
+                       match->first->getSignedness() != llvm::Signedness::Signed
+                   )
             ) {
-                pterm = factory().getCmpTerm(
-                                llvm::forceUnsigned(trm->getOpcode()),
-                                trm->getLhv(),
-                                trm->getRhv()
-                );
+                   return factory().getCmpTerm(
+                       llvm::forceUnsigned(trm->getOpcode()),
+                       trm->getLhv(),
+                       trm->getRhv()
+                   );
             }
         }
 
-        auto cmpTerm = llvm::dyn_cast<CmpTerm>(pterm);
-        auto whatToWhat = FN.Term->getCastTerm(trm->getLhv(), trm->getRhv());
-        return FN.Term->getCmpTerm(
-                    cmpTerm->getOpcode(),
-                    whatToWhat.first,
-                    whatToWhat.second
-        );
-
-        return pterm;
+        return trm;
     }
 
-
-    Term::Ptr transformBinaryTerm(BinaryTermPtr trm) {
-        using llvm::isa;
-
-        auto whatToWhat = FN.Term->getCastTerm(trm->getLhv(), trm->getRhv());
-        return FN.Term->getBinaryTerm(
-                    trm->getOpcode(),
-                    whatToWhat.first,
-                    whatToWhat.second
-        );
-    }
 };
 
 Annotation::Ptr materialize(Annotation::Ptr, FactoryNest FN, MetaInfoTracker*);

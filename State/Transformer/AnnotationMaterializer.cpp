@@ -6,6 +6,7 @@
  */
 
 #include "State/Transformer/AnnotationMaterializer.h"
+#include "State/Transformer/TermCaster.h"
 
 namespace borealis {
 
@@ -54,6 +55,8 @@ AnnotationMaterializer::~AnnotationMaterializer() {}
 
 Annotation::Ptr AnnotationMaterializer::doit() {
     auto trm = transform(pimpl->A->getTerm());
+    TermCaster caster(FN);
+    trm = caster.transform(trm);
     return pimpl->A->clone(trm);
 }
 
