@@ -222,9 +222,12 @@ CastType castType(Instruction::CastOps llops, Type* lhvt, Type* rhvt) {
     int lhvSize = lhvt->getPrimitiveSizeInBits();
     int rhvSize = rhvt->getPrimitiveSizeInBits();
     switch (llops) {
-    case ops::Trunc:    return CastType::LongToInt;
-    case ops::ZExt:     return CastType::IntToULong;
-    case ops::SExt:     return CastType::IntToSLong;
+    case ops::Trunc:    return lhvSize > 32 || rhvSize <= 32 ?
+                            CastType::NoCast : CastType::LongToInt;
+    case ops::ZExt:     return lhvSize <= 32  || rhvSize > 32 ?
+                            CastType::NoCast : CastType::IntToULong;
+    case ops::SExt:     return lhvSize <= 32 || rhvSize > 32 ?
+                            CastType::NoCast : CastType::IntToSLong;
     case ops::FPToUI:   return lhvSize <= 32 ?
                             CastType::FloatToUInt : CastType::FloatToULong;
     case ops::FPToSI:   return lhvSize <= 32 ?
