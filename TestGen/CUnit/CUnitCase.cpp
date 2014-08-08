@@ -31,11 +31,15 @@ std::ostream& operator<<(std::ostream& os, const CUnitCaseDefinition& definition
     auto& suite = definition.suite;
     const auto& fi = *suite.getFunctionInfo();
     
-    if (fi.isStub() || fi.hasPtrArgs()) {
+    if (fi.isStub()) {
         return os;
     }
     
     auto* function = fi.getFunction();
+    
+    if (fi.hasPtrArgs()) {
+        os << "// Has some stubs\n";
+    }
     
     os << "void " << cs.getTestName(function, definition.id) << "(void) {\n";
     
