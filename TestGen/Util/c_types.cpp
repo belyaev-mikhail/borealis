@@ -22,6 +22,14 @@ std::string getCType(llvm::DIType type, CTypeModifiersPolicy fullModifiers) {
                 prefix += "struct ";
                 breakFlag = true;
                 break;
+            case llvm::dwarf::DW_TAG_union_type:
+                prefix += "union ";
+                breakFlag = true;
+                break;
+            case llvm::dwarf::DW_TAG_enumeration_type:
+                prefix += "enum ";
+                breakFlag = true;
+                break;
             case llvm::dwarf::DW_TAG_typedef:
                 breakFlag = true;
                 break;

@@ -141,6 +141,10 @@ private:
     static bool isGlobal(VarInfoContainer::loc_value_iterator::reference pr) {
         return llvm::isa<llvm::GlobalValue>(pr.second);
     }
+    
+    static bool isConstInt(VarInfoContainer::loc_value_iterator::reference pr) {
+        return llvm::isa<llvm::ConstantInt>(pr.second);
+    }
 
 public:
 
@@ -222,6 +226,8 @@ public:
 
         // Fallback to globals if we can't find anything...
         if (res.isInvalid()) res = locate_simple(name, vars.byLocBegin(), vars.byLocEnd(), isGlobal);
+        
+        if (res.isInvalid()) res = locate_simple(name, vars.byLocBegin(), vars.byLocEnd(), isConstInt);
 
         return res;
     }

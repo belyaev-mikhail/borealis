@@ -252,6 +252,7 @@ std::string& replace(const std::string& from, const std::string& to, std::string
 std::string capitalize(std::string str);
 std::string toUpperCase(std::string str);
 
+std::string& replaceAll(const std::string& from, const std::string& to, std::string& in);
 
 template<class Lambda>
 struct scope_guard {

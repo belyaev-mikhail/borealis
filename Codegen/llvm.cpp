@@ -201,7 +201,9 @@ std::map<llvm::Type*, DIType>& flattenTypeTree(
     if(collected.count(type)) return collected;
     collected.insert({type, di});
 
-    if(DICompositeType struct_ = di) {
+    if (DIEnumerationType(di)) {
+        
+    } else if(DICompositeType struct_ = di) {
         auto members = struct_.getTypeArray();
         ASSERTC(members.getNumElements() == type->getNumContainedTypes());
         for(auto i = 0U; i < members.getNumElements(); ++i) {

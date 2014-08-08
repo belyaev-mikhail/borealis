@@ -16,6 +16,16 @@ static std::string formatToType(Term::Ptr trm, borealis::DIType type) {
     while(DIAlias alias = type) type = alias.getOriginal();
 
     if(auto integer = llvm::dyn_cast<OpaqueIntConstantTerm>(trm)) {
+        
+        if (DIEnumerationType en = type) {
+            auto enMems = en.getMembers();
+            for (auto i = 0U; i < enMems.getNumElements(); i++) {
+                if ((long long)enMems.getElement(i).getEnumValue() == integer->getValue()) {
+                    return enMems.getElement(i).getName().str();
+                }
+            }
+        }
+        
         llvm::APInt app{ type.getSizeInBits(), integer->getValue(), !type.isUnsignedDIType() };
         return app.toString(10, !type.isUnsignedDIType());
     }
@@ -48,20 +58,21 @@ FunctionInfo::FunctionInfo(const llvm::Function* f, SlotTracker* st, FactoryNest
     initialize(st, fn);
 }
 
-bool checkStructForPtrs(const DIStructType& s) {
-    auto mems = s.getMembers();
-    for (unsigned i = 0; i < mems.getNumElements(); i++) {
-        auto memType = mems.getElement(i).getType();
-        switch (memType.getTag()) {
-            case llvm::dwarf::DW_TAG_structure_type:
-                if (checkStructForPtrs(DIStructType(memType))) {
+bool checkForPtrs(const DIType& t) {
+    switch (t.getTag()) {
+        case llvm::dwarf::DW_TAG_structure_type: {
+            auto mems = DIStructType(t).getMembers();
+            for (unsigned i = 0; i < mems.getNumElements(); i++) {
+                if (checkForPtrs(mems.getElement(i).getType())) {
                     return true;
                 }
-                break;
-            case llvm::dwarf::DW_TAG_pointer_type:
-                return true;
-                break;
+            }            
+            break;
         }
+        case llvm::dwarf::DW_TAG_array_type:
+            return checkForPtrs(llvm::DIDerivedType(t).getTypeDerivedFrom());
+        case llvm::dwarf::DW_TAG_pointer_type:
+            return true;
     }
     return false;
 }
@@ -84,16 +95,11 @@ void FunctionInfo::initialize(SlotTracker* st, FactoryNest* fn) {
             auto sp = llvm::DISubprogram(v.getContext());
             if (sp.getFunction() == f) {
                 args.emplace(v.getArgNumber() - 1, std::make_pair(v.getName().str(), v.getType()));
-                switch (v.getType().getTag()) {
-                    case llvm::dwarf::DW_TAG_structure_type:
-                        stub = true;
-                        if (checkStructForPtrs(DIStructType(v.getType()))) {
-                            hasPtrs = true;
-                        }
-                        break;
-                    case llvm::dwarf::DW_TAG_pointer_type:
-                        hasPtrs = true;
-                        break;
+                if (v.getType().getTag() == llvm::dwarf::DW_TAG_structure_type) {
+                    stub = true;
+                }
+                if (checkForPtrs(v.getType())) {
+                    hasPtrs = true;
                 }
             }
         } else if (d.getTag() == llvm::dwarf::DW_TAG_subprogram) {
@@ -114,19 +120,20 @@ void FunctionInfo::initialize(SlotTracker* st, FactoryNest* fn) {
         this->args[i].type = _args.second;
         this->args[i].parent = this;
         this->args[i].idx = i;
+        if (stub) {
+            this->args[i].term = fn->Term->getValueTerm(fn->Type->getUnknownType(), _args.first);
+        }
     }
     
-    if (stub) {
-        return;
-    }
-    
-    auto arg = f->arg_begin();
-    for (unsigned i = 0; i < args.size(); i++) {
-        auto arg_ = const_cast<llvm::Argument *>(&(*arg));
-        auto argTerm = fn->Term->getArgumentTerm(arg_);
+    if (!stub) {
+        auto arg = f->arg_begin();
+        for (unsigned i = 0; i < args.size(); i++) {
+            auto arg_ = const_cast<llvm::Argument *>(&(*arg));
+            auto argTerm = fn->Term->getArgumentTerm(arg_);
 
-        this->args[i].term = argTerm;
-        arg++;
+            this->args[i].term = argTerm;
+            arg++;
+        }
     }
 }
 
@@ -201,22 +208,51 @@ void FunctionInfo::setStubFunc(FunctionInfo* stub) {
     }
 }
 
-std::string getStructureValue(const DIStructType& s, std::vector<FunctionInfo::ArgInfo>::iterator& argIt, const TestCase& cs) {
-    auto mems = s.getMembers();
+std::string getArgValue(const DIType& t, std::vector<FunctionInfo::ArgInfo>::iterator& argIt, const TestCase& cs);
+
+std::string getArrayArgValue(const llvm::DICompositeType& ct, unsigned rangeIdx, std::vector<FunctionInfo::ArgInfo>::iterator& argIt, const TestCase& cs) {
+    auto ranges = ct.getTypeArray();
+    auto subrange = llvm::DISubrange(ranges.getElement(rangeIdx));
+    int arraySize = subrange.getHi() - subrange.getLo() + 1;
     std::string result;
-    if (mems.getNumElements() > 0) {
-        for (unsigned i = 0; i < mems.getNumElements(); i++) {
-            if (mems.getElement(i).getType().getTag() == llvm::dwarf::DW_TAG_structure_type) {
-                auto s = DIStructType(mems.getElement(i).getType());
-                result += getStructureValue(s, argIt, cs) + ", ";
-            } else {
-                result += formatToType(cs.getValue(argIt->term), argIt->type) + ", ";
-                argIt++;
+    if (arraySize > 0) {
+        if (rangeIdx < ranges.getNumElements() - 1) {
+            for (int i = 0; i < arraySize; i++) {
+                result += getArrayArgValue(ct, rangeIdx + 1, argIt, cs) + ", ";
+            }
+        } else {
+            for (int i = 0; i < arraySize; i++) {
+                auto pt = ct.getTypeDerivedFrom();
+                result += getArgValue(pt, argIt, cs) + ", ";
             }
         }
         result.erase(result.end() - 2, result.end());
     }
     return "{" + result + "}";
+}
+
+std::string getArgValue(const DIType& t, std::vector<FunctionInfo::ArgInfo>::iterator& argIt, const TestCase& cs) {
+    switch (t.getTag()) {
+        case  llvm::dwarf::DW_TAG_structure_type: {
+            auto mems = DIStructType(t).getMembers();
+            std::string result;
+            if (mems.getNumElements() > 0) {
+                for (unsigned i = 0; i < mems.getNumElements(); i++) {
+                    result += getArgValue(mems.getElement(i).getType(), argIt, cs) + ", ";
+                }
+                result.erase(result.end() - 2, result.end());
+            }
+            return "{" + result + "}";
+        }
+        case llvm::dwarf::DW_TAG_array_type: {
+            auto ct = llvm::DICompositeType(t);
+            return getArrayArgValue(ct, 0, argIt, cs);
+        }
+        default:
+            auto result = formatToType(cs.getValue(argIt->term), argIt->type);
+            argIt++;
+            return std::move(result);
+    }
 }
 
 std::string FunctionInfo::ArgInfo::getValue(const TestCase& cs) const {
@@ -228,19 +264,16 @@ std::string FunctionInfo::ArgInfo::getValue(const TestCase& cs) const {
             if (arg.type.getTag() == llvm::dwarf::DW_TAG_structure_type) {
                 auto s = DIStructType(arg.type);
                 realIdx += s.getMembers().getNumElements();
-            } else {
+            } else if (arg.type.getTag() == llvm::dwarf::DW_TAG_array_type) {
+                auto dt = llvm::DIDerivedType(arg.type);
+                realIdx += dt.getSizeInBits() / dt.getTypeDerivedFrom().getSizeInBits();
+            } else{
                 realIdx++;
             }
         }
         
-        if (type.getTag() == llvm::dwarf::DW_TAG_structure_type) {
-            auto s = DIStructType(type);
-            auto argIt = parent->realFunc->args.begin() + realIdx;
-            return getStructureValue(s, argIt, cs);
-        } else {
-            auto arg = parent->realFunc->args[realIdx];
-            return formatToType(cs.getValue(arg.term), arg.type);
-        }
+        auto argIt = parent->realFunc->args.begin() + realIdx;
+        return getArgValue(type, argIt, cs);
     } else {
         return formatToType(cs.getValue(term), type);
     }
