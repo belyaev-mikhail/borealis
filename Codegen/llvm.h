@@ -77,7 +77,7 @@ struct DITypedArray : public llvm::DIArray {
     DITypedArray(const llvm::DIDescriptor& node): DITypedArray(static_cast<llvm::MDNode*>(node)) {};
 
     T getElement(unsigned Idx) const {
-        if(Tag != ~0U && this->getTag() != Tag) return nullptr;
+        if(Tag != ~0U && this->getTag() != Tag) return T{ nullptr };
         return T{ getDescriptorField(Idx) };
     }
 
@@ -138,6 +138,22 @@ struct DIStructType : public llvm::DICompositeType {
 
     DITypedArray<DIMember> getMembers() const {
         return DITypedArray<DIMember>{ getTypeArray() };
+    }
+};
+
+struct DIEnumerationType : public llvm::DICompositeType {
+    DEFAULT_CONSTRUCTOR_AND_ASSIGN(DIEnumerationType);
+    DIEnumerationType(const llvm::MDNode* node): llvm::DICompositeType(node) {
+        while(DIAlias(this->DbgNode)) {
+            this->DbgNode = this->getTypeDerivedFrom();
+        }
+        if(this->getTag() != llvm::dwarf::DW_TAG_enumeration_type) this->DbgNode = nullptr;
+    };
+    DIEnumerationType(llvm::DICompositeType node): DIEnumerationType(static_cast<llvm::MDNode*>(node)) {};
+    DIEnumerationType(const llvm::DIDescriptor& node): DIEnumerationType(static_cast<llvm::MDNode*>(node)) {};
+
+    DITypedArray<llvm::DIEnumerator> getMembers() const {
+        return DITypedArray<llvm::DIEnumerator>{ getTypeArray() };
     }
 };
 

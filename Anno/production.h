@@ -202,6 +202,7 @@ public:
 class printingVisitor: public virtual productionVisitor {
     std::ostream& ost_;
 
+protected:
     virtual void onDoubleConstant(double v) override;
     virtual void onIntConstant(int v) override;
     virtual void onBoolConstant(bool v) override;
@@ -244,6 +245,22 @@ prod_t operator! (const prod_t&);
 prod_t operator- (const prod_t&);
 prod_t operator~ (const prod_t&);
 
+
+class printingCoerceStructsVisitor: public virtual printingVisitor {
+    std::ostringstream oss;
+    bool modified;
+    bool firstPropertyAccess;
+    bool structInside;
+    
+protected:
+    virtual void onBinary(bin_opcode opc, const prod_t& op0, const prod_t& op1) override;
+    virtual void onVariable(const std::string& name) override;
+public:
+    printingCoerceStructsVisitor() : printingVisitor(oss), modified(false), firstPropertyAccess(true) {};
+    
+    bool isModified() {return modified;}
+    std::string getResult() {return oss.str();}
+};
 
 } // namespace anno
 } // namespace borealis

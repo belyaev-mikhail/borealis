@@ -16,6 +16,7 @@
 #include "State/Transformer/Transformer.hpp"
 #include "Term/NameContext.h"
 #include "Term/TermBuilder.h"
+#include "TestGen/FunctionInfo.h"
 #include "Util/util.h"
 
 #include "Util/macros.h"
@@ -30,12 +31,12 @@ class ContractStupidifier : public borealis::Transformer<ContractStupidifier> {
     std::unique_ptr<ContractStupidifierImpl> pimpl;
 
     TermFactory& factory();
-    const std::vector<Term::Ptr>& getArgTerms() const;
+    const FunctionInfo* getFunctionInfo() const;
     Term::Ptr getResultTerm() const;
 public:
 
     ContractStupidifier(
-            const std::vector<Term::Ptr>& argTerms,
+            const FunctionInfo* fi,
             Term::Ptr resultTerm,
             FactoryNest FN
     );
@@ -68,10 +69,9 @@ public:
 
             //if(!ist) failWith("\\" + name + " : unknown builtin");
 
-            auto&& args = getArgTerms();
-            if(val >= args.size()) failWith("\\" + name + " : arg not found");
-
-            return args[val];
+            auto fi = getFunctionInfo();
+            if(val >= fi->getArgsCount()) failWith("\\" + name + " : arg not found");
+            return fi->getArg(val).term;
         } else {
             failWith("\\" + name + " : unknown builtin");
         }
@@ -132,6 +132,20 @@ public:
             );
         }
         return trm;
+    }
+    
+    Term::Ptr transformOpaqueVarTerm(OpaqueVarTermPtr trm) {
+        auto name = llvm::StringRef(trm->getVName());
+        if (name.startswith("__")) {
+            auto newName = name.drop_front(2).str();
+            util::replaceAll("_p_", ".", newName);
+            util::replaceAll("_ib_", "[", newName);
+            util::replaceAll("_ie_", "]", newName);
+            util::replaceAll("__", "_", newName);
+            return FN.Term->getValueTerm(trm->getType(), newName);
+        } else {
+            return trm;
+        }
     }
 
     Term::Ptr transformCastTerm(CastTermPtr trm) {

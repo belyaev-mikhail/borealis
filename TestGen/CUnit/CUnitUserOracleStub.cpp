@@ -24,8 +24,8 @@ bool updateOracleFile(Unit& unit,
             const std::string& fileName, LocationAnalyseResult& oldLocs) {
     int tmpFD;
     llvm::SmallString<256> tmpPath;
-    auto err = llvm::sys::fs::unique_file(llvm::Twine(
-            llvm::sys::path::stem(fileName)) + ".%%%%%%%%", tmpFD, tmpPath);
+    auto err = llvm::sys::fs::unique_file("borealis/" + llvm::Twine(
+            llvm::sys::path::stem(fileName)) + ".%%%%%%%%", tmpFD, tmpPath, true);
     if (err != llvm::errc::success)
         return false;
     close(tmpFD);

@@ -387,5 +387,51 @@ prod_t operator~(const prod_t& op0) {
     return productionFactory::createUnary(un_opcode::OPCODE_BNOT, op0);
 }
 
+void printingCoerceStructsVisitor::onBinary(bin_opcode opc, const prod_t& op0, const prod_t& op1) {
+    switch (opc) {
+        case bin_opcode::OPCODE_PROPERTY: {
+            auto fpa = firstPropertyAccess;
+            if (fpa) {
+                oss << "__";
+                firstPropertyAccess = false;
+            }
+            (*op0).accept(*this);
+            oss << "_p_";
+            (*op1).accept(*this);
+            firstPropertyAccess = fpa;
+            modified = true;
+            structInside = true;
+            break;
+        }
+        case bin_opcode::OPCODE_INDEX: {
+            structInside = false;
+            (*op0).accept(*this);
+            if (structInside) {
+                oss << "_ib_";
+                (*op1).accept(*this);
+                oss << "_ie_";
+            } else {
+                oss << "[";
+                (*op1).accept(*this);
+                oss << "]";
+            }
+            break;
+        }
+        default:
+            printingVisitor::onBinary(opc, op0, op1);
+            break;
+    }
+}
+
+void printingCoerceStructsVisitor::onVariable(const std::string& name) {
+    if (firstPropertyAccess) {
+        oss << name;
+    } else {
+        auto newName = name;
+        util::replaceAll("_", "__", newName);
+        oss << newName;
+    }
+}
+
 } /* namespace anno */
 } /* namespace borealis */
