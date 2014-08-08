@@ -54,6 +54,10 @@ public:
         ).toVector();
         auto _loc = location;
         auto _type = type;
+        PREDICATE_KILLED(_cond)
+        for (auto c: _cases) {
+            PREDICATE_KILLED(c);
+        }
         PREDICATE_ON_CHANGED(
             cond != _cond || cases != _cases,
             new Self( _cond, _cases, _loc, _type )

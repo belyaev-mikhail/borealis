@@ -51,6 +51,9 @@ public:
         ).toVector();
         auto _loc = location;
         auto _type = type;
+        for (auto global: _globals) {
+            PREDICATE_KILLED(global);
+        }
         PREDICATE_ON_CHANGED(
             globals != _globals,
             new Self( _globals, _loc, _type )

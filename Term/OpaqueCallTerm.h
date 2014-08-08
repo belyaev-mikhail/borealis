@@ -58,6 +58,10 @@ public:
             return tr->transform(arg);
         }).toVector();
         auto _type = tr->FN.Type->getUnknownType();
+        TERM_KILLED(_lhv);
+        for (auto val: _rhv) {
+            TERM_KILLED(val);
+        }
         TERM_ON_CHANGED(
             lhv != _lhv || rhv != _rhv,
             new Self( _type, _lhv, _rhv )

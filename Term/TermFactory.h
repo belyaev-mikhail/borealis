@@ -64,7 +64,10 @@ public:
             auto opcode = cE->getOpcode();
 
             if (opcode >= Instruction::CastOpsBegin && opcode <= Instruction::CastOpsEnd) {
-                return getValueTerm(cE->getOperand(0));
+                auto castOp = static_cast<Instruction::CastOps>(opcode);
+                auto cast = castType(castOp, cE->getType(), cE->getOperand(0)->getType());
+                auto value = getValueTerm(cE->getOperand(0));
+                return getCastTerm(cast, value, TyF->cast(cE->getType()));
             } else if (opcode == Instruction::GetElementPtr) {
                 auto* base = cE->getOperand(0);
                 ValueVector idxs;
@@ -442,10 +445,10 @@ public:
         };
     }
 
-    Term::Ptr getCastTerm(llvm::CastType opc, Term::Ptr rhv) {
+    Term::Ptr getCastTerm(llvm::CastType opc, Term::Ptr rhv, Type::Ptr to) {
         return Term::Ptr{
             new CastTerm(
-                opc, rhv
+                opc, rhv, to
             )
         };
     }
@@ -463,23 +466,23 @@ public:
 
         // cast Integer to Float
         if (isa<type::Float>(lhvt))
-            return WhatToWhat{lhv, getCastTerm(CastTerm::castForTypes(rhvt, lhvt), rhv)};
+            return WhatToWhat{lhv, getCastTerm(CastTerm::castForTypes(rhvt, lhvt), rhv, lhvt)};
         if (isa<type::Float>(rhvt))
-            return WhatToWhat{getCastTerm(CastTerm::castForTypes(lhvt, rhvt), lhv), rhv};
+            return WhatToWhat{getCastTerm(CastTerm::castForTypes(lhvt, rhvt), lhv, rhvt), rhv};
 
         // cast Integer to Long (extend instead of extract)
         if (auto match = match_pair<type::Integer, type::Integer>(lhvt, rhvt)) {
             if (match->first->getBitsize() > match->second->getBitsize())
-                return WhatToWhat{lhv, getCastTerm(CastTerm::castForTypes(rhvt, lhvt), rhv)};
+                return WhatToWhat{lhv, getCastTerm(CastTerm::castForTypes(rhvt, lhvt), rhv, lhvt)};
             if (match->first->getBitsize() < match->second->getBitsize())
-                return WhatToWhat{getCastTerm(CastTerm::castForTypes(lhvt, rhvt), lhv), rhv};
+                return WhatToWhat{getCastTerm(CastTerm::castForTypes(lhvt, rhvt), lhv, rhvt), rhv};
         }
 
         // in other cases cast rhv to lhv
         auto cast = CastTerm::castForTypes(rhvt, lhvt);
         if (cast == llvm::CastType::NoCast)
             return WhatToWhat{lhv, rhv};
-        return WhatToWhat{lhv, getCastTerm(CastTerm::castForTypes(rhvt, lhvt), rhv)};
+        return WhatToWhat{lhv, getCastTerm(CastTerm::castForTypes(rhvt, lhvt), rhv, lhvt)};
     }
 
     static TermFactory::Ptr get(
