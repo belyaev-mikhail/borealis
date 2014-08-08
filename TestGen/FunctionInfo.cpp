@@ -248,6 +248,12 @@ std::string getArgValue(const DIType& t, std::vector<FunctionInfo::ArgInfo>::ite
             auto ct = llvm::DICompositeType(t);
             return getArrayArgValue(ct, 0, argIt, cs);
         }
+        case llvm::dwarf::DW_TAG_pointer_type: {
+            auto result = formatToType(cs.getValue(argIt->term), argIt->type) +
+                            "/*Stub value*/";
+            argIt++;
+            return std::move(result);
+        }
         default:
             auto result = formatToType(cs.getValue(argIt->term), argIt->type);
             argIt++;
@@ -256,6 +262,8 @@ std::string getArgValue(const DIType& t, std::vector<FunctionInfo::ArgInfo>::ite
 }
 
 std::string FunctionInfo::ArgInfo::getValue(const TestCase& cs) const {
+    std::vector<ArgInfo>::iterator argIt;
+    
     if (parent->isStub()) {
         int realIdx = 0;
         
@@ -272,11 +280,12 @@ std::string FunctionInfo::ArgInfo::getValue(const TestCase& cs) const {
             }
         }
         
-        auto argIt = parent->realFunc->args.begin() + realIdx;
-        return getArgValue(type, argIt, cs);
+        argIt = parent->realFunc->args.begin() + realIdx;
     } else {
-        return formatToType(cs.getValue(term), type);
+        argIt = parent->args.begin() + idx;
     }
+    
+    return getArgValue(type, argIt, cs);
 }
 
 } // namespace borealis
