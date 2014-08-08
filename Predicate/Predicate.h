@@ -159,6 +159,22 @@ template<>
 struct hash<const borealis::PredicateType> : public borealis::util::enums::enum_hash<borealis::PredicateType> {};
 }
 
+namespace borealis{
+
+template<typename Head> bool predicateIsKilled(Head h) {
+    return h == nullptr;
+}
+
+template<typename Head, typename... Tail> bool predicateIsKilled(Head h, Tail... t) {
+    if (h == nullptr) {
+        return true;
+    } else {
+        return termIsKilled(t...);
+    }
+}
+} // namespace borealis
+
+
 #define MK_COMMON_PREDICATE_IMPL(CLASS) \
 private: \
     typedef CLASS Self; \
@@ -176,6 +192,11 @@ public: \
     virtual Predicate* clone() const override { \
         return new Self{ *this }; \
     }
+
+
+#define PREDICATE_KILLED(...) \
+    if (borealis::predicateIsKilled(__VA_ARGS__)) return nullptr;
+
 
 #define PREDICATE_ON_CHANGED(COND, CTOR) \
     if (COND) return Predicate::Ptr{ CTOR }; \

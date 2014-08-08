@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-
+#include "Config/config.h"
 #include "Driver/gestalt.h"
 #include "Driver/runner.h"
 #include "Passes/Defect/DefectManager/DefectInfo.h"
@@ -46,6 +46,11 @@ static std::vector<std::string> ShortTestFiles(const std::string& dir) {
 
 static std::vector<std::string> LongTestFiles(const std::string& dir) {
     return getTestFiles(dir, "tests.def.long");
+}
+
+static bool CheckDefects() {
+    static auto postPasses = config::MultiConfigEntry("passes", "post").get();
+    return util::contains(postPasses, "defect_summary");
 }
 
 
@@ -87,6 +92,11 @@ TEST_P(WrapperTest, basic) {
         .run();
 
     ASSERT_EQ(OK, res);
+
+    if (not CheckDefects()) {   // don't check defects if defect-summary pass is disabled
+        ASSERT_TRUE(true);
+        return;
+    }
 
     std::ifstream expectedS(expectedF);
     std::ifstream actualS(actualF);
@@ -133,11 +143,6 @@ INSTANTIATE_NAMED_TEST_CASE_P(Necla, WrapperTest,
     ::testing::ValuesIn(ShortTestFiles("test/testcases/necla")), GetTestName);
 INSTANTIATE_NAMED_TEST_CASE_P(NeclaLong, WrapperTest,
     ::testing::ValuesIn(LongTestFiles("test/testcases/necla")), GetTestName);
-
-INSTANTIATE_NAMED_TEST_CASE_P(Summary, WrapperTest,
-    ::testing::ValuesIn(ShortTestFiles("test/testcases/summary")), GetTestName);
-INSTANTIATE_NAMED_TEST_CASE_P(SummaryLong, WrapperTest,
-    ::testing::ValuesIn(LongTestFiles("test/testcases/summary")), GetTestName);
 
 
 //INSTANTIATE_TEST_CASE_P(SvComp, WrapperTest,    ::testing::ValuesIn(ShortTestFiles("test/testcases/svcomp")));

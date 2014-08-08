@@ -65,6 +65,10 @@ public:
             [&tr](const Shift& shift) { return tr->transform(shift); }
         ).toVector();
         auto _type = type;
+        TERM_KILLED(_base);
+        for (auto shift: _shifts) {
+            TERM_KILLED(shift);
+        }
         TERM_ON_CHANGED(
             base != _base || shifts != _shifts,
             new Self( _type, _base, _shifts )

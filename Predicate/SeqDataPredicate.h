@@ -55,6 +55,10 @@ public:
         ).toVector();
         auto _loc = location;
         auto _type = type;
+        PREDICATE_KILLED(_base);
+        for (auto datum: _data) {
+            PREDICATE_KILLED(datum);
+        }
         PREDICATE_ON_CHANGED(
             base != _base || data != _data,
             new Self( _base, _data, _loc, _type )

@@ -133,6 +133,22 @@ struct hash<const borealis::Term> {
 
 } // namespace std
 
+namespace borealis{
+
+template<typename Head> bool termIsKilled(Head h) {
+    return h == nullptr;
+}
+
+template<typename Head, typename... Tail> bool termIsKilled(Head h, Tail... t) {
+    if (h == nullptr) {
+        return true;
+    } else {
+        return termIsKilled(t...);
+    }
+}
+} // namespace borealis
+
+
 #define MK_COMMON_TERM_IMPL(CLASS) \
 private: \
     typedef CLASS Self; \
@@ -147,6 +163,11 @@ public: \
     static bool classof(const Term* t) { \
         return t->getClassTag() == class_tag<Self>(); \
     }
+
+
+#define TERM_KILLED(...) \
+    if (borealis::termIsKilled(__VA_ARGS__)) return nullptr;
+
 
 #define TERM_ON_CHANGED(COND, CTOR) \
     if (COND) return Term::Ptr{ CTOR }; \

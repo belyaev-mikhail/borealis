@@ -58,6 +58,7 @@ public:
         auto _origNumElements = t->transform(origNumElements);
         auto _loc = location;
         auto _type = type;
+        PREDICATE_KILLED(_lhv, _numElements, _origNumElements);
         PREDICATE_ON_CHANGED(
             lhv != _lhv || numElements != _numElements || origNumElements != _origNumElements,
             new Self( _lhv, _numElements, _origNumElements, _loc, _type )

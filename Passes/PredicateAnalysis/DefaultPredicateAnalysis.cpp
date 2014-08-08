@@ -202,7 +202,7 @@ public:
 
         pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
            lhvt,
-           pass->FN.Term->getCastTerm(opcode, rhvt),
+           pass->FN.Term->getCastTerm(opcode, rhvt, lhvt->getType()),
            pass->SLT->getLocFor(&I)
         );
     }

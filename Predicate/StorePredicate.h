@@ -52,6 +52,7 @@ public:
         auto _rhv = t->transform(rhv);
         auto _loc = location;
         auto _type = type;
+        PREDICATE_KILLED(_rhv, _lhv);
         PREDICATE_ON_CHANGED(
             lhv != _lhv || rhv != _rhv,
             new Self( _lhv, _rhv, _loc, _type )
@@ -78,9 +79,9 @@ struct SMTImpl<Impl, StorePredicate> {
 
         auto l = SMT<Impl>::doit(p->getLhv(), ef, ctx).template to<Pointer>();
         ASSERT(!l.empty(), "Store dealing with a non-pointer value");
-        auto lp = l.getUnsafe();
+        auto lp = l.getUnsafe();    // Should not fail
 
-        auto lt = llvm::dyn_cast<type::Pointer>(p->getLhv()->getType());   // Should not fail
+        auto lt = llvm::dyn_cast<type::Pointer>(p->getLhv()->getType());  // Should not fail
 
         auto r = SMT<Impl>::doit(p->getRhv(), ef, ctx);
 

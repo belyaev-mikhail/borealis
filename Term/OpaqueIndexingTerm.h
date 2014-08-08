@@ -50,6 +50,7 @@ public:
         auto _lhv = tr->transform(lhv);
         auto _rhv = tr->transform(rhv);
         auto _type = tr->FN.Type->getUnknownType(); // FIXME: Can we do better?
+        TERM_KILLED(_lhv, _rhv);
         TERM_ON_CHANGED(
             lhv != _lhv || rhv != _rhv,
             new Self( _type, _lhv, _rhv )

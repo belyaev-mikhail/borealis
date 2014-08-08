@@ -79,6 +79,35 @@ public:
         BYE_BYE(Term::Ptr, "Unreachable!");
     }
 
+    Term::Ptr transformOpaqueCall(OpaqueCallTermPtr trm) {
+        if(auto builtin = llvm::dyn_cast<OpaqueBuiltinTerm>(trm->getLhv())) {
+            auto name = builtin->getVName();
+
+            if (name == "property") {   // XXX Can't handle \\property => kill this term
+                return nullptr;
+            } else if (name == "bound") {   // XXX Can't handle \\bound => kill this term
+                return nullptr;
+            } else if (name == "is_valid_ptr") { // XXX not full support for is_valid_ptr
+                auto rhv = trm->getRhv();
+                if(rhv.size() != 1) {
+                    failWith("Illegal \\is_valid_ptr access " +
+                            trm->getName() + ": exactly one operand expected");
+                }
+                auto invalid = factory().getValueTerm(trm->getType(), "0");
+                return FN.Term->getCmpTerm(llvm::ConditionType::NEQ,
+                                           rhv[0],
+                                           invalid);
+            } else if (name == "old") { // XXX Can't handle \\old => kill this term
+                return nullptr;
+            } else {
+                failWith("Cannot call " + trm->getName() + ": not supported");
+            }
+        } else {
+            failWith("Cannot call " + trm->getName() + ": only builtins can be called in this way");
+        }
+        BYE_BYE(Term::Ptr, "Unreachable!");
+    }
+
     Term::Ptr transformBinaryTerm(BinaryTermPtr trm) {
         switch(trm->getOpcode()) {
         case llvm::ArithType::LSHR:

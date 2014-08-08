@@ -74,7 +74,14 @@ protected:
                 transform##NAME(std::static_pointer_cast<const CLASS>(pred)); \
         }
 #include "Predicate/Predicate.def"
-        ASSERT(res, "Unsupported predicate type");
+
+        //XXX handle killed terms
+        if (res == nullptr)
+            return FN.Predicate->getEqualityPredicate(
+                            FN.Term->getTrueTerm(),
+                            FN.Term->getTrueTerm()
+            );
+
         DELEGATE(Predicate, res);
     }
 
@@ -106,6 +113,7 @@ public:
 
     Term::Ptr transform(Term::Ptr term) {
         DELEGATE(Base, term);
+
     }
 
 protected:
@@ -118,7 +126,11 @@ protected:
                 transform##NAME(std::static_pointer_cast<const CLASS>(term)); \
         }
 #include "Term/Term.def"
-        ASSERT(res, "Unsupported term type");
+
+        //XXX handle killed terms
+        if (res == nullptr)
+            return FN.Term->getTrueTerm();
+
         DELEGATE(Term, res);
     }
 

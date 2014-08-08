@@ -182,10 +182,9 @@ struct protobuf_traits_impl<CastTerm> {
             const FactoryNest& fn,
             Term::Ptr base,
             const proto::CastTerm& t) {
-        util::use(base);
         auto opcode = static_cast<llvm::CastType>(t.opcode());
         auto rhv = TermConverter::fromProtobuf(fn, t.rhv());
-        return Term::Ptr{ new CastTerm(opcode, rhv) };
+        return Term::Ptr{ new CastTerm(opcode, rhv, base->getType()) };
     }
 };
 

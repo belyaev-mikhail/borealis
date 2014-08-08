@@ -34,11 +34,11 @@ class CastTerm: public borealis::Term {
     llvm::CastType opcode;
     Term::Ptr rhv;
 
-    CastTerm(llvm::CastType opcode, Term::Ptr rhv):
+    CastTerm(llvm::CastType opcode, Term::Ptr rhv, Type::Ptr to):
         Term(
             class_tag(*this),
-            resultTypeForCast(opcode, rhv->getType()),
-            "(" + TypeUtils::toString(*resultTypeForCast(opcode, rhv->getType()))
+            to,
+            "(" + TypeUtils::toString(*to)
             + ") " + rhv->getName()
         ), opcode(opcode), rhv(rhv) {};
 
@@ -53,9 +53,10 @@ public:
     auto accept(Transformer<Sub>* tr) const -> Term::Ptr {
         auto _rhv = tr->transform(rhv);
         auto _type = getTermType(tr->FN.Type, _rhv);
+        TERM_KILLED(_rhv);
         TERM_ON_CHANGED(
             rhv != _rhv,
-            new Self( opcode, _rhv )
+            new Self( opcode, _rhv, _type )
         );
     }
 

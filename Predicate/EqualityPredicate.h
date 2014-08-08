@@ -52,6 +52,7 @@ public:
         auto _rhv = t->transform(rhv);
         auto _loc = location;
         auto _type = type;
+        PREDICATE_KILLED(_rhv, _lhv);
         PREDICATE_ON_CHANGED(
             lhv != _lhv || rhv != _rhv,
             new Self( _lhv, _rhv, _loc, _type )
