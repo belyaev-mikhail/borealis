@@ -15,10 +15,11 @@
 #include "Driver/AnnotatedModule.h"
 #include "Factory/Nest.h"
 #include "Logging/logger.hpp"
-#include "Passes/TestGeneration/TestManager.h"
 #include "Passes/TestGeneration/FunctionInfoPass.h"
+#include "Passes/TestGeneration/TestManager.h"
 #include "Passes/Util/DataProvider.hpp"
 #include "TestGen/FunctionsInfoData.h"
+#include "TestGen/TestStatistics.h"
 #include "TestGen/SourceLocations.h"
 
 #include "Util/passes.hpp"
@@ -46,6 +47,7 @@ public:
 private:
     TestManager * tm;
     FunctionInfoPass * fip;
+    TestStatistics * ts;
     std::ofstream testFile;
     llvm::StringRef testFileName;
     llvm::StringRef baseDirectory;

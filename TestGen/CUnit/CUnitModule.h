@@ -13,6 +13,7 @@
 #include "Passes/TestGeneration/TestManager.h"
 #include "TestGen/FunctionInfo.h"
 #include "TestGen/FunctionsInfoData.h"
+#include "TestGen/TestStatistics.h"
 
 namespace borealis {
 
@@ -31,10 +32,10 @@ public:
     CUnitModule(const CUnitModule& orig) = default;
     CUnitModule(CUnitModule&& orig) = default;
     CUnitModule(const TestMap& testMap, const FunctionInfoPass& fip,
-              const SlotTrackerPass& stp, const FunctionAnnotationTracker& fat,
-              FInfoData& fInfoData, const std::string& moduleName,
-              const std::string& baseDirectory):
-                  testMap(testMap), fip(fip), stp(stp), fat(fat),
+              const SlotTrackerPass& stp, TestStatistics& ts,
+              const FunctionAnnotationTracker& fat, FInfoData& fInfoData,
+              const std::string& moduleName, const std::string& baseDirectory):
+                  testMap(testMap), fip(fip), stp(stp), ts(ts), fat(fat),
                   fInfoData(fInfoData.provide()), moduleName(moduleName), baseDirectory(baseDirectory) {};
 
     friend std::ostream& operator<<(std::ostream& os, const CUnitModule& test);
@@ -45,6 +46,7 @@ private:
     const TestMap& testMap;
     const FunctionInfoPass& fip;
     const SlotTrackerPass& stp;
+    TestStatistics& ts;
     const FunctionAnnotationTracker& fat;
     FunctionsInfoData fInfoData;
     const std::string& moduleName;

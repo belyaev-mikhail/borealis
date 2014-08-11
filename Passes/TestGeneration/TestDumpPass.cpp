@@ -64,6 +64,7 @@ void TestDumpPass::getAnalysisUsage(llvm::AnalysisUsage & AU) const {
     AUX<FunctionInfoPass>::addRequiredTransitive(AU);
     AUX<FunctionAnnotationTracker>::addRequiredTransitive(AU);
     AUX<FInfoData>::addRequiredTransitive(AU);
+    AUX<TestStatistics>::addRequiredTransitive(AU);
 }
 
 bool TestDumpPass::runOnModule(llvm::Module & M) {
@@ -90,6 +91,7 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
     tm = &GetAnalysis<TestManager>::doit(this);
     fip = &GetAnalysis<FunctionInfoPass>::doit(this);
+    ts = &GetAnalysis<TestStatistics>::doit(this);
     auto * stp = &GetAnalysis<SlotTrackerPass>::doit(this);
     
     FunctionAnnotationTracker& FAT = GetAnalysis<FunctionAnnotationTracker>::doit(this);
@@ -157,7 +159,7 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
 
             testFile.open(testFileName.str(), std::ios::out);
             auto testMap = tm->getTestsForCompileUnit(cu);
-            testFile << util::CUnitModule(*testMap, *fip, *stp, FAT, *fInfo, cuName, baseDirectory);
+            testFile << util::CUnitModule(*testMap, *fip, *stp, *ts, FAT, *fInfo, cuName, baseDirectory);
             testFile.close();
 
             auto funcs = util::viewContainer(*testMap)
