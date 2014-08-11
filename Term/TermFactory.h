@@ -215,8 +215,8 @@ public:
         std::unordered_set<uint64_t> possibleValues;
         
         for (const auto& t: types) {
-            if (t.getTag() == llvm::dwarf::DW_TAG_enumeration_type) {
-                auto enMems = DIEnumerationType(t).getMembers();
+            if (auto en = DIEnumerationType(t)) {
+                auto enMems = en.getMembers();
                 
                 for (auto i = 0U; i < enMems.getNumElements(); i++)  {
                     possibleValues.insert(enMems.getElement(i).getEnumValue());
