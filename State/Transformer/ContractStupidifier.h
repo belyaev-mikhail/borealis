@@ -121,9 +121,11 @@ public:
     Term::Ptr transformCmpTerm(CmpTermPtr trm) {
         switch(trm->getOpcode()) {
         case llvm::ConditionType::TRUE:
-            return FN.Term->getBooleanTerm(true);
+            // XXX: for oracle generation. Should be: return FN.Term->getBooleanTerm(true);
+            return FN.Term->getIntTerm(1);
         case llvm::ConditionType::FALSE:
-            return FN.Term->getBooleanTerm(false);
+            // XXX: for oracle generation. Should be: return FN.Term->getBooleanTerm(false);
+            return FN.Term->getIntTerm(0);
         default:
             return FN.Term->getCmpTerm(
                 llvm::forceSigned(trm->getOpcode()),
@@ -134,6 +136,14 @@ public:
         return trm;
     }
     
+    Term::Ptr transformOpaqueBoolConstantTerm(OpaqueBoolConstantTermPtr trm) {
+        if (trm->getValue()) {
+            return FN.Term->getIntTerm(1);
+        } else {
+            return FN.Term->getIntTerm(0);
+        }
+    }
+
     Term::Ptr transformOpaqueVarTerm(OpaqueVarTermPtr trm) {
         auto name = llvm::StringRef(trm->getVName());
         if (name.startswith("__")) {

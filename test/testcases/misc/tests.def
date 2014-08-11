@@ -5,3 +5,4 @@ summary_02.c
 test_float.c
 test_gen2.c
 test_gen.c
+test_struct.c
