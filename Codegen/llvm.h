@@ -128,6 +128,9 @@ struct DIAlias : public llvm::DIDerivedType {
 struct DIStructType : public llvm::DICompositeType {
     DEFAULT_CONSTRUCTOR_AND_ASSIGN(DIStructType);
     DIStructType(const llvm::MDNode* node): llvm::DICompositeType(node) {
+        if (this->DbgNode == nullptr) {
+            this->DbgNode = node;
+        }
         while(DIAlias(this->DbgNode)) {
             this->DbgNode = this->getTypeDerivedFrom();
         }
@@ -144,6 +147,9 @@ struct DIStructType : public llvm::DICompositeType {
 struct DIEnumerationType : public llvm::DICompositeType {
     DEFAULT_CONSTRUCTOR_AND_ASSIGN(DIEnumerationType);
     DIEnumerationType(const llvm::MDNode* node): llvm::DICompositeType(node) {
+        if (this->DbgNode == nullptr) {
+            this->DbgNode = node;
+        }
         while(DIAlias(this->DbgNode)) {
             this->DbgNode = this->getTypeDerivedFrom();
         }

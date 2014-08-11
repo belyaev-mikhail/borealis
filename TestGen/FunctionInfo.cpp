@@ -95,7 +95,7 @@ void FunctionInfo::initialize(SlotTracker* st, FactoryNest* fn) {
             auto sp = llvm::DISubprogram(v.getContext());
             if (sp.getFunction() == f) {
                 args.emplace(v.getArgNumber() - 1, std::make_pair(v.getName().str(), v.getType()));
-                if (v.getType().getTag() == llvm::dwarf::DW_TAG_structure_type) {
+                if (DIStructType(v.getType())) {
                     stub = true;
                 }
                 if (checkForPtrs(v.getType())) {
