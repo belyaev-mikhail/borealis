@@ -17,6 +17,7 @@
 #include "Passes/TestGeneration/TestManager.h"
 #include "Passes/Util/ProxyFunctionPass.h"
 #include "TestGen/TestCase.h"
+#include "TestGen/TestStatistics.h"
 #include "Util/passes.hpp"
 
 namespace borealis {
@@ -45,7 +46,8 @@ private:
     FunctionManager* FM;
     PredicateStateAnalysis* PSA;
     FactoryNest FN;
-	TestManager* TM;
+    TestManager* TM;
+    TestStatistics* TS;
 
     TestCase::Ptr testForInst(llvm::Function& F,
                      llvm::Instruction* inst,

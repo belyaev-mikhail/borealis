@@ -10,6 +10,7 @@
 
 #include "Passes/TestGeneration/FunctionInfoPass.h"
 #include "TestGen/TestCase.h"
+#include "TestGen/TestStatistics.h"
 #include "TestGen/TestSuite.h"
 
 namespace borealis {
@@ -35,13 +36,15 @@ public:
     CUnitCaseDefinition(const CUnitCaseDefinition& definition) = default;
     CUnitCaseDefinition(CUnitCaseDefinition&& definition) = default;
     CUnitCaseDefinition(const TestCase& cs, const TestSuite& suite,
-            const FunctionInfoPass& fip, int id, const std::vector<Term::Ptr>& oracle) :
-            cs(cs), suite(suite), fip(fip), id(id), oracle(oracle) {};
+            const FunctionInfoPass& fip, TestStatistics& ts, int id,
+            const std::vector<Term::Ptr>& oracle) :
+            cs(cs), suite(suite), fip(fip), ts(ts), id(id), oracle(oracle) {};
     friend std::ostream& operator<<(std::ostream& os, const CUnitCaseDefinition& definition);
 private:
     const TestCase& cs;
     const TestSuite& suite;
     const FunctionInfoPass& fip;
+    TestStatistics& ts;
     int id;
     const std::vector<Term::Ptr>& oracle;
 };

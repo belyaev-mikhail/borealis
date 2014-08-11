@@ -66,7 +66,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitSuitePrototype& prototype)
 std::ostream& operator<<(std::ostream& os, const CUnitSuiteDefinitions& defs) {
     int i = 0;
     for (auto& test: defs.suite) {
-        os << CUnitCaseDefinition(test, defs.suite, defs.fip, i++,
+        os << CUnitCaseDefinition(test, defs.suite, defs.fip, defs.ts, i++,
                 defs.oracle);
     }
     return os;
