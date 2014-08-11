@@ -12,6 +12,16 @@
 namespace borealis {
 namespace util {
     
+std::string ldflags() {
+    static config::ConfigEntry<std::string> ldflags("testgen", "make-ldflags");
+    return ldflags.get("");
+}
+
+std::string cflags() {
+    static config::ConfigEntry<std::string> cflags("testgen", "make-cflags");
+    return cflags.get("");
+}
+
 std::ostream& operator<<(std::ostream& os, const CUnitMakefile& makefile) {
     os << "CC = clang\n\n";
     
@@ -28,11 +38,15 @@ std::ostream& operator<<(std::ostream& os, const CUnitMakefile& makefile) {
         
         os << "INCLUDES := $(foreach dir, $(INCLUDE_DIRS), -I\"$(dir)\")\n\n";
 
-        os << "CFLAGS = $(INCLUDES)\n\n";
+        os << "TESTCFLAGS = $(INCLUDES)\n\n";
+
+        os << "CFLAGS = " << cflags() << "\n\n";
     }
     
-    os << "LDFLAGS = -lcunit\n\n";
+    os << "TESTLDFLAGS = -lcunit\n\n";
     
+    os << "LDFLAGS = " << ldflags() << "\n\n";
+
     os << "SOURCES =";
     for (const auto& s: makefile.sources) {
         os << " " << util::getRelativePath(makefile.baseDirectory,
@@ -62,9 +76,12 @@ std::ostream& operator<<(std::ostream& os, const CUnitMakefile& makefile) {
     os << "ORACLE_OBJECTS = $(ORACLES:.c=.o)\n\n";
     
     os << "EXEC = test\n\n";
+
+    os << "%.o: %.c\n";
+    os << "\t$(CC) $(CFLAGS) $(TESTCFLAGS) -c $^ -o $@\n\n";
     
     os << "$(EXEC): $(SOURCE_OBJECTS) $(TEST_OBJECTS) $(ORACLE_OBJECTS)\n";
-    os << "\t$(CC) $(LDFLAGS) -o $(EXEC) $^\n";
+    os << "\t$(CC) $(LDFLAGS) $(TESTLDFLAGS) -o $(EXEC) $^\n";
     
     os << "check: $(EXEC)\n";
     os << "\t./$(EXEC)\n";
