@@ -38,7 +38,6 @@ bool updateOracleFile(Unit& unit,
     unsigned int inFileRd = 0;
     inputFile.seekg(0, inputFile.beg);
     bool failed = false;
-
     // Searching for includes in the top of file (the last include before the first function)
     auto includesInsertItr = oldLocs.includes_rend();
     if (!oldLocs.functions_empty()) {
@@ -51,7 +50,6 @@ bool updateOracleFile(Unit& unit,
 
         }
     }
-
     // Copying old includes
     if (includesInsertItr != oldLocs.includes_rend() && !failed) {
         int toRead = includesInsertItr->hashOffset;
@@ -60,7 +58,6 @@ bool updateOracleFile(Unit& unit,
             failed = !util::copyUntilUnescapedEOL(inputFile, tmpOutputFile, inFileRd);
         }
     }
-
     // Adding new includes
     auto includes = util::getIncludesForFunctions(unit.funcs.begin(), unit.funcs.end(),
             unit.fInfoData);
@@ -79,15 +76,23 @@ bool updateOracleFile(Unit& unit,
                 tmpOutputFile, unit.baseDirectory, unit.moduleName);
         tmpOutputFile << "\n";
     }
+
+    // If we have no functions in old file trying to insert new between include guards (if any)
+    if (!failed && oldLocs.functions_empty() && oldLocs.getGuardsLoc().found) {
+        int toRead = oldLocs.getGuardsLoc().endif - inFileRd - 1;
+        failed = !util::copyPartOfFile(inputFile, tmpOutputFile, toRead, inFileRd);
+    }
+
     // Copying old functions & others until the end of last function's body
-    bool lastIsProto = (oldLocs.functions_rbegin())->bodyEndOffset == 0;
+    bool lastIsProto = !oldLocs.functions_empty() &&
+            (oldLocs.functions_rbegin())->bodyEndOffset == 0;
     if (!oldLocs.functions_empty() && !failed) {
         int toRead = lastIsProto ?
                 (oldLocs.functions_rbegin())->declEndOffset + 1 - inFileRd :
                 (oldLocs.functions_rbegin())->bodyEndOffset + 1 - inFileRd;
         failed = !util::copyPartOfFile(inputFile, tmpOutputFile, toRead, inFileRd);
     }
-    if (lastIsProto && !failed)
+    if (!oldLocs.functions_empty() && lastIsProto && !failed)
         failed = !util::copyUntilChar(inputFile, tmpOutputFile, ';', inFileRd);
     int firstNonWhiteSpace;
     if (!failed)
@@ -100,9 +105,10 @@ bool updateOracleFile(Unit& unit,
     if (firstNonWhiteSpace != EOF)
         tmpOutputFile << static_cast<char>(firstNonWhiteSpace);
     // Copying rest of file
-    int toRead = inFileSize - inFileRd;
-    if (!failed)
+    if (!failed) {
+        int toRead = inFileSize - inFileRd;
         failed = !util::copyPartOfFile(inputFile, tmpOutputFile, toRead, inFileRd);
+    }
     inputFile.close();
     tmpOutputFile.close();
     bool existed;
@@ -188,10 +194,9 @@ std::ostream& operator<<(std::ostream& os, const CUnitUserOracleStubHeader& hdr)
             hdr.fInfoData);
     util::writeIncludes(includes.begin(), includes.end(), os, hdr.baseDirectory, hdr.moduleName);
     os << "\n";
-    auto includeGuard =  util::toUpperCase(TestDumpPass::oracleHeaderPath(hdr.moduleName));
-    std::replace(includeGuard.begin(), includeGuard.end(), '.', '_');
-    std::replace(includeGuard.begin(), includeGuard.end(), '/', '_');
-    includeGuard = "_" + includeGuard + "_";
+    dbgs() << "SHIIIIT" << hdr.moduleName << "\n";
+    auto includeGuard =  TestDumpPass::getOracleHeaderIncludeGuard(
+            TestDumpPass::oracleHeaderPath(hdr.moduleName));
     os << "#ifndef " << includeGuard << "\n";
     os << "#define " << includeGuard << "\n\n";
     for (auto& f: hdr.funcs) {
