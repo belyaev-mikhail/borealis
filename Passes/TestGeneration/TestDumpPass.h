@@ -15,10 +15,11 @@
 #include "Driver/AnnotatedModule.h"
 #include "Factory/Nest.h"
 #include "Logging/logger.hpp"
-#include "Passes/TestGeneration/TestManager.h"
 #include "Passes/TestGeneration/FunctionInfoPass.h"
+#include "Passes/TestGeneration/TestManager.h"
 #include "Passes/Util/DataProvider.hpp"
 #include "TestGen/FunctionsInfoData.h"
+#include "TestGen/TestStatistics.h"
 #include "TestGen/SourceLocations.h"
 
 #include "Util/passes.hpp"
@@ -46,6 +47,7 @@ public:
 private:
     TestManager * tm;
     FunctionInfoPass * fip;
+    TestStatistics * ts;
     std::ofstream testFile;
     llvm::StringRef testFileName;
     llvm::StringRef baseDirectory;
@@ -70,6 +72,7 @@ public:
     static std::string oracleHeaderFilename(const std::string& moduleName);
     static std::string oraclePath(const std::string& moduleName);
     static std::string oracleHeaderPath(const std::string& moduleName);
+    static std::string getOracleHeaderIncludeGuard(const std::string& moduleName);
     static std::string oracleFilePath(const std::string& moduleName);
     static std::string generateUserOraclesStubs();
     static std::string getCompileUnitFilename(const std::string& cuFilename, const FunctionsInfoData& fInfoData);

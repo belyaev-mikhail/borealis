@@ -31,7 +31,8 @@ void TestGenerationPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AUX<FunctionManager>::addRequiredTransitive(AU);
     AUX<PredicateStateAnalysis>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
-	AUX<TestManager>::addRequiredTransitive(AU);
+    AUX<TestManager>::addRequiredTransitive(AU);
+    AUX<TestStatistics>::addRequiredTransitive(AU);
 }
 
 TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
@@ -55,6 +56,7 @@ TestCase::Ptr TestGenerationPass::testForInst(llvm::Function& F,
 
     auto smtTest = s.generateTest(state, args);
     if (smtTest.empty()) {
+        TS->addUnknownTest(&F);
         return nullptr;
     }
 
@@ -93,7 +95,9 @@ bool TestGenerationPass::runOnFunction(llvm::Function& F) {
     FN = FactoryNest(st);
     
     TM = &GetAnalysis<TestManager>::doit(this, F);
-
+    
+    TS = &GetAnalysis<TestStatistics>::doit(this, F);
+    
     dbgs() << "name: " << F.getName() << endl;
 
 

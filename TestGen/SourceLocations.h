@@ -48,6 +48,13 @@ struct CompareIncludeLoc {
 
 typedef std::set<IncludeLoc, CompareIncludeLoc> IncludesLocationsInFile;
 typedef std::unordered_map<std::string, IncludesLocationsInFile> IncludesLocations;
+struct GuardsLocationsInFile {
+    GuardsLocationsInFile() : found(false), ifndef(0), endif(0) {};
+    bool found;
+    unsigned int ifndef;
+    unsigned int endif;
+};
+typedef std::unordered_map<std::string, GuardsLocationsInFile> GuardsLocations;
 
 class LocationAnalyseResult {
 public:
@@ -58,8 +65,9 @@ public:
         typedef FunctionsLocationsInFile::reverse_iterator functions_reverse_iterator;
 
     LocationAnalyseResult(IncludesLocationsInFile& incLoc,
-            FunctionsLocationsInFile& funcLoc) :
-                incLoc(incLoc), funcLoc(funcLoc) {};
+            FunctionsLocationsInFile& funcLoc,
+            GuardsLocationsInFile& guardsLoc) :
+                incLoc(incLoc), funcLoc(funcLoc), guardsLoc(guardsLoc) {};
     includes_iterator includes_begin() { return incLoc.begin(); };
     includes_iterator includes_end() { return incLoc.end(); };
     functions_iterator functions_begin() { return funcLoc.begin(); };
@@ -72,10 +80,11 @@ public:
 
     bool functions_empty() { return funcLoc.empty(); };
     bool includes_empty() { return incLoc.empty(); };
-
+    GuardsLocationsInFile getGuardsLoc() { return guardsLoc; };
 private:
     IncludesLocationsInFile incLoc;
     FunctionsLocationsInFile funcLoc;
+    GuardsLocationsInFile guardsLoc;
 };
 
 

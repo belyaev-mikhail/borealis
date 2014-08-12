@@ -69,8 +69,8 @@ bool isTypesEqual(llvm::DIType cType, const llvm::Type* llvmType) {
             return false;
         }
     } else {
-        if (cType.getTag() == llvm::dwarf::DW_TAG_structure_type) {
-            auto cStructMembers = DIStructType(cType).getMembers();
+        if (auto s = DIStructType(cType)) {
+            auto cStructMembers = s.getMembers();
             if (llvmType->isStructTy() && cStructMembers.getNumElements() == llvmType->getStructNumElements()) {
                 for (unsigned i = 0; i < cStructMembers.getNumElements(); i++) {
                     if (!isTypesEqual(cStructMembers.getElement(i).getType(), llvmType->getStructElementType(i))) {
