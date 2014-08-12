@@ -72,6 +72,7 @@ public:
     static std::string oracleHeaderFilename(const std::string& moduleName);
     static std::string oraclePath(const std::string& moduleName);
     static std::string oracleHeaderPath(const std::string& moduleName);
+    static std::string getOracleHeaderIncludeGuard(const std::string& moduleName);
     static std::string oracleFilePath(const std::string& moduleName);
     static std::string generateUserOraclesStubs();
     static std::string getCompileUnitFilename(const std::string& cuFilename, const FunctionsInfoData& fInfoData);

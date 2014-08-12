@@ -22,6 +22,8 @@
 
 #include "Actions/TestGen/LocateFunctionsAction.h"
 #include "Actions/TestGen/LocateIncludesAction.h"
+#include "Actions/TestGen/LocateGuardsAction.h"
+
 
 #include "Driver/interviewer.h"
 #include "Passes/TestGeneration/TestDumpPass.h"
@@ -171,23 +173,27 @@ bool TestDumpPass::runOnModule(llvm::Module & M) {
             if ("preserve" == generateUserOraclesStubs()) {
                 srcLocs = analyzeFileWithCLang(oraclePath(cuName), baseDirectory, *this);
                 hdrLocs = analyzeFileWithCLang(oracleHeaderPath(cuName), baseDirectory, *this);
+
             }
             auto srcToInsert = getFunctionsToInsertOracles(srcLocs.get(), testMap.get());
             auto hdrToInsert = getFunctionsToInsertOracles(hdrLocs.get(), testMap.get());
-            util::createOrUpdateOracleFile<util::CUnitUserOracleStubModule>(
-                    oraclePath(cuName),
-                    srcLocs,
-                    srcToInsert,
-                    *fip, *fInfo,
-                    cuName,
-                    baseDirectory);
-            util::createOrUpdateOracleFile<util::CUnitUserOracleStubHeader>(
-                    oracleHeaderPath(cuName),
-                    hdrLocs,
-                    hdrToInsert,
-                    *fip, *fInfo,
-                    cuName,
-                    baseDirectory);
+
+            if (!srcToInsert.empty())
+                util::createOrUpdateOracleFile<util::CUnitUserOracleStubModule>(
+                        oraclePath(cuName),
+                        srcLocs,
+                        srcToInsert,
+                        *fip, *fInfo,
+                        cuName,
+                        baseDirectory);
+            if (!hdrToInsert.empty())
+                util::createOrUpdateOracleFile<util::CUnitUserOracleStubHeader>(
+                        oracleHeaderPath(cuName),
+                        hdrLocs,
+                        hdrToInsert,
+                        *fip, *fInfo,
+                        cuName,
+                        baseDirectory);
         }
         
         makefile.addTest(testsMainFilename);
@@ -239,7 +245,6 @@ std::unordered_set<const llvm::Function*> TestDumpPass::getFunctionsToInsertOrac
 LocationAnalyseResult::Ptr TestDumpPass::analyzeFileWithCLang(const std::string& fileName,
         const std::string& baseDirectory,
         logging::ClassLevelLogging<TestDumpPass>& logging) {
-
     if (!llvm::sys::fs::exists(fileName))
             return nullptr;
     driver::CommandLine compilerArgs;
@@ -317,12 +322,14 @@ LocationAnalyseResult::Ptr TestDumpPass::analyzeFileWithCLang(const std::string&
     FunctionsLocations locations;
     LocateFunctionsAction locateFunctions(&locations);
     ci.ExecuteAction(locateFunctions);
-
+    GuardsLocations guards;
+    LocateGuardsAction locateGuards(&guards, fileName);
+    ci.ExecuteAction(locateGuards);
     if (ci.getDiagnostics().getClient()->getNumErrors() != 0)
         return nullptr;
     else
         return std::make_shared<LocationAnalyseResult>(
-                includes[fileName], locations[fileName]
+                includes[fileName], locations[fileName], guards[fileName]
         );
 };
 
@@ -401,6 +408,14 @@ std::string TestDumpPass::oracleHeaderPath(const std::string& moduleName) {
     llvm::SmallString<256> oraclesHeaderName(oracleDirectory());
     llvm::sys::path::append(oraclesHeaderName, oracleHeaderFilename(moduleName));
     return oraclesHeaderName.str().str();
+}
+
+std::string TestDumpPass::getOracleHeaderIncludeGuard(const std::string& fileName) {
+    auto includeGuard =  util::toUpperCase(fileName);
+    std::replace(includeGuard.begin(), includeGuard.end(), '.', '_');
+    std::replace(includeGuard.begin(), includeGuard.end(), '/', '_');
+    includeGuard = "_" + includeGuard + "_";
+    return includeGuard;
 }
 
 std::string TestDumpPass::generateUserOraclesStubs() {
