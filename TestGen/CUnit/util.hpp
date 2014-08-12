@@ -63,6 +63,7 @@ void createOrUpdateOracleFile(const std::string& fileName,
         const std::string& cuName,
         const std::string& baseDirectory) {
     if (nullptr == locations) {
+        dbgs() << "Locs == nulptr\n";
         // Preserve old file
         if (llvm::sys::fs::exists(fileName))
             llvm::sys::fs::rename(fileName, fileName + ".backup");
