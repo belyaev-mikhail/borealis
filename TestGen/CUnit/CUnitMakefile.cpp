@@ -39,13 +39,13 @@ std::ostream& operator<<(std::ostream& os, const CUnitMakefile& makefile) {
         os << "INCLUDES := $(foreach dir, $(INCLUDE_DIRS), -I\"$(dir)\")\n\n";
 
         os << "TESTCFLAGS = $(INCLUDES)\n\n";
-
-        os << "CFLAGS = " << cflags() << "\n\n";
     }
+
+    os << "CFLAGS += " << cflags() << "\n\n";
     
     os << "TESTLDFLAGS = -lcunit\n\n";
     
-    os << "LDFLAGS = " << ldflags() << "\n\n";
+    os << "LDFLAGS += " << ldflags() << "\n\n";
 
     os << "SOURCES =";
     for (const auto& s: makefile.sources) {

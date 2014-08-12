@@ -37,11 +37,11 @@ std::ostream& operator<<(std::ostream& os, const CUnitCaseDefinition& definition
     
     auto* function = fi.getFunction();
     
-    definition.ts.addGoodTest(definition.suite.getFunction());
-    
     if (fi.hasPtrArgs()) {
         definition.ts.addStubTest(definition.suite.getFunction());
         os << "// Has some stubs\n";
+    } else {
+        definition.ts.addGoodTest(definition.suite.getFunction());
     }
     
     os << "void " << cs.getTestName(function, definition.id) << "(void) {\n";

@@ -50,9 +50,11 @@ bool TestStatisticsDumpPass::runOnModule(llvm::Module & M) {
     std::cout << "Statistics by functions:" << std::endl;
     
     for (auto fs: *stat) {
-        std::cout << "\t" << fs.first->getName() << ": " << fs.second.good << " tests";
+        std::cout << "\t" << fs.first->getName() << ": ";
         if (fs.second.stubs > 0) {
-            std::cout << " with stubs";
+            std::cout << fs.second.stubs << " tests with stubs";
+        } else {
+            std::cout << fs.second.good << " tests";
         }
         /*if (fs.second.unknown > 0) {
             std::cout << ", " << fs.second.unknown << " tests failed to generate";
