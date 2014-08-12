@@ -9,6 +9,7 @@
 #define CUNITSUITE_H_
 
 #include "Passes/TestGeneration/FunctionInfoPass.h"
+#include "TestGen/TestStatistics.h"
 #include "TestGen/TestSuite.h"
 
 namespace borealis {
@@ -49,12 +50,13 @@ public:
     CUnitSuiteDefinitions(const CUnitSuiteDefinitions& defs) = default;
     CUnitSuiteDefinitions(CUnitSuiteDefinitions&& defs) = default;
     CUnitSuiteDefinitions(const TestSuite& suite, const FunctionInfoPass& fip,
-            const std::vector<Term::Ptr>& oracle):
-            suite(suite), fip(fip), oracle(oracle) {};
+            TestStatistics& ts, const std::vector<Term::Ptr>& oracle):
+            suite(suite), fip(fip), ts(ts), oracle(oracle) {};
     friend std::ostream& operator<<(std::ostream& os, const CUnitSuiteDefinitions& defs);
 private:
     const TestSuite& suite;
     const FunctionInfoPass& fip;
+    TestStatistics& ts;
     const std::vector<Term::Ptr>& oracle;
 };
 

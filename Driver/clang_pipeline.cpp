@@ -320,7 +320,7 @@ struct clang_pipeline::impl: public DelegateLogging {
             for (const auto& subarg: arg->getValues()) {
                 const auto& am = get(subarg);
                 if (!am) {
-                    warns() << subarg << ": file or module not found" << endl;
+                    //warns() << subarg << ": file or module not found" << endl;
                     continue;
                 }
 

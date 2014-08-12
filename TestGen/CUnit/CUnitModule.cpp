@@ -82,7 +82,7 @@ std::ostream& operator<<(std::ostream& os, const CUnitModule& test) {
                              return cs.transform(anno->getTerm());
                           })
                          .toVector();
-            os << CUnitSuiteDefinitions(*testSuite, test.fip, oracle);
+            os << CUnitSuiteDefinitions(*testSuite, test.fip, test.ts, oracle);
 
         }
     }
