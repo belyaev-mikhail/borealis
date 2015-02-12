@@ -62,6 +62,22 @@ struct SegmentNode {
     SimulatedPtrSize reallyAllocated = 0U;
 };
 
+static const char* printStatus( SegmentNode::MemoryStatus st ) {
+    switch(st) {
+    case SegmentNode::MemoryStatus::Unallocated: return "Unallocated";
+    case SegmentNode::MemoryStatus::Malloc: return "Malloc";
+    case SegmentNode::MemoryStatus::Alloca: return "Alloca";
+    }
+}
+
+static const char* printState( SegmentNode::MemoryState st ) {
+    switch(st) {
+    case SegmentNode::MemoryState::Zero: return "Zero";
+    case SegmentNode::MemoryState::Uninit: return "Uninit";
+    case SegmentNode::MemoryState::Unknown: return "Unknown";
+    }
+}
+
 static SimulatedPtr middle(SimulatedPtr from, SimulatedPtr to) {
     TRACE_FUNC;
     return from + (to - from)/2;
@@ -97,19 +113,80 @@ static void signalOutOfMemory(SimulatedPtrSize amount) {
     throw std::runtime_error("Out of memory");
 }
 
+static SegmentNode::Ptr& force(SegmentNode::Ptr& t) {
+    TRACE_FUNC;
+    if(t == nullptr) t.reset(new SegmentNode{});
+    return t;
+}
+
+struct emptyTraverser {
+    void handleGoLeft(SegmentNode&) {}
+    void handleGoRight(SegmentNode&) {}
+    void handleEmptyNode(SimulatedPtrSize) {}
+};
+
+struct stateInvalidatingTraverser: emptyTraverser {
+    void forceChildrenAndDeriveState(SegmentNode& t){
+        if(!t.left) force(t.left)->state = t.state;
+        if(!t.right) force(t.right)->state = t.state;
+        t.state = SegmentNode::MemoryState::Unknown;
+    }
+
+    void handleGoLeft(SegmentNode& t) {
+        TRACE_FUNC;
+        TRACES() << printState(t.state) << endl;
+        forceChildrenAndDeriveState(t);
+    }
+
+    void handleGoRight(SegmentNode& t) {
+        TRACE_FUNC;
+        TRACES() << printState(t.state) << endl;
+        forceChildrenAndDeriveState(t);
+    }
+};
+
 struct SegmentTree {
     SimulatedPtr start;
     SimulatedPtr end;
     SimulatedPtrSize chunk_size;
     SegmentNode::Ptr root = nullptr;
 
-    static SegmentNode::Ptr& force(SegmentNode::Ptr& t) {
+
+
+    template<class Traverser>
+    void traverse(SimulatedPtr where, Traverser& theTraverser) {
         TRACE_FUNC;
-        if(t == nullptr) t.reset(new SegmentNode{});
-        return t;
+        return traverse<Traverser>(where, theTraverser, root, start, end);
     }
 
-    inline SegmentNode::Ptr& allocate(
+    template<class Traverser>
+    void traverse(
+            SimulatedPtr where,
+            Traverser& theTraverser,
+            SegmentNode::Ptr& t,
+            SimulatedPtr minbound,
+            SimulatedPtr maxbound) {
+        TRACE_FUNC;
+
+        if(!t) theTraverser.handleEmptyNode(where);
+
+        auto mid = middle(minbound, maxbound);
+
+        force(t);
+        if(theTraverser.handlePath(this, minbound, maxbound, t, where)) {
+            return;
+        } else if(where >= minbound && where < mid) {
+            theTraverser.handleGoLeft(*t);
+            traverse<Traverser>( where, theTraverser, t->left, minbound, mid);
+        } else if(where >= mid && where < maxbound) {
+            theTraverser.handleGoRight(*t);
+            traverse<Traverser>(where, theTraverser, t->right, mid, maxbound);
+        } else {
+            signalInconsistency(__PRETTY_FUNCTION__);
+        }
+    }
+
+    inline void allocate(
             SimulatedPtr where,
             SimulatedPtrSize size,
             SegmentNode::MemoryState state,
@@ -117,187 +194,198 @@ struct SegmentTree {
         TRACE_FUNC;
         if(size > (end - start)) signalOutOfMemory(size);
 
-        return allocate(where, size, state, status, root, start, end);
-    }
-    SegmentNode::Ptr& allocate(
-            SimulatedPtr where,
-            SimulatedPtrSize size,
-            SegmentNode::MemoryState state,
-            SegmentNode::MemoryStatus status,
-            SegmentNode::Ptr& t,
-            SimulatedPtr minbound,
-            SimulatedPtr maxbound) {
-        TRACE_FUNC;
-        TRACES() << '{' << tfm::format("0x%x", minbound) << ',' << tfm::format("0x%x", maxbound) << '}' << endl;
+        struct allocator: stateInvalidatingTraverser {
+            SegmentNode::MemoryState state;
+            SegmentNode::MemoryStatus status;
+            SimulatedPtrSize size;
 
-        auto mid = middle(minbound, maxbound);
-        auto available = maxbound - minbound;
+            allocator(
+                SegmentNode::MemoryState state,
+                SegmentNode::MemoryStatus status,
+                SimulatedPtrSize size
+            ): state(state), status(status), size(size) {};
 
-        force(t);
-        TRACES() << "Node " << ((void*)t.get()) << endl;
-        TRACES() << "Left " << ((void*)t->left.get()) << endl;
-        TRACES() << "Right " << ((void*)t->right.get()) << endl;
+            bool handlePath(
+                    SegmentTree*,
+                    SimulatedPtrSize minbound,
+                    SimulatedPtrSize maxbound,
+                    SegmentNode::Ptr& t,
+                    SimulatedPtrSize where) {
+                TRACE_FUNC;
+                auto available = maxbound - minbound;
 
-        if(minbound == where && available/2 < size && available >= size) {
-            t->reallyAllocated = size;
-            t->state = state;
-            t->status = status;
-            TRACES() << "Allocated segment {" << tfm::format("0x%x", minbound)
-                    << "," << tfm::format("0x%x", minbound + size) << "}" << endl;
-            TRACES() << "Node " << ((void*)t.get()) << endl;
-            TRACES() << (t->status != SegmentNode::MemoryStatus::Unallocated) << endl;
-        } else if(where >= minbound && where < mid) {
-            if(!t->right) force(t->right)->state = t->state;
+                TRACES() << "Node " << ((void*)t.get()) << endl;
+                TRACES() << "Left " << ((void*)t->left.get()) << endl;
+                TRACES() << "Right " << ((void*)t->right.get()) << endl;
+                TRACES() << '{' << tfm::format("0x%x", minbound) << ','
+                                << tfm::format("0x%x", maxbound) << endl;
+                TRACES() << "Where: " << tfm::format("0x%x", where) << endl;
+                TRACES() << "Size: " << size << endl;
 
-            t->state = SegmentNode::MemoryState::Unknown;
-            allocate(where, size, state, status, t->left, minbound, mid);
-            TRACES() << "Node " << ((void*)t.get()) << endl;
-            TRACES() << "Left " << ((void*)t->left.get()) << endl;
-            TRACES() << "Right " << ((void*)t->right.get()) << endl;
-        } else if(where >= mid && where < maxbound) {
-            if(!t->left) force(t->left)->state = t->state;
+                if(minbound == where && available/2ULL < size && available >= size) {
+                    t->reallyAllocated = size;
+                    t->state = state;
+                    t->status = status;
+                    TRACES() << "Allocated segment {" << tfm::format("0x%x", minbound)
+                            << "," << tfm::format("0x%x", minbound + size) << "}" << endl;
+                    TRACES() << "Node " << ((void*)t.get()) << endl;
+                    TRACES() << (t->status != SegmentNode::MemoryStatus::Unallocated) << endl;
+                    return true;
+                }
 
-            t->state = SegmentNode::MemoryState::Unknown;
-            allocate(where, size, state, status, t->right, mid, maxbound);
-            TRACES() << "Node " << ((void*)t.get()) << endl;
-            TRACES() << "Left " << ((void*)t->left.get()) << endl;
-            TRACES() << "Right " << ((void*)t->right.get()) << endl;
-        } else {
-            signalInconsistency(__PRETTY_FUNCTION__);
-        }
+                return false;
+            }
+        };
 
-        return t;
+        allocator alloc{state, status, size};
+        traverse(where, alloc);
     }
 
-
-    inline SegmentNode::Ptr& store(
+    inline void store(
             SimulatedPtr where,
             const uint8_t* data,
             SimulatedPtrSize size) {
         TRACE_FUNC;
-        return store(where, data, size, root, start, end);
-    }
-    SegmentNode::Ptr& store(
-            SimulatedPtr where,
-            const uint8_t* data,
-            SimulatedPtrSize size,
-            SegmentNode::Ptr& t,
-            SimulatedPtr minbound,
-            SimulatedPtr maxbound,
-            bool didAlloc = false) {
-        TRACE_FUNC;
-        TRACES() << '{' << tfm::format("0x%x", minbound) << ',' << tfm::format("0x%x", maxbound) << ',' << didAlloc << '}' << endl;
 
-        auto mid = middle(minbound, maxbound);
-        auto available = maxbound - minbound;
+        struct storeTraverser: stateInvalidatingTraverser {
+            const uint8_t* data;
+            SimulatedPtrSize size;
+            bool didAlloc = false;
+            storeTraverser(const uint8_t* data, SimulatedPtrSize size, bool didAlloc)
+                :data(data), size(size), didAlloc(didAlloc) {}
 
-        force(t);
-        TRACES() << "Node " << ((void*)t.get()) << endl;
-        TRACES() << "Left " << ((void*)t->left.get()) << endl;
-        TRACES() << "Right " << ((void*)t->right.get()) << endl;
+            bool handlePath(SegmentTree* tree,
+                SimulatedPtrSize minbound,
+                SimulatedPtrSize maxbound,
+                SegmentNode::Ptr& t,
+                SimulatedPtrSize where) {
+                TRACE_FUNC;
 
-        if(t->status != SegmentNode::MemoryStatus::Unallocated) {
-            if(didAlloc) {
 
-                signalInconsistency("Allocated segment inside other allocated segment detected");
+                auto available = maxbound - minbound;
+                auto mid = middle(minbound, maxbound);
+
+                TRACES() << "where: " << tfm::format("0x%x", where) << endl;
+                TRACES() << "size: " << size << endl;
+                TRACES() << "available: " << available << endl;
+                TRACES() << '{' << tfm::format("0x%x", minbound) << ','
+                                << tfm::format("0x%x", maxbound) << ','
+                                << didAlloc << ','
+                                << printStatus(t->status) << ','
+                                << printState(t->state) << '}' << endl;
+
+                if(t->status != SegmentNode::MemoryStatus::Unallocated) {
+                    if(didAlloc) {
+                        signalInconsistency("Allocated segment inside other allocated segment detected");
+                    }
+                    didAlloc = true;
+                    TRACES() << "Found allocated segment!" << endl;
+                    TRACES() << "{" << tfm::format("0x%x", minbound) << ","
+                             << tfm::format("0x%x", minbound + t->reallyAllocated) << "}" << endl;
+
+                    if(where >= minbound + t->reallyAllocated) {
+                        signalIllegalStore(where);
+                    }
+                }
+
+                if(available == tree->chunk_size && size <= tree->chunk_size) {
+                    TRACES() << "Storing!" << endl;
+
+                    t->state = SegmentNode::MemoryState::Unknown;
+
+                    if(!didAlloc) signalIllegalStore(where);
+                    if(!t->chunk) t->chunk.reset(new unsigned char[tree->chunk_size]);
+                    std::memcpy(t->chunk.get() + (where - minbound), data, size);
+                } else if(where < mid && where + size > mid) {
+                    auto leftChunkSize = mid - where;
+                    auto rightChunkSize = size - leftChunkSize;
+
+                    forceChildrenAndDeriveState(*t);
+
+                    storeTraverser left{ data, leftChunkSize, didAlloc };
+                    tree->traverse(where, left, t->left, minbound, mid);
+                    storeTraverser right{ data + leftChunkSize, rightChunkSize, didAlloc };
+                    tree->traverse(where, right, t->right, mid, maxbound);
+                } else return false;
+                return true;
             }
-            didAlloc = true;
-            TRACES() << "Found allocated segment!" << endl;
-            TRACES() << "{" << tfm::format("0x%x", minbound) << ","
-                     << tfm::format("0x%x", minbound + t->reallyAllocated) << "}" << endl;
+        };
 
-            if(where >= minbound + t->reallyAllocated) {
-                signalIllegalStore(where);
-            }
-        }
-
-        if(available == chunk_size && size <= chunk_size) {
-            if(!didAlloc) signalIllegalStore(where);
-            if(!t->chunk) t->chunk.reset(new unsigned char[chunk_size]);
-            std::memcpy(t->chunk.get() + (where - minbound), data, size);
-        } else if(where < mid && where + size >= mid) {
-            auto leftChunkSize = mid - where;
-            auto rightChunkSize = size - leftChunkSize;
-
-            t->state = SegmentNode::MemoryState::Unknown;
-            store(where, data, leftChunkSize, t->left, minbound, mid, didAlloc);
-            store(mid, data + leftChunkSize, rightChunkSize, t->right, mid, maxbound, didAlloc);
-        } else if(where >= minbound && where < mid) {
-            if(!t->right) force(t->right)->state = t->state;
-
-            t->state = SegmentNode::MemoryState::Unknown;
-            store( where, data, size, t->left, minbound, mid, didAlloc);
-        } else if(where >= mid && where < maxbound) {
-            if(!t->left) force(t->left)->state = t->state;
-
-            t->state = SegmentNode::MemoryState::Unknown;
-            store(where, data, size, t->right, mid, maxbound, didAlloc);
-        } else {
-            signalInconsistency(__PRETTY_FUNCTION__);
-        }
-
-        return t;
+        storeTraverser traverser{ data, size, false };
+        return traverse(where, traverser);
     }
-
 
     inline std::pair<unsigned char*, SegmentNode::MemoryState> get(SimulatedPtr where) {
-    TRACE_FUNC;
-        return get(where, root, start, end);
+        TRACE_FUNC;
+        struct loader: public emptyTraverser {
+            uint8_t* ptr = nullptr;
+            SegmentNode::MemoryState state = SegmentNode::MemoryState::Unknown;
+
+            void handleEmptyNode(SimulatedPtrSize where) {
+                TRACE_FUNC;
+                signalIllegalLoad(where);
+            }
+
+            bool handlePath(SegmentTree* tree,
+                SimulatedPtrSize minbound,
+                SimulatedPtrSize maxbound,
+                SegmentNode::Ptr& t,
+                SimulatedPtrSize where) {
+                TRACE_FUNC;
+
+                TRACES() << "where: " << tfm::format("0x%x", where) << endl;
+
+                auto available = maxbound - minbound;
+
+                TRACES() << "available: " << available << endl;
+                TRACES() << '{' << tfm::format("0x%x", minbound) << ',' << tfm::format("0x%x", maxbound)
+                         << ',' << printStatus(t->status) << ',' << printState(t->state) << '}' << endl;
+
+                if(t->state != SegmentNode::MemoryState::Unknown) {
+                    state = t->state;
+                    return true;
+                }
+
+                if(available == tree->chunk_size) {
+                    auto offset = where - minbound;
+                    ptr = t->chunk.get() + offset;
+                    return true;
+                }
+
+                return false;
+            }
+        } loadTraverser;
+
+        traverse(where, loadTraverser);
+        return { loadTraverser.ptr, loadTraverser.state };
     }
-    std::pair<unsigned char*, SegmentNode::MemoryState> get(
-            SimulatedPtr where,
-            SegmentNode::Ptr& t,
-            SimulatedPtr minbound,
-            SimulatedPtr maxbound) {
-    TRACE_FUNC;
-        if(!t) signalIllegalLoad(where);
-
-        auto mid = middle(minbound, maxbound);
-        auto available = maxbound - minbound;
-
-        force(t);
-
-        if(t->state != SegmentNode::MemoryState::Unknown) return { nullptr, t->state };
-
-        if(available == chunk_size) {
-            auto offset = where - minbound;
-            return { t->chunk.get() + offset, SegmentNode::MemoryState::Unknown };
-        } else if(where >= minbound && where < mid) {
-            return get(where, t->left, minbound, mid);
-        } else if(where >= mid && where < maxbound) {
-            return get(where, t->right, mid, maxbound);
-        }
-
-        signalIllegalLoad(where);
-        return {};
-    }
-
 
     inline void free(SimulatedPtr where) {
-    TRACE_FUNC;
-        return free(where, root, start, end);
-    }
-    void free(SimulatedPtr where,
-            SegmentNode::Ptr& t,
-            SimulatedPtr minbound,
-            SimulatedPtr maxbound) {
-    TRACE_FUNC;
-        if(!t) signalIllegalFree(where);
+        TRACE_FUNC;
 
-        auto mid = middle(minbound, maxbound);
-        auto available = maxbound - minbound;
+        if(where < start || where >= end) signalIllegalFree(where);
 
-        force(t);
+        struct liberator : emptyTraverser {
+            void handleEmptyNode(SimulatedPtr where) {
+                TRACE_FUNC;
+                signalIllegalFree(where);
+            }
 
-        if(minbound == where && t->status == SegmentNode::MemoryStatus::Malloc) {
-            t = nullptr;
-        } else if(where >= minbound && where < mid) {
-            return free(where, t->left, minbound, mid);
-        } else if(where >= mid && where < maxbound) {
-            return free(where, t->right, mid, maxbound);
-        }
+            bool handlePath(SegmentTree*,
+                SimulatedPtrSize minbound,
+                SimulatedPtrSize,
+                SegmentNode::Ptr& t,
+                SimulatedPtrSize where){
+                TRACE_FUNC;
+                if(minbound == where && t->status == SegmentNode::MemoryStatus::Malloc) {
+                    t.reset();
+                    return true;
+                }
+                return false;
+            }
+        } liberator;
 
-        signalIllegalFree(where);
+        return traverse(where, liberator);
     }
 };
 
@@ -326,7 +414,7 @@ struct MemorySimulator::Impl {
         tree.end = tree.start + (1ULL << M.get(33ULL)) * tree.chunk_size;
 
         allocStart = tree.start;
-        allocEnd = (tree.end - tree.start) / 2;
+        allocEnd = (tree.end - tree.start) / 2 + tree.start;
 
         mallocStart = allocEnd;
         mallocEnd = tree.end;
@@ -353,6 +441,10 @@ struct MemorySimulator::Impl {
 
     ~Impl(){}
 };
+
+uintptr_t MemorySimulator::getQuant() const {
+    return pimpl_->tree.chunk_size;
+}
 
 void* MemorySimulator::getPointerToFunction(llvm::Function* f, size_t size) {
     TRACE_FUNC;
@@ -405,7 +497,6 @@ static SimulatedPtrSize calc_real_memory_amount(SimulatedPtrSize amount, Simulat
 
 void* MemorySimulator::AllocateMemory(SimulatedPtrSize amount) {
     TRACE_FUNC;
-    const auto chunk_size = pimpl_->tree.chunk_size;
     const auto real_amount = calc_real_memory_amount(amount, pimpl_->tree.chunk_size);
 
     SimulatedPtr ptr;
@@ -424,7 +515,6 @@ void* MemorySimulator::AllocateMemory(SimulatedPtrSize amount) {
 
 void* MemorySimulator::MallocMemory(SimulatedPtrSize amount, MallocFill fillWith) {
     TRACE_FUNC;
-    const auto chunk_size = pimpl_->tree.chunk_size;
     const auto real_amount = calc_real_memory_amount(amount, pimpl_->tree.chunk_size);
     const auto memState = (fillWith == MallocFill::ZERO) ? SegmentNode::MemoryState::Zero : SegmentNode::MemoryState::Uninit;
 
@@ -503,8 +593,6 @@ void MemorySimulator::StoreIntToMemory(const llvm::APInt& IntVal, mutable_buffer
     auto size = where.size();
     const uint8_t* Src = (const uint8_t*) IntVal.getRawData();
     const auto realPtr = ptr_cast(Ptr);
-    const auto chunkSize = pimpl_->tree.chunk_size;
-
 
     if(llvm::sys::IsLittleEndianHost) {
         // Little-endian host - the source is ordered from LSB to MSB
@@ -574,6 +662,7 @@ auto MemorySimulator::LoadIntFromMemory(llvm::APInt& val, buffer_t where) -> Val
         std::memcpy(Dst + sizeof(uint64_t) - size, Src, size);
     }
 
+    TRACES() << "Loaded value " << val.getLimitedValue() << endl;
     return ValueState::CONCRETE;
 }
 
