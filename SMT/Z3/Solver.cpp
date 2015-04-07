@@ -20,8 +20,8 @@ namespace borealis {
 namespace z3_ {
 using namespace borealis::smt;
 
-Solver::Solver(ExprFactory& z3ef, unsigned long long memoryStart) :
-        z3ef(z3ef), memoryStart(memoryStart) {}
+Solver::Solver(ExprFactory& z3ef, unsigned long long memoryStart, unsigned long long memoryEnd) :
+        z3ef(z3ef), memoryStart(memoryStart), memoryEnd(memoryEnd) {}
 
 z3::tactic Solver::tactics() {
     auto& c = z3ef.unwrap();
@@ -116,7 +116,7 @@ Result Solver::isViolated(
            << "in: " << endl
            << state << endl;
 
-    ExecutionContext ctx(z3ef, memoryStart);
+    ExecutionContext ctx(z3ef, memoryStart, memoryEnd);
     auto z3state = SMT<Z3>::doit(state, z3ef, &ctx);
     auto z3query = SMT<Z3>::doit(query, z3ef, &ctx);
 
@@ -167,7 +167,7 @@ Result Solver::isPathImpossible(
            << "in: " << endl
            << state << endl;
 
-    ExecutionContext ctx(z3ef, memoryStart);
+    ExecutionContext ctx(z3ef, memoryStart, memoryEnd);
     auto z3state = SMT<Z3>::doit(state, z3ef, &ctx);
     auto z3path = SMT<Z3>::doit(path, z3ef, &ctx);
 
@@ -244,7 +244,7 @@ PredicateState::Ptr Solver::probeModels(
     static auto countLimit = getCountLimit();
     static auto attemptLimit = getAttemptLimit();
 
-    ExecutionContext ctx(z3ef, memoryStart);
+    ExecutionContext ctx(z3ef, memoryStart, memoryEnd);
     auto z3body = SMT<Z3>::doit(body, z3ef, &ctx);
     auto z3query = SMT<Z3>::doit(query, z3ef, &ctx);
 
