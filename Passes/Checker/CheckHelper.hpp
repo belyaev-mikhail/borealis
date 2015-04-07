@@ -43,6 +43,8 @@ public:
     bool check(PredicateState::Ptr query, PredicateState::Ptr state, const DefectInfo& di) {
 
         if (not query or not state) return false;
+        if (query->isEmpty()) return false;
+        if (state->isEmpty()) return true;
 
         auto&& sliced = StateSlicer(pass->FN, query, pass->AA).transform(state);
         if (*state == *sliced) {
@@ -51,6 +53,7 @@ public:
             dbgs() << "Sliced: " << state << endl << "to: " << sliced << endl;
         }
 
+        dbgs() << "Defect: " << di << endl;
         dbgs() << "Checking: " << *I << endl;
         dbgs() << "  Query: " << query << endl;
         dbgs() << "  State: " << sliced << endl;
@@ -62,7 +65,7 @@ public:
         MathSAT::Solver s(ef, fMemId);
 #else
         Z3::ExprFactory ef;
-        Z3::Solver s(ef, fMemId);
+        Z3::Solver s(ef, fMemId, fMemId + (1 << 16));
 #endif
 
         if (s.isViolated(query, sliced)) {
