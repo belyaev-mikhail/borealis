@@ -19,7 +19,7 @@ package borealis.proto;
 
 message LoadTerm {
     extend borealis.proto.Term {
-        optional LoadTerm ext = 21;
+        optional LoadTerm ext = $COUNTER_TERM;
     }
 
     optional Term rhv = 1;
@@ -28,49 +28,33 @@ message LoadTerm {
 **/
 class LoadTerm: public borealis::Term {
 
-    Term::Ptr rhv;
-
-    LoadTerm(Type::Ptr type, Term::Ptr rhv):
-        Term(
-            class_tag(*this),
-            type,
-            "*(" + rhv->getName() + ")"
-        ), rhv(rhv) {};
+    LoadTerm(Type::Ptr type, Term::Ptr rhv, bool retypable = true);
 
 public:
 
     MK_COMMON_TERM_IMPL(LoadTerm);
 
-    Term::Ptr getRhv() const { return rhv; }
+    Term::Ptr getRhv() const;
 
     template<class Sub>
-    auto accept(Transformer<Sub>* tr) const -> const Self* {
-        auto _rhv = tr->transform(rhv);
-        auto _type = getTermType(tr->FN.Type, _rhv);
-        return new Self{ _type, _rhv };
-    }
-
-    virtual bool equals(const Term* other) const override {
-        if (const Self* that = llvm::dyn_cast_or_null<Self>(other)) {
-            return Term::equals(other) &&
-                    *that->rhv == *rhv;
-        } else return false;
-    }
-
-    virtual size_t hashCode() const override {
-        return util::hash::defaultHasher()(Term::hashCode(), rhv);
+    auto accept(Transformer<Sub>* tr) const -> Term::Ptr {
+        auto&& _rhv = tr->transform(getRhv());
+        TERM_ON_CHANGED(
+            getRhv() != _rhv,
+            new Self( retypable ? getTermType(tr->FN.Type, _rhv) : type, _rhv, retypable )
+        );
     }
 
     static Type::Ptr getTermType(TypeFactory::Ptr TyF, Term::Ptr rhv) {
-        auto type = rhv->getType();
+        auto&& type = rhv->getType();
 
-        if (!TyF->isValid(type)) return type;
+        if (TypeUtils::isInvalid(type)) return type;
 
         if (auto* ptr = llvm::dyn_cast<type::Pointer>(type)) {
             return ptr->getPointed();
         } else {
             return TyF->getTypeError(
-                "Load from a non-pointer: " + TyF->toString(*type)
+                "Load from a non-pointer: " + util::toString(*type)
             );
         }
     }
@@ -85,13 +69,14 @@ struct SMTImpl<Impl, LoadTerm> {
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>* ctx) {
 
+        TRACE_FUNC;
         USING_SMT_IMPL(Impl);
 
         ASSERTC(ctx != nullptr);
 
-        auto r = SMT<Impl>::doit(t->getRhv(), ef, ctx).template to<Pointer>();
-        ASSERT(!r.empty(), "Load with non-pointer right side");
-        auto rp = r.getUnsafe();
+        auto&& r = SMT<Impl>::doit(t->getRhv(), ef, ctx).template to<Pointer>();
+        ASSERT(not r.empty(), "Load with non-pointer right side");
+        auto&& rp = r.getUnsafe();
 
         return ctx->readExprFromMemory(rp, ExprFactory::sizeForType(t->getType()));
     }

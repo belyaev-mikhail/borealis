@@ -12,18 +12,25 @@
 
 #include "Protobuf/Gen/Term/Term.pb.h"
 
+#include "Protobuf/Gen/Term/ArgumentKind.pb.h"
 #include "Protobuf/Gen/Term/ArgumentTerm.pb.h"
 #include "Protobuf/Gen/Term/AxiomTerm.pb.h"
 #include "Protobuf/Gen/Term/BinaryTerm.pb.h"
+#include "Protobuf/Gen/Term/BoundTerm.pb.h"
 #include "Protobuf/Gen/Term/CmpTerm.pb.h"
 #include "Protobuf/Gen/Term/ConstTerm.pb.h"
 #include "Protobuf/Gen/Term/GepTerm.pb.h"
 #include "Protobuf/Gen/Term/LoadTerm.pb.h"
 #include "Protobuf/Gen/Term/OpaqueBoolConstantTerm.pb.h"
 #include "Protobuf/Gen/Term/OpaqueBuiltinTerm.pb.h"
+#include "Protobuf/Gen/Term/OpaqueCallTerm.pb.h"
 #include "Protobuf/Gen/Term/OpaqueFloatingConstantTerm.pb.h"
+#include "Protobuf/Gen/Term/OpaqueIndexingTerm.pb.h"
+#include "Protobuf/Gen/Term/OpaqueMemberAccessTerm.pb.h"
+#include "Protobuf/Gen/Term/OpaqueInvalidPtrTerm.pb.h"
 #include "Protobuf/Gen/Term/OpaqueIntConstantTerm.pb.h"
 #include "Protobuf/Gen/Term/OpaqueNullPtrTerm.pb.h"
+#include "Protobuf/Gen/Term/OpaqueStringConstantTerm.pb.h"
 #include "Protobuf/Gen/Term/OpaqueUndefTerm.pb.h"
 #include "Protobuf/Gen/Term/OpaqueVarTerm.pb.h"
 #include "Protobuf/Gen/Term/ReadPropertyTerm.pb.h"
@@ -61,15 +68,22 @@ struct protobuf_traits_impl<ArgumentTerm> {
     static std::unique_ptr<proto::ArgumentTerm> toProtobuf(const ArgumentTerm& t) {
         auto res = util::uniq(new proto::ArgumentTerm());
         res->set_idx(t.getIdx());
+        res->set_kind(static_cast<proto::ArgumentKind>(t.getKind()));
         return std::move(res);
     }
 
     static Term::Ptr fromProtobuf(
             const FactoryNest&,
-            Type::Ptr type,
-            const std::string& name,
+            Term::Ptr base,
             const proto::ArgumentTerm& t) {
-        return Term::Ptr{ new ArgumentTerm(type, t.idx(), name) };
+        return Term::Ptr{
+            new ArgumentTerm(
+                base->getType(),
+                t.idx(),
+                base->getName(),
+                static_cast<ArgumentKind>(t.kind())
+            )
+        };
     }
 };
 
@@ -91,12 +105,11 @@ struct protobuf_traits_impl<AxiomTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest& fn,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::AxiomTerm& t) {
         auto lhv = TermConverter::fromProtobuf(fn, t.lhv());
         auto rhv = TermConverter::fromProtobuf(fn, t.rhv());
-        return Term::Ptr{ new AxiomTerm(type, lhv, rhv) };
+        return Term::Ptr{ new AxiomTerm(base->getType(), lhv, rhv) };
     }
 };
 
@@ -119,13 +132,34 @@ struct protobuf_traits_impl<BinaryTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest& fn,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::BinaryTerm& t) {
         auto opcode = static_cast<llvm::ArithType>(t.opcode());
         auto lhv = TermConverter::fromProtobuf(fn, t.lhv());
         auto rhv = TermConverter::fromProtobuf(fn, t.rhv());
-        return Term::Ptr{ new BinaryTerm(type, opcode, lhv, rhv) };
+        return Term::Ptr{ new BinaryTerm(base->getType(), opcode, lhv, rhv) };
+    }
+};
+
+template<>
+struct protobuf_traits_impl<BoundTerm> {
+
+    typedef protobuf_traits<Term> TermConverter;
+
+    static std::unique_ptr<proto::BoundTerm> toProtobuf(const BoundTerm& t) {
+        auto res = util::uniq(new proto::BoundTerm());
+        res->set_allocated_rhv(
+            TermConverter::toProtobuf(*t.getRhv()).release()
+        );
+        return std::move(res);
+    }
+
+    static Term::Ptr fromProtobuf(
+            const FactoryNest& fn,
+            Term::Ptr base,
+            const proto::BoundTerm& t) {
+        auto rhv = TermConverter::fromProtobuf(fn, t.rhv());
+        return Term::Ptr{ new BoundTerm(base->getType(), rhv) };
     }
 };
 
@@ -148,13 +182,12 @@ struct protobuf_traits_impl<CmpTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest& fn,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::CmpTerm& t) {
         auto opcode = static_cast<llvm::ConditionType>(t.opcode());
         auto lhv = TermConverter::fromProtobuf(fn, t.lhv());
         auto rhv = TermConverter::fromProtobuf(fn, t.rhv());
-        return Term::Ptr{ new CmpTerm(type, opcode, lhv, rhv) };
+        return Term::Ptr{ new CmpTerm(base->getType(), opcode, lhv, rhv) };
     }
 };
 
@@ -169,10 +202,9 @@ struct protobuf_traits_impl<ConstTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest&,
-            Type::Ptr type,
-            const std::string& name,
+            Term::Ptr base,
             const proto::ConstTerm&) {
-        return Term::Ptr{ new ConstTerm(type, name) };
+        return Term::Ptr{ new ConstTerm(base->getType(), base->getName()) };
     }
 };
 
@@ -188,17 +220,12 @@ struct protobuf_traits_impl<GepTerm> {
             TermConverter::toProtobuf(*t.getBase()).release()
         );
 
+        res->set_triviallyinbounds(t.isTriviallyInbounds());
+
         for (const auto& shift : t.getShifts()) {
             res->mutable_by()->AddAllocated(
-                TermConverter::toProtobuf(*shift.first).release()
+                TermConverter::toProtobuf(*shift).release()
             );
-            res->mutable_size()->AddAllocated(
-                TermConverter::toProtobuf(*shift.second).release()
-            );
-        }
-
-        for (const auto& v : t.getAsString()) {
-            res->set_asstring(v);
         }
 
         return std::move(res);
@@ -206,29 +233,39 @@ struct protobuf_traits_impl<GepTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest& fn,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::GepTerm& t) {
 
-        auto base = TermConverter::fromProtobuf(fn, t.base());
+        auto ptr = TermConverter::fromProtobuf(fn, t.base());
 
-        ASSERT(t.by_size() == t.size_size(),
-               "Mismatching sizes for GepTerm::by and GepTerm::size");
-
-        GepTerm::Shifts shifts;
+        std::vector<Term::Ptr> shifts;
         shifts.reserve(t.by_size());
         for (int i = 0; i < t.by_size(); ++i) {
             auto by = TermConverter::fromProtobuf(fn, t.by(i));
-            auto size = TermConverter::fromProtobuf(fn, t.size(i));
-            shifts.push_back({by, size});
+            shifts.push_back(by);
         }
 
-        util::option<std::string> asString;
-        if (t.has_asstring()) {
-            asString = util::just(t.asstring());
-        }
+        bool inbounds = t.triviallyinbounds();
 
-        return Term::Ptr{ new GepTerm(type, base, shifts, asString) };
+        return Term::Ptr{ new GepTerm(base->getType(), ptr, shifts, inbounds) };
+    }
+};
+
+
+template<>
+struct protobuf_traits_impl<OpaqueInvalidPtrTerm> {
+
+    typedef protobuf_traits<Term> TermConverter;
+
+    static std::unique_ptr<proto::OpaqueInvalidPtrTerm> toProtobuf(const OpaqueInvalidPtrTerm&) {
+        return util::uniq(new proto::OpaqueInvalidPtrTerm());
+    }
+
+    static Term::Ptr fromProtobuf(
+            const FactoryNest&,
+            Term::Ptr base,
+            const proto::OpaqueInvalidPtrTerm&) {
+        return Term::Ptr{ new OpaqueInvalidPtrTerm(base->getType()) };
     }
 };
 
@@ -247,11 +284,10 @@ struct protobuf_traits_impl<LoadTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest& fn,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::LoadTerm& t) {
         auto rhv = TermConverter::fromProtobuf(fn, t.rhv());
-        return Term::Ptr{ new LoadTerm(type, rhv) };
+        return Term::Ptr{ new LoadTerm(base->getType(), rhv, base->isRetypable()) };
     }
 };
 
@@ -268,11 +304,10 @@ struct protobuf_traits_impl<OpaqueBoolConstantTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest&,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::OpaqueBoolConstantTerm& t) {
         auto value = t.value();
-        return Term::Ptr{ new OpaqueBoolConstantTerm(type, value) };
+        return Term::Ptr{ new OpaqueBoolConstantTerm(base->getType(), value) };
     }
 };
 
@@ -289,11 +324,10 @@ struct protobuf_traits_impl<OpaqueBuiltinTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest&,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::OpaqueBuiltinTerm& t) {
         auto vname = t.vname();
-        return Term::Ptr{ new OpaqueBuiltinTerm(type, vname) };
+        return Term::Ptr{ new OpaqueBuiltinTerm(base->getType(), vname) };
     }
 };
 
@@ -310,11 +344,90 @@ struct protobuf_traits_impl<OpaqueFloatingConstantTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest&,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::OpaqueFloatingConstantTerm& t) {
         auto value = t.value();
-        return Term::Ptr{ new OpaqueFloatingConstantTerm(type, value) };
+        return Term::Ptr{ new OpaqueFloatingConstantTerm(base->getType(), value) };
+    }
+};
+
+template<>
+struct protobuf_traits_impl<OpaqueIndexingTerm> {
+
+    typedef protobuf_traits<Term> TermConverter;
+
+    static std::unique_ptr<proto::OpaqueIndexingTerm> toProtobuf(const OpaqueIndexingTerm& t) {
+        auto res = util::uniq(new proto::OpaqueIndexingTerm());
+        res->set_allocated_lhv(
+            TermConverter::toProtobuf(*t.getLhv()).release()
+        );
+        res->set_allocated_rhv(
+            TermConverter::toProtobuf(*t.getRhv()).release()
+        );
+        return std::move(res);
+    }
+
+    static Term::Ptr fromProtobuf(
+            const FactoryNest& fn,
+            Term::Ptr base,
+            const proto::OpaqueIndexingTerm& t) {
+        auto lhv = TermConverter::fromProtobuf(fn, t.lhv());
+        auto rhv = TermConverter::fromProtobuf(fn, t.rhv());
+        return Term::Ptr{ new OpaqueIndexingTerm(base->getType(), lhv, rhv) };
+    }
+};
+
+template<>
+struct protobuf_traits_impl<OpaqueMemberAccessTerm> {
+
+    typedef protobuf_traits<Term> TermConverter;
+
+    static std::unique_ptr<proto::OpaqueMemberAccessTerm> toProtobuf(const OpaqueMemberAccessTerm& t) {
+        auto res = util::uniq(new proto::OpaqueMemberAccessTerm());
+        res->set_allocated_lhv(
+            TermConverter::toProtobuf(*t.getLhv()).release()
+        );
+        res->set_property(t.getProperty());
+        res->set_indirect(t.isIndirect());
+        return std::move(res);
+    }
+
+    static Term::Ptr fromProtobuf(
+            const FactoryNest& fn,
+            Term::Ptr base,
+            const proto::OpaqueMemberAccessTerm& t) {
+        auto lhv = TermConverter::fromProtobuf(fn, t.lhv());
+        return Term::Ptr{ new OpaqueMemberAccessTerm(base->getType(), lhv, t.property(), t.indirect()) };
+    }
+};
+
+template<>
+struct protobuf_traits_impl<OpaqueCallTerm> {
+
+    typedef protobuf_traits<Term> TermConverter;
+
+    static std::unique_ptr<proto::OpaqueCallTerm> toProtobuf(const OpaqueCallTerm& t) {
+        auto res = util::uniq(new proto::OpaqueCallTerm());
+        res->set_allocated_lhv(
+            TermConverter::toProtobuf(*t.getLhv()).release()
+        );
+        for(auto arg: t.getRhv()) {
+            res->mutable_rhvs()->AddAllocated(TermConverter::toProtobuf(*arg).release());
+        }
+        return std::move(res);
+    }
+
+    static Term::Ptr fromProtobuf(
+            const FactoryNest& fn,
+            Term::Ptr base,
+            const proto::OpaqueCallTerm& t) {
+        auto lhv = TermConverter::fromProtobuf(fn, t.lhv());
+        auto rhv = std::vector<Term::Ptr>{};
+        rhv.reserve(t.rhvs_size());
+        for(auto arg: t.rhvs()) {
+            rhv.push_back(TermConverter::fromProtobuf(fn, arg));
+        }
+        return Term::Ptr{ new OpaqueCallTerm(base->getType(), lhv, rhv) };
     }
 };
 
@@ -331,11 +444,30 @@ struct protobuf_traits_impl<OpaqueIntConstantTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest&,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::OpaqueIntConstantTerm& t) {
         auto value = t.value();
-        return Term::Ptr{ new OpaqueIntConstantTerm(type, value) };
+        return Term::Ptr{ new OpaqueIntConstantTerm(base->getType(), value) };
+    }
+};
+
+template<>
+struct protobuf_traits_impl<OpaqueStringConstantTerm> {
+
+    typedef protobuf_traits<Term> TermConverter;
+
+    static std::unique_ptr<proto::OpaqueStringConstantTerm> toProtobuf(const OpaqueStringConstantTerm& t) {
+        auto res = util::uniq(new proto::OpaqueStringConstantTerm());
+        res->set_value(t.getValue());
+        return std::move(res);
+    }
+
+    static Term::Ptr fromProtobuf(
+            const FactoryNest&,
+            Term::Ptr base,
+            const proto::OpaqueStringConstantTerm& t) {
+        auto value = t.value();
+        return Term::Ptr{ new OpaqueStringConstantTerm(base->getType(), value) };
     }
 };
 
@@ -350,10 +482,9 @@ struct protobuf_traits_impl<OpaqueNullPtrTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest&,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::OpaqueNullPtrTerm&) {
-        return Term::Ptr{ new OpaqueNullPtrTerm(type) };
+        return Term::Ptr{ new OpaqueNullPtrTerm(base->getType()) };
     }
 };
 
@@ -368,10 +499,9 @@ struct protobuf_traits_impl<OpaqueUndefTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest&,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::OpaqueUndefTerm&) {
-        return Term::Ptr{ new OpaqueUndefTerm(type) };
+        return Term::Ptr{ new OpaqueUndefTerm(base->getType()) };
     }
 };
 
@@ -388,11 +518,10 @@ struct protobuf_traits_impl<OpaqueVarTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest&,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::OpaqueVarTerm& t) {
         auto vname = t.vname();
-        return Term::Ptr{ new OpaqueVarTerm(type, vname) };
+        return Term::Ptr{ new OpaqueVarTerm(base->getType(), vname) };
     }
 };
 
@@ -414,12 +543,11 @@ struct protobuf_traits_impl<ReadPropertyTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest& fn,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::ReadPropertyTerm& t) {
         auto propName = TermConverter::fromProtobuf(fn, t.propname());
         auto rhv = TermConverter::fromProtobuf(fn, t.rhv());
-        return Term::Ptr{ new ReadPropertyTerm(type, propName, rhv) };
+        return Term::Ptr{ new ReadPropertyTerm(base->getType(), propName, rhv) };
     }
 };
 
@@ -430,17 +558,16 @@ struct protobuf_traits_impl<ReturnValueTerm> {
 
     static std::unique_ptr<proto::ReturnValueTerm> toProtobuf(const ReturnValueTerm& t) {
         auto res = util::uniq(new proto::ReturnValueTerm());
-        res->set_functionname(t.getFunctionName());
+        res->set_funcname(t.getFunctionName());
         return std::move(res);
     }
 
     static Term::Ptr fromProtobuf(
             const FactoryNest&,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::ReturnValueTerm& t) {
-        auto fName = t.functionname();
-        return Term::Ptr{ new ReturnValueTerm(type, fName) };
+        auto fName = t.funcname();
+        return Term::Ptr{ new ReturnValueTerm(base->getType(), fName) };
     }
 };
 
@@ -459,11 +586,10 @@ struct protobuf_traits_impl<SignTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest& fn,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::SignTerm& t) {
         auto rhv = TermConverter::fromProtobuf(fn, t.rhv());
-        return Term::Ptr{ new SignTerm(type, rhv) };
+        return Term::Ptr{ new SignTerm(base->getType(), rhv) };
     }
 };
 
@@ -488,13 +614,12 @@ struct protobuf_traits_impl<TernaryTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest& fn,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::TernaryTerm& t) {
         auto cnd = TermConverter::fromProtobuf(fn, t.cnd());
         auto tru = TermConverter::fromProtobuf(fn, t.tru());
         auto fls = TermConverter::fromProtobuf(fn, t.fls());
-        return Term::Ptr{ new TernaryTerm(type, cnd, tru, fls) };
+        return Term::Ptr{ new TernaryTerm(base->getType(), cnd, tru, fls) };
     }
 };
 
@@ -514,12 +639,11 @@ struct protobuf_traits_impl<UnaryTerm> {
 
     static Term::Ptr fromProtobuf(
             const FactoryNest& fn,
-            Type::Ptr type,
-            const std::string&,
+            Term::Ptr base,
             const proto::UnaryTerm& t) {
         auto opcode = static_cast<llvm::UnaryArithType>(t.opcode());
         auto rhv = TermConverter::fromProtobuf(fn, t.rhv());
-        return Term::Ptr{ new UnaryTerm(type, opcode, rhv) };
+        return Term::Ptr{ new UnaryTerm(base->getType(), opcode, rhv) };
     }
 };
 
@@ -528,16 +652,17 @@ struct protobuf_traits_impl<ValueTerm> {
 
     typedef protobuf_traits<Term> TermConverter;
 
-    static std::unique_ptr<proto::ValueTerm> toProtobuf(const ValueTerm&) {
-        return util::uniq(new proto::ValueTerm());
+    static std::unique_ptr<proto::ValueTerm> toProtobuf(const ValueTerm& t) {
+        auto res = util::uniq(new proto::ValueTerm());
+        res->set_global(t.isGlobal());
+        return std::move(res);
     }
 
     static Term::Ptr fromProtobuf(
             const FactoryNest&,
-            Type::Ptr type,
-            const std::string& name,
-            const proto::ValueTerm&) {
-        return Term::Ptr{ new ValueTerm(type, name) };
+            Term::Ptr base,
+            const proto::ValueTerm& t) {
+        return Term::Ptr{ new ValueTerm(base->getType(), base->getName(), t.global()) };
     }
 };
 

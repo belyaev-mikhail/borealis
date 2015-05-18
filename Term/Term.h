@@ -8,8 +8,13 @@
 #ifndef TERM_H_
 #define TERM_H_
 
-#include <string>
+#include <llvm/Support/Casting.h>
 
+#include <memory>
+#include <string>
+#include <unordered_set>
+
+#include "Logging/tracer.hpp"
 #include "SMT/SMTUtil.h"
 #include "Type/TypeFactory.h"
 #include "Util/typeindex.hpp"
@@ -18,6 +23,7 @@
 namespace borealis {
 
 template<class SubClass> class Transformer;
+template<class T> struct protobuf_traits;
 template<class T> struct protobuf_traits_impl;
 
 namespace proto { class Term; }
@@ -29,61 +35,84 @@ package borealis.proto;
 message Term {
     optional Type type = 1;
     optional string name = 2;
+    optional bool retypable = 3;
 
     extensions 16 to 64;
 }
 
 **/
-class Term : public ClassTag {
+class Term : public ClassTag, public std::enable_shared_from_this<const Term> {
+
+    friend bool operator==(const Term& a, const Term& b);
 
 public:
 
-    typedef std::shared_ptr<const Term> Ptr;
-    typedef std::unique_ptr<proto::Term> ProtoPtr;
+    using Ptr = std::shared_ptr<const Term>;
+    using ProtoPtr = std::unique_ptr<proto::Term>;
+    using Subterms = std::vector<Term::Ptr>;
+
+    // FIXME: akhin Maybe specialize std::equal_to ???
+    struct DerefEqualsTo {
+        bool operator()(Term::Ptr a, Term::Ptr b) const { return ops::deref_equals_to(a, b); }
+    };
+    using Set = std::unordered_set<Term::Ptr, std::hash<Term::Ptr>, Term::DerefEqualsTo>;
 
 protected:
 
-    Term(id_t classTag, Type::Ptr type, const std::string& name) :
-        ClassTag(classTag), type(type), name(name) {};
+    Term(id_t classTag, Type::Ptr type, const std::string& name, bool retypable = true);
     Term(const Term&) = default;
+
+    friend struct protobuf_traits<Term>;
 
 public:
 
-    virtual ~Term() {};
+    virtual ~Term() = default;
 
-    Type::Ptr getType() const {
-        return type;
-    }
+    Type::Ptr getType() const;
+    const std::string& getName() const;
+    bool isRetypable() const;
 
-    const std::string& getName() const {
-        return name;
-    }
+    size_t getNumSubterms() const;
+    const Subterms& getSubterms() const;
 
-    virtual bool equals(const Term* other) const {
-        if (other == nullptr) return false;
-        return classTag == other->classTag &&
-                type == other->type &&
-                name == other->name;
-    }
-
-    bool operator==(const Term& other) const {
-        if (this == &other) return true;
-        return this->equals(&other);
-    }
-
-    virtual size_t hashCode() const {
-        return util::hash::defaultHasher()(classTag, type, name);
-    }
+    virtual bool equals(const Term* other) const;
+    virtual size_t hashCode() const;
 
     static bool classof(const Term*) {
         return true;
     }
 
+    static Set getFullTermSet(Term::Ptr term);
+
 protected:
 
     Type::Ptr type;
     std::string name;
+    bool retypable;
 
+    Subterms subterms;
+
+};
+
+std::ostream& operator<<(std::ostream& s, Term::Ptr t);
+borealis::logging::logstream& operator<<(borealis::logging::logstream& s, Term::Ptr t);
+
+struct TermHash {
+    size_t operator()(Term::Ptr trm) const noexcept {
+        return trm->hashCode();
+    }
+};
+
+struct TermEquals {
+    bool operator()(Term::Ptr lhv, Term::Ptr rhv) const noexcept {
+        return lhv->equals(rhv.get());
+    }
+};
+
+struct TermCompare {
+    bool operator()(Term::Ptr lhv, Term::Ptr rhv) const noexcept {
+        return lhv->getName() < rhv->getName();
+    }
 };
 
 } /* namespace borealis */
@@ -105,17 +134,21 @@ struct hash<const borealis::Term::Ptr> {
 
 #define MK_COMMON_TERM_IMPL(CLASS) \
 private: \
-    typedef CLASS Self; \
-    CLASS(const CLASS&) = default; \
+    using Self = CLASS; \
+    CLASS(const Self&) = default; \
 public: \
     friend class TermFactory; \
     friend struct protobuf_traits_impl<CLASS>; \
-    virtual ~CLASS() {}; \
+    virtual ~CLASS() = default; \
     static bool classof(const Self*) { \
         return true; \
     } \
     static bool classof(const Term* t) { \
         return t->getClassTag() == class_tag<Self>(); \
     }
+
+#define TERM_ON_CHANGED(COND, CTOR) \
+    if (COND) return Term::Ptr{ CTOR }; \
+    else return this->shared_from_this();
 
 #endif /* TERM_H_ */

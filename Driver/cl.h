@@ -164,12 +164,12 @@ public:
 
     borealis::util::option<const char*> single() const {
         if (args.empty()) return util::nothing();
-        return util::just(args.front());
+        return util::just(args.back());
     }
 
     const char* single(const char* else_) const {
         if (args.empty()) return else_;
-        return args.front();
+        return args.back();
     }
 
     std::vector<std::string> stlRep() const {
@@ -192,23 +192,20 @@ public:
         return std::move(ret);
     }
 
-    template<class Streamer>
-    friend Streamer& operator<<(Streamer& str, const CommandLine& cl);
-};
-
-template<class Streamer>
-Streamer& operator<<(Streamer& str, const CommandLine& cl) {
-    if (cl.empty()) {
-        str << "<empty command line invocation>";
-    } else {
-        str << util::head(cl.args);
-        for (const auto& arg : util::tail(cl.args)) {
-            str << " " << arg;
+    // FIXME: templated version broken due to operator ambiguity
+    friend std::ostream& operator<<(std::ostream& str, const CommandLine& cl) {
+        if (cl.empty()) {
+            str << "<empty command line invocation>";
+        } else {
+            str << util::head(cl.args);
+            for (const auto& arg : util::tail(cl.args)) {
+                str << " " << arg;
+            }
         }
+        // this is generally fucked up
+        return str;
     }
-    // this is generally fucked up
-    return static_cast<Streamer&>(str);
-}
+};
 
 } /* namespace driver */
 } /* namespace borealis */

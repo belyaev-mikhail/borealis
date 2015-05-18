@@ -13,6 +13,8 @@
 #include "SMT/MathSAT/ExprFactory.h"
 #include "State/PredicateState.h"
 
+#include "SMT/Result.h"
+
 namespace borealis {
 namespace mathsat_ {
 
@@ -29,13 +31,13 @@ public:
     static constexpr auto loggerDomain() QUICK_RETURN("mathsat-solver")
 #include "Util/unmacros.h"
 
-    Solver(ExprFactory& msatef, unsigned long long memoryStart);
+    Solver(ExprFactory& msatef, unsigned long long memoryStart, unsigned long long memoryEnd);
 
-    bool isViolated(
+    smt::Result isViolated(
             PredicateState::Ptr query,
             PredicateState::Ptr state);
 
-    bool isPathImpossible(
+    smt::Result isPathImpossible(
             PredicateState::Ptr path,
             PredicateState::Ptr state);
 
@@ -49,18 +51,31 @@ public:
             PredicateState::Ptr body);
 
     Dynamic getContract(
-                const std::vector<Term::Ptr>& args,
-                PredicateState::Ptr query,
-                PredicateState::Ptr body);
+            const std::vector<Term::Ptr>& args,
+            PredicateState::Ptr query,
+            PredicateState::Ptr body);
 
 private:
 
     ExprFactory& msatef;
     unsigned long long memoryStart;
+    unsigned long long memoryEnd;
 
-    msat_result check(
-            const Bool& msatquery,
-            const Bool& msatstate);
+    using check_result = std::tuple<
+        msat_result,
+        util::option<mathsat::Model>,
+        util::option<std::vector<mathsat::Expr>>,
+        util::option<std::string> // FIXME: MathSAT proof
+    >;
+
+    check_result check(
+            const Bool& msatquery_,
+            const Bool& msatstate_);
+
+    Bool probeZ3(PredicateState::Ptr body,
+                 PredicateState::Ptr query,
+                 const std::vector<Term::Ptr>& args,
+                 const std::vector<Term::Ptr>& pathVars);
 
 };
 

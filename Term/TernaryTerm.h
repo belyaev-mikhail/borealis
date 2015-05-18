@@ -19,7 +19,7 @@ package borealis.proto;
 
 message TernaryTerm {
     extend borealis.proto.Term {
-        optional TernaryTerm ext = 31;
+        optional TernaryTerm ext = $COUNTER_TERM;
     }
 
     optional Term cnd = 1;
@@ -30,45 +30,25 @@ message TernaryTerm {
 **/
 class TernaryTerm: public borealis::Term {
 
-    Term::Ptr cnd;
-    Term::Ptr tru;
-    Term::Ptr fls;
-
-    TernaryTerm(Type::Ptr type, Term::Ptr cnd, Term::Ptr tru, Term::Ptr fls):
-        Term(
-            class_tag(*this),
-            type,
-            "(" + cnd->getName() + " ? " + tru->getName() + " : " + fls->getName() + ")"
-        ), cnd(cnd), tru(tru), fls(fls) {};
+    TernaryTerm(Type::Ptr type, Term::Ptr cnd, Term::Ptr tru, Term::Ptr fls);
 
 public:
 
     MK_COMMON_TERM_IMPL(TernaryTerm);
 
-    Term::Ptr getCnd() const { return cnd; }
-    Term::Ptr getTru() const { return tru; }
-    Term::Ptr getFls() const { return fls; }
+    Term::Ptr getCnd() const;
+    Term::Ptr getTru() const;
+    Term::Ptr getFls() const;
 
     template<class Sub>
-    auto accept(Transformer<Sub>* tr) const -> const Self* {
-        auto _cnd = tr->transform(cnd);
-        auto _tru = tr->transform(tru);
-        auto _fls = tr->transform(fls);
-        auto _type = getTermType(tr->FN.Type, _cnd, _tru, _fls);
-        return new Self{ _type, _cnd, _tru, _fls };
-    }
-
-    virtual bool equals(const Term* other) const override {
-        if (const Self* that = llvm::dyn_cast_or_null<Self>(other)) {
-            return Term::equals(other) &&
-                    *that->cnd == *cnd &&
-                    *that->tru == *tru &&
-                    *that->fls == *fls;
-        } else return false;
-    }
-
-    virtual size_t hashCode() const override {
-        return util::hash::defaultHasher()(Term::hashCode(), cnd, tru, fls);
+    auto accept(Transformer<Sub>* tr) const -> Term::Ptr {
+        auto&& _cnd = tr->transform(getCnd());
+        auto&& _tru = tr->transform(getTru());
+        auto&& _fls = tr->transform(getFls());
+        TERM_ON_CHANGED(
+            getCnd() != _cnd || getTru() != _tru || getFls() != _fls,
+            new Self( getTermType(tr->FN.Type, _cnd, _tru, _fls), _cnd, _tru, _fls )
+        );
     }
 
     static Type::Ptr getTermType(TypeFactory::Ptr TyF, Term::Ptr, Term::Ptr tru, Term::Ptr fls) {
@@ -85,9 +65,11 @@ struct SMTImpl<Impl, TernaryTerm> {
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>* ctx) {
 
-        auto cndz3 = SMT<Impl>::doit(t->getCnd(), ef, ctx);
-        auto truz3 = SMT<Impl>::doit(t->getTru(), ef, ctx);
-        auto flsz3 = SMT<Impl>::doit(t->getFls(), ef, ctx);
+        TRACE_FUNC;
+
+        auto&& cndz3 = SMT<Impl>::doit(t->getCnd(), ef, ctx);
+        auto&& truz3 = SMT<Impl>::doit(t->getTru(), ef, ctx);
+        auto&& flsz3 = SMT<Impl>::doit(t->getFls(), ef, ctx);
 
         ASSERT(cndz3.isBool(), "Ternary operation with non-Bool condition");
 

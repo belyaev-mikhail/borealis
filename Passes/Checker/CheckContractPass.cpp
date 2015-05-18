@@ -5,17 +5,18 @@
  *      Author: ice-phoenix
  */
 
-#include <llvm/Support/InstVisitor.h>
+#include <llvm/IR/InstVisitor.h>
 
 #include "Codegen/intrinsics_manager.h"
-#include "Codegen/llvm.h"
 #include "Passes/Checker/CheckContractPass.h"
+#include "Passes/Checker/CheckHelper.hpp"
 #include "Passes/Tracker/SlotTrackerPass.h"
-#include "SMT/MathSAT/Solver.h"
-#include "SMT/Z3/Solver.h"
 #include "State/PredicateStateBuilder.h"
-#include "State/Transformer/AnnotationMaterializer.h"
+#include "State/Transformer/AggregateTransformer.h"
+#include "State/Transformer/AnnotationSubstitutor.h"
 #include "State/Transformer/CallSiteInitializer.h"
+#include "State/Transformer/ContractTransmogrifier.h"
+#include "State/Transformer/Simplifier.h"
 
 namespace borealis {
 
@@ -32,127 +33,101 @@ public:
 
         switch (im.getIntrinsicType(CI)) {
         case function_type::INTRINSIC_ANNOTATION:
-            checkAnnotation(CI, Annotation::fromIntrinsic(CI)); break;
+            checkAnnotation(CI); break;
         case function_type::ACTION_DEFECT:
             checkActionDefect(CI); break;
         default:
-            checkContract(CI); break;
+            checkContract(CI);
+            checkBonds(CI);
+            break;
+        }
+    }
+
+    void checkBonds(llvm::CallInst& CI) {
+        for (auto& e : pass->FM->getBonds(CI.getCalledFunction())) {
+
+            auto bond = e.second.first;
+            auto defect = e.second.second;
+
+            CheckHelper<CheckContractPass> h(pass, &CI, DefectType::UNK_99);
+
+            if (h.skip(defect)) continue;
+
+            auto t = Simplifier(pass->FN) +
+                     ContractTransmogrifier(pass->FN) +
+                     CallSiteInitializer(CI, pass->FN);
+            auto q = bond->map(
+                [&t](Predicate::Ptr p) { return t.transform(p); }
+            );
+            auto ps = pass->PSA->getInstructionState(&CI);
+
+            h.check(q, ps, defect);
         }
     }
 
     void checkContract(llvm::CallInst& CI) {
+
+        CheckHelper<CheckContractPass> h(pass, &CI, DefectType::REQ_01);
+
+        if (h.skip()) return;
+
         auto contract = pass->FM->getReq(CI, pass->FN);
-        if (contract->isEmpty()) return;
-
-        auto state = pass->PSA->getInstructionState(&CI);
-        if (!state) return;
-
-        CallSiteInitializer csi(CI, pass->FN);
-        auto instantiatedContract = contract->map(
-            [&csi](Predicate::Ptr p) { return csi.transform(p); }
+        auto t = CallSiteInitializer(CI, pass->FN);
+        auto q = contract->map(
+            [&t](Predicate::Ptr p) { return t.transform(p); }
         );
+        auto ps = pass->PSA->getInstructionState(&CI);
 
-        dbgs() << "Checking: " << CI << endl;
-        dbgs() << "  Requires: " << endl << instantiatedContract << endl;
-
-        auto fMemId = pass->FM->getMemoryStart(CI.getParent()->getParent());
-
-#if defined USE_MATHSAT_SOLVER
-        MathSAT::ExprFactory ef;
-        MathSAT::Solver s(ef, fMemId);
-#else
-        Z3::ExprFactory ef;
-        Z3::Solver s(ef, fMemId);
-#endif
-
-        dbgs() << "  State: " << endl << state << endl;
-        if (s.isViolated(instantiatedContract, state)) {
-            pass->DM->addDefect(DefectType::REQ_01, &CI);
-        }
+        h.check(q, ps);
     }
 
     void checkActionDefect(llvm::CallInst& CI) {
-        using namespace llvm;
+
+        auto* op0 = CI.getArgOperand(0);
+        auto defectType = getAsCompileTimeString(op0).getOrElse("UNK-99");
+        auto defect = pass->DM->getDefect(defectType, &CI);
+
+        CheckHelper<CheckContractPass> h(pass, &CI, DefectType::UNK_99);
+
+        if (h.skip(defect)) return;
 
         auto state = pass->PSA->getInstructionState(&CI);
-        if (!state) return;
 
-        dbgs() << "Checking: " << CI << endl;
-        dbgs() << "  State: " << endl << state << endl;
-
-        auto fMemId = pass->FM->getMemoryStart(CI.getParent()->getParent());
-
-        if (!state->isUnreachableIn(fMemId)) {
-            auto* op0 = CI.getArgOperand(0);
-            auto* op1 = CI.getArgOperand(1);
-
-            auto defectType = getAsCompileTimeString(op0);
-            auto defectMsg = getAsCompileTimeString(op1);
-
-            pass->DM->addDefect(defectType.getOrElse("UNK-99"), &CI);
-        }
+        h.isReachable(state, defect);
     }
 
-    void checkAnnotation(llvm::CallInst& CI, Annotation::Ptr A) {
-        auto anno = materialize(A, pass->FN, pass->MI);
-
-        auto state = pass->PSA->getInstructionState(&CI);
-        if (!state) return;
+    void checkAnnotation(llvm::CallInst& CI) {
+        auto anno = substituteAnnotationCall(pass->FN, llvm::CallSite(&CI));
 
         if (auto* LA = llvm::dyn_cast<AssertAnnotation>(anno)) {
-            auto query = (
+
+            CheckHelper<CheckContractPass> h(pass, &CI, DefectType::ASR_01);
+
+            if (h.skip()) return;
+
+            auto q = (
                 pass->FN.State *
                 pass->FN.Predicate->getEqualityPredicate(
                     LA->getTerm(),
-                    pass->FN.Term->getTrueTerm(),
-                    predicateType(LA)
+                    pass->FN.Term->getTrueTerm()
                 )
             )();
+            auto ps = pass->PSA->getInstructionState(&CI);
 
-            dbgs() << "Checking: " << CI << endl;
-            dbgs() << "  Assert: " << endl << query << endl;
-
-            auto fMemId = pass->FM->getMemoryStart(CI.getParent()->getParent());
-
-#if defined USE_MATHSAT_SOLVER
-            MathSAT::ExprFactory ef;
-            MathSAT::Solver s(ef, fMemId);
-#else
-            Z3::ExprFactory ef;
-            Z3::Solver s(ef, fMemId);
-#endif
-
-            dbgs() << "  State: " << endl << state << endl;
-            if (s.isViolated(query, state)) {
-                pass->DM->addDefect(DefectType::ASR_01, &CI);
-            }
+            h.check(q, ps);
         }
     }
 
     void visitReturnInst(llvm::ReturnInst& RI) {
-        auto contract = pass->FM->getEns(RI.getParent()->getParent());
-        if (contract->isEmpty()) return;
 
-        auto state = pass->PSA->getInstructionState(&RI);
-        if (!state) return;
+        CheckHelper<CheckContractPass> h(pass, &RI, DefectType::ENS_01);
 
-        dbgs() << "Checking: " << RI << endl;
-        dbgs() << "  Ensures: " << endl << contract << endl;
+        if (h.skip()) return;
 
-        auto fMemId = pass->FM->getMemoryStart(RI.getParent()->getParent());
+        auto q = pass->FM->getEns(RI.getParent()->getParent());
+        auto ps = pass->PSA->getInstructionState(&RI);
 
-#if defined USE_MATHSAT_SOLVER
-        MathSAT::ExprFactory ef;
-        MathSAT::Solver s(ef, fMemId);
-#else
-        Z3::ExprFactory ef;
-        Z3::Solver s(ef, fMemId);
-#endif
-
-        dbgs() << "  State: " << endl << state << endl;
-        if (s.isViolated(contract, state)) {
-            pass->DM->addDefect(DefectType::ENS_01, &RI);
-        }
+        h.check(q, ps);
     }
 
 private:
@@ -169,22 +144,28 @@ CheckContractPass::CheckContractPass(llvm::Pass* pass) : ProxyFunctionPass(ID, p
 void CheckContractPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
 
+    AUX<CheckManager>::addRequiredTransitive(AU);
+
+    AUX<llvm::AliasAnalysis>::addRequiredTransitive(AU);
     AUX<DefectManager>::addRequiredTransitive(AU);
     AUX<FunctionManager>::addRequiredTransitive(AU);
-    AUX<MetaInfoTracker>::addRequiredTransitive(AU);
+    AUX<VariableInfoTracker>::addRequiredTransitive(AU);
     AUX<PredicateStateAnalysis>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
 }
 
 bool CheckContractPass::runOnFunction(llvm::Function& F) {
 
+    CM = &GetAnalysis<CheckManager>::doit(this, F);
+    if (CM->shouldSkipFunction(&F)) return false;
+
+    AA = getAnalysisIfAvailable<llvm::AliasAnalysis>();
     DM = &GetAnalysis<DefectManager>::doit(this, F);
     FM = &GetAnalysis<FunctionManager>::doit(this, F);
-    MI = &GetAnalysis<MetaInfoTracker>::doit(this, F);
+    MI = &GetAnalysis<VariableInfoTracker>::doit(this, F);
     PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, F);
 
-    auto* st = GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(F);
-    FN = FactoryNest(st);
+    FN = FactoryNest(GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(F));
 
     CallInstVisitor civ(this);
     civ.visit(F);

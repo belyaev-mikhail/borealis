@@ -8,7 +8,7 @@
 #ifndef Z3_EXPRFACTORY_H_
 #define Z3_EXPRFACTORY_H_
 
-#include <llvm/Target/TargetData.h>
+#include <llvm/IR/DataLayout.h>
 #include <z3/z3++.h>
 
 #include "SMT/Z3/Z3.h"
@@ -27,9 +27,10 @@ public:
         using llvm::isa;
         return isa<type::Integer>(type) ? Integer::bitsize :
                isa<type::Pointer>(type) ? Pointer::bitsize :
+               isa<type::Array>(type)   ? Pointer::bitsize : // FIXME: ???
                isa<type::Float>(type)   ? Real::bitsize :
                util::sayonara<size_t>(__FILE__, __LINE__, __PRETTY_FUNCTION__,
-                       "Cannot acquire bitsize for type " + util::toString(type));
+                       "Cannot acquire bitsize for type " + util::toString(*type));
     }
 
     ExprFactory();
@@ -56,7 +57,9 @@ public:
     Real getRealConst(int v);
     Real getRealConst(double v);
     // Memory
-    MemArray getNoMemoryArray();
+    MemArray getNoMemoryArray(const std::string& id);
+    MemArray getEmptyMemoryArray(const std::string& id);
+    MemArray getDefaultMemoryArray(const std::string& id, int def);
 
     // Generic functions
     Dynamic getVarByTypeAndName(
@@ -89,7 +92,21 @@ public:
         return logic::switch_(cases, default_);
     }
 
-    static void initialize(llvm::TargetData* TD);
+    template<class ...Args>
+    Bool forAll(std::function<Bool(Args...)> func) {
+        return logic::forAll(*ctx, func);
+    }
+
+    template<class ...Args>
+    Bool forAll(std::function<Bool(Args...)> func, std::function<std::vector<Dynamic>(Args...)> patternGen) {
+        return logic::forAll(*ctx, func, patternGen);
+    }
+
+    Bool implies(Bool from, Bool to) {
+        return logic::implies(from, to);
+    }
+
+    static void initialize(const llvm::DataLayout* TD);
 
 private:
 

@@ -9,8 +9,8 @@
 #define SAYONARA_HPP_
 
 #include <string>
+#include <sstream>
 
-#include "Util/streams.hpp"
 #include "Util/macros.h"
 
 namespace borealis {
@@ -19,9 +19,7 @@ namespace util {
 NORETURN void diediedie(const char*);
 
 template<typename RetTy = void>
-RetTy sayonara(const std::string& file, int line, const std::string& where, const std::string& reason) {
-    using namespace borealis::logging;
-
+NORETURN RetTy sayonara(const std::string& file, int line, const std::string& where, const std::string& reason) {
     std::ostringstream oss;
     oss << file << ":" << std::to_string(line) << "\n"
         << "\t" << where << "\n"

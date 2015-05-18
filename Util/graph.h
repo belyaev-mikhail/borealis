@@ -9,7 +9,7 @@
 #define GRAPH_H_
 
 #include <llvm/ADT/DepthFirstIterator.h>
-#include <llvm/Support/CFG.h>
+#include <llvm/IR/CFG.h>
 
 #include <unordered_map>
 
@@ -79,13 +79,13 @@ private:
     }
 
     bool isBlack(const llvm::BasicBlock* BB) const {
-        return borealis::util::containsKey(marks, BB)
-               && marks.at(BB) == Color::BLACK;
+        auto mark = util::at(marks, BB);
+        return mark && mark.getUnsafe() == Color::BLACK;
     }
 
     bool isGrey(const llvm::BasicBlock* BB) const {
-        return borealis::util::containsKey(marks, BB)
-               && marks.at(BB) == Color::GREY;
+        auto mark = util::at(marks, BB);
+        return mark && mark.getUnsafe() == Color::GREY;
     }
 
     void markBlack(const llvm::BasicBlock* BB) {

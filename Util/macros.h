@@ -17,7 +17,7 @@
 
 /*
  * Macro for quick-writing one-liners with tricky typing.
- * This can be used to replace this (note the same `a+b` used twice):
+ * This can be used to replace the following (note the same `a+b` used twice):
  *
  * template<class A, class B>
  * auto plus(A a, B b) -> decltype(a+b) { return a+b; }
@@ -30,9 +30,14 @@
  * Note that the one-liners can be big and the impact will be significant.
  *
  * */
-#define QUICK_RETURN(...) ->decltype(__VA_ARGS__) { return __VA_ARGS__; }
+#define LAM(X, ...) [&](auto&& X) -> decltype((__VA_ARGS__)) { return __VA_ARGS__; }
+#define LAM2(X, Y, ...) [&](auto&& X, auto&& Y) -> decltype((__VA_ARGS__)) { return __VA_ARGS__; }
+#define FWD(...) (std::forward<decltype(__VA_ARGS__)>(__VA_ARGS__))
+#define APPLY(...) LAM(...Args, __VA_ARGS__(FWD(Args)...))
 
-#define QUICK_CONST_RETURN(...) const ->decltype(__VA_ARGS__) { return __VA_ARGS__; }
+#define QUICK_RETURN(...) ->decltype((__VA_ARGS__)) { return __VA_ARGS__; }
+
+#define QUICK_CONST_RETURN(...) const ->decltype((__VA_ARGS__)) { return __VA_ARGS__; }
 
 #define BYE_BYE(type, msg) return borealis::util::sayonara<type>( \
         __FILE__, \
@@ -61,6 +66,8 @@
         __PRETTY_FUNCTION__, \
         #cond); }
 
+#define UNREACHABLE(MSG) ASSERT(false, MSG)
+
 #define GUARD(...) typename std::enable_if<(__VA_ARGS__)>::type
 #define GUARDED(TYPE, ...) typename std::enable_if<(__VA_ARGS__), TYPE>::type
 
@@ -70,17 +77,17 @@ maxElems = 80
 
 cog.outl('''\
 #define STATIC_STRING(S) \\
-    borealis::util::make_ss< \\\
+borealis::util::make_ss< \\\
 ''')
 cog.outl(\
 ',\\\n'.join(["borealis::util::at(S,%2d)"%i for i in range(maxElems)]) + " \\" \
 )
-cog.outl('''\
+cog.out('''\
 >
 ''')
 ]]]*/
 #define STATIC_STRING(S) \
-    borealis::util::make_ss< \
+borealis::util::make_ss< \
 borealis::util::at(S, 0),\
 borealis::util::at(S, 1),\
 borealis::util::at(S, 2),\
@@ -162,17 +169,52 @@ borealis::util::at(S,77),\
 borealis::util::at(S,78),\
 borealis::util::at(S,79) \
 >
-
 //[[[end]]]
-// XXX: change this to [[noreturn]] when mother..cking G++ supports it
+
+// XXX: change this to [[noreturn]] when mother..cking g++ supports it
 #define NORETURN __attribute__((noreturn))
+
+#define PRETOKENPASTE(x, y) x ## y
+#define TOKENPASTE(x, y) PRETOKENPASTE(x, y)
+#define ON_SCOPE_EXIT(LAMBDA) \
+    auto TOKENPASTE(local_scope_guard_packed_lambda, __LINE__) = [&](){ LAMBDA; }; \
+    ::borealis::util::scope_guard<decltype(TOKENPASTE(local_scope_guard_packed_lambda, __LINE__))> TOKENPASTE(local_scope_guard, __LINE__) { TOKENPASTE(local_scope_guard_packed_lambda, __LINE__) };
+
+/*[[[cog
+import cog
+maxElems = 8
+
+for i in range(1, maxElems):
+    args = []
+    for j in range(1, 1 + i):
+        args.append("A{}".format(j))
+    cog.outl("#define {}({}) {}".format(
+        "NULLPTRIFY{}".format(i),
+        ", ".join(args),
+        ", ".join(["{}(nullptr)".format(arg) for arg in args])
+    ))
+]]]*/
+#define NULLPTRIFY1(A1) A1(nullptr)
+#define NULLPTRIFY2(A1, A2) A1(nullptr), A2(nullptr)
+#define NULLPTRIFY3(A1, A2, A3) A1(nullptr), A2(nullptr), A3(nullptr)
+#define NULLPTRIFY4(A1, A2, A3, A4) A1(nullptr), A2(nullptr), A3(nullptr), A4(nullptr)
+#define NULLPTRIFY5(A1, A2, A3, A4, A5) A1(nullptr), A2(nullptr), A3(nullptr), A4(nullptr), A5(nullptr)
+#define NULLPTRIFY6(A1, A2, A3, A4, A5, A6) A1(nullptr), A2(nullptr), A3(nullptr), A4(nullptr), A5(nullptr), A6(nullptr)
+#define NULLPTRIFY7(A1, A2, A3, A4, A5, A6, A7) A1(nullptr), A2(nullptr), A3(nullptr), A4(nullptr), A5(nullptr), A6(nullptr), A7(nullptr)
+//[[[end]]]
 
 #ifdef __clang__
 #define COMPILER clang
 #elif defined(__GNUC__)
 #define COMPILER gcc
 #else
-#error "You are trying to use an unsupported compiler. Either add it to macros.h or quit trying"
+#error "You are trying to use an unsupported compiler. Either add it to macros.h or quit trying."
+#endif
+
+#if defined(INDEXER_NO_DECLTYPE_AUTO)
+#define DECLTYPE_AUTO auto
+#else
+#define DECLTYPE_AUTO decltype(auto)
 #endif
 
 // #endif /* MACROS_H_ */

@@ -19,7 +19,7 @@ package borealis.proto;
 
 message OpaqueVarTerm {
     extend borealis.proto.Term {
-        optional OpaqueVarTerm ext = 28;
+        optional OpaqueVarTerm ext = $COUNTER_TERM;
     }
 
     optional string vname = 1;
@@ -30,22 +30,17 @@ class OpaqueVarTerm: public borealis::Term {
 
     std::string vname;
 
-    OpaqueVarTerm(Type::Ptr type, const std::string& vname):
-        Term(
-            class_tag(*this),
-            type,
-            vname
-        ), vname(vname) {};
+    OpaqueVarTerm(Type::Ptr type, const std::string& vname);
 
 public:
 
     MK_COMMON_TERM_IMPL(OpaqueVarTerm);
 
-    const std::string& getVName() const { return vname; }
+    const std::string& getVName() const;
 
     template<class Sub>
-    auto accept(Transformer<Sub>*) const -> const Self* {
-        return new Self( *this );
+    auto accept(Transformer<Sub>*) const -> Term::Ptr {
+        return this->shared_from_this();
     }
 
 };

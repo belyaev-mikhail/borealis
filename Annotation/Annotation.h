@@ -8,7 +8,8 @@
 #ifndef ANNOTATION_H_
 #define ANNOTATION_H_
 
-#include <llvm/Instructions.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/CallSite.h>
 
 #include <memory>
 #include <string>
@@ -19,6 +20,8 @@
 #include "Util/util.h"
 
 namespace borealis {
+
+template<class SubClass> class Transformer;
 
 namespace proto { class Annotation; }
 /** protobuf -> Annotation/Annotation.proto
@@ -45,7 +48,7 @@ protected:
     Locus locus;
 
 public:
-    typedef std::shared_ptr<self> Ptr;
+    typedef std::shared_ptr<const self> Ptr;
     typedef std::unique_ptr<proto::Annotation> ProtoPtr;
 
     Annotation(borealis::id_t annotation_type_id, keyword_t keyword, Locus locus):
@@ -62,6 +65,11 @@ public:
                 " at " + util::toString(locus);
     }
 
+    template<class SubClass>
+    Annotation::Ptr accept(Transformer<SubClass>*) const {
+        return shared_from_this();
+    }
+
     keyword_t getKeyword() const { return keyword; }
     const Locus& getLocus() const { return locus; }
 
@@ -73,13 +81,29 @@ public:
         return static_cast<Annotation*>(MDNode2Ptr(CI.getMetadata("anno.ptr")))
                ->shared_from_this();
     }
+
+    static const Annotation::Ptr fromIntrinsic(llvm::CallSite CI) {
+        return static_cast<Annotation*>(MDNode2Ptr(CI.getInstruction()->getMetadata("anno.ptr")))
+               ->shared_from_this();
+    }
+
+    static void installOnIntrinsic(llvm::CallInst& CI, Annotation::Ptr anno) {
+        CI.setMetadata("anno.ptr", ptr2MDNode(CI.getContext(), anno.get()));
+        addTracking(&CI, anno);
+    }
+
+    friend std::ostream& operator<<(std::ostream& str, Annotation::Ptr a) {
+        str << a->toString();
+        return str;
+    }
+
+    friend std::ostream& operator<<(std::ostream& str, const Annotation& a) {
+        str << a.toString();
+        return str;
+    }
 };
 
-template<class Streamer>
-Streamer& operator<<(Streamer& str, Annotation::Ptr a) {
-    // this is generally fucked up
-    return static_cast<Streamer&>(str << a->toString());
-}
+
 
 } /* namespace borealis */
 

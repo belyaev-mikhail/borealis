@@ -1,0 +1,5 @@
+lib/iterations = ../borealis-libs/iterations
+lib/typesig = ../borealis-libs/typesig
+
+lib/tinyformat = [git]https://github.com/c42f/tinyformat.git
+lib/andersen = [git]https://github.com/ice-phoenix/andersen.git

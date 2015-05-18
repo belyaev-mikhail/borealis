@@ -8,7 +8,7 @@
 #ifndef VARINFOCONTAINER_H_
 #define VARINFOCONTAINER_H_
 
-#include <llvm/Value.h>
+#include <llvm/IR/Value.h>
 
 #include <map>
 #include <string>
@@ -80,12 +80,16 @@ public:
         return bwd_names.end();
     }
 
+    loc_value_iterator byLocBegin() const {
+        return bwd_locs.begin();
+    }
+
     loc_value_iterator byLocFwd(const Locus& loc) const {
-        return bwd_locs.lower_bound(loc);
+        return bwd_locs.lower_bound(loc); // FIXME: fwd or bwd???
     }
 
     loc_value_iterator byLocBwd(const Locus& loc) const {
-        return bwd_locs.lower_bound(loc);
+        return bwd_locs.lower_bound(loc); // FIXME: fwd or bwd???
     }
 
     loc_value_iterator byLocEnd() const {

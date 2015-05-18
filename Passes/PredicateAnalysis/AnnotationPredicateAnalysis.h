@@ -12,7 +12,8 @@
 
 #include "Factory/Nest.h"
 #include "Passes/PredicateAnalysis/AbstractPredicateAnalysis.h"
-#include "Passes/Tracker/MetaInfoTracker.h"
+#include "Passes/Tracker/VariableInfoTracker.h"
+#include "Passes/Tracker/SourceLocationTracker.h"
 #include "Passes/Util/ProxyFunctionPass.h"
 #include "Util/passes.hpp"
 
@@ -38,7 +39,8 @@ public:
 private:
 
     FactoryNest FN;
-    MetaInfoTracker* MI;
+    VariableInfoTracker* MI;
+    SourceLocationTracker* SLT;
 
 };
 

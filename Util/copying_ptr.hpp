@@ -19,8 +19,6 @@
  * Does not work for arrays 'cos nobody knows how to copy them.
  *
  ******************************************************************************/
- // FIXME: pointer- or value-based equality?
- //        atm equals and hash contradict each other
 namespace borealis {
 namespace util {
 
@@ -49,6 +47,8 @@ public:
     typedef typename holder_t::deleter_type deleter_type;
     typedef Copier copier_type;
 
+    typedef add_lvalue_reference_t<element_type> reference_type;
+
     copying_ptr(std::nullptr_t) noexcept: inner{ nullptr } {};
     copying_ptr(pointer hld) noexcept: inner{ hld } {};
     copying_ptr(const holder_t& hld) noexcept: inner{ hld } {};
@@ -61,12 +61,12 @@ public:
     }
 
     copying_ptr& operator=(const self& that) {
-        self tmp = that;
+        self tmp{ that };
         this->swap(tmp);
         return *this;
     }
     copying_ptr& operator=(self&&) = default;
-    copying_ptr& operator=(std::nullptr_t) noexcept{
+    copying_ptr& operator=(std::nullptr_t) noexcept {
         inner.reset(nullptr);
         return *this;
     }
@@ -83,7 +83,7 @@ public:
         return inner.get_deleter();
     }
 
-    add_lvalue_reference_t<T> operator*() const {
+    reference_type operator*() const {
         return *inner;
     }
 
@@ -91,7 +91,7 @@ public:
         return inner;
     }
 
-    operator bool() const noexcept {
+    explicit operator bool() const noexcept {
         return !!inner;
     }
 
@@ -151,7 +151,7 @@ void swap(const borealis::util::copying_ptr<T, D, C>& ptr1,
 template<class T, class D, class C>
 struct hash<borealis::util::copying_ptr<T, D, C>> {
     size_t operator()(const borealis::util::copying_ptr<T, D, C>& ptr) const noexcept {
-        return std::hash<T*>()(ptr.get());
+        return ptr ? std::hash<T>{}(*ptr) : std::hash<T*>{}(nullptr);
     }
 };
 

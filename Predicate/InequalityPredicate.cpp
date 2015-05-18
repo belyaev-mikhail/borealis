@@ -12,23 +12,19 @@ namespace borealis {
 InequalityPredicate::InequalityPredicate(
         Term::Ptr lhv,
         Term::Ptr rhv,
+        const Locus& loc,
         PredicateType type) :
-            Predicate(class_tag(*this), type),
-            lhv(lhv),
-            rhv(rhv) {
+            Predicate(class_tag(*this), type, loc) {
     asString = lhv->getName() + "!=" + rhv->getName();
+    ops = { lhv, rhv };
 }
 
-bool InequalityPredicate::equals(const Predicate* other) const {
-    if (const Self* o = llvm::dyn_cast_or_null<Self>(other)) {
-        return Predicate::equals(other) &&
-                *lhv == *o->lhv &&
-                *rhv == *o->rhv;
-    } else return false;
+Term::Ptr InequalityPredicate::getLhv() const {
+    return ops[0];
 }
 
-size_t InequalityPredicate::hashCode() const {
-    return util::hash::defaultHasher()(Predicate::hashCode(), lhv, rhv);
+Term::Ptr InequalityPredicate::getRhv() const {
+    return ops[1];
 }
 
 } /* namespace borealis */

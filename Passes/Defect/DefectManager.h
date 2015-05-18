@@ -17,7 +17,16 @@
 
 namespace borealis {
 
-class DefectManager :
+struct AdditionalDefectInfo {
+    llvm::Function* where;
+    util::option<smt::SatResult> satModel;
+
+    enum class RunResult { Proven, Disproven, Controversal, NotRun };
+    RunResult runResult = RunResult::NotRun;
+};
+
+class
+DefectManager :
         public llvm::ModulePass,
         public borealis::logging::ClassLevelLogging<DefectManager> {
 
@@ -28,7 +37,7 @@ public:
 #include "Util/unmacros.h"
 
     typedef std::set<DefectInfo> DefectData;
-    typedef DefectData::value_type DefectDataEntry;
+    typedef std::unordered_map<DefectInfo, AdditionalDefectInfo> AdditionalDefectData;
 
     static char ID;
 
@@ -38,13 +47,25 @@ public:
     virtual ~DefectManager() {};
 
     void addDefect(DefectType type, llvm::Instruction* where);
-    void addDefect(std::string type, llvm::Instruction* where);
+    void addDefect(const std::string& type, llvm::Instruction* where);
+    void addDefect(const DefectInfo& info);
+
+    const AdditionalDefectInfo& getAdditionalInfo(const DefectInfo&) const;
+    AdditionalDefectInfo& getAdditionalInfo(const DefectInfo&);
+
+    DefectInfo getDefect(DefectType type, llvm::Instruction* where) const;
+    DefectInfo getDefect(const std::string& type, llvm::Instruction* where) const;
+
+    bool hasDefect(DefectType type, llvm::Instruction* where) const;
+    bool hasDefect(const std::string& type, llvm::Instruction* where) const;
+    bool hasDefect(const DefectInfo& di) const;
 
     virtual void print(llvm::raw_ostream&, const llvm::Module*) const override;
 
 private:
 
     static DefectData data;
+    static AdditionalDefectData supplemental;
 
 public:
 

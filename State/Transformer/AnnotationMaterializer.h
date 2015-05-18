@@ -8,89 +8,70 @@
 #ifndef ANNOTATIONMATERIALIZER_H_
 #define ANNOTATIONMATERIALIZER_H_
 
+#include <memory>
 #include <sstream>
 
 #include "Annotation/Annotation.def"
-#include "Passes/Tracker/MetaInfoTracker.h"
+#include "Passes/Tracker/VariableInfoTracker.h"
 #include "State/Transformer/Transformer.hpp"
 #include "Term/NameContext.h"
-#include "Util/util.h"
 
 namespace borealis {
 
 class AnnotationMaterializer : public borealis::Transformer<AnnotationMaterializer> {
 
-    typedef borealis::Transformer<AnnotationMaterializer> Base;
+    using Base = borealis::Transformer<AnnotationMaterializer>;
 
-    class AnnotationMaterializerImpl;
-    AnnotationMaterializerImpl* pimpl;
+    struct AnnotationMaterializerImpl;
+    std::unique_ptr<AnnotationMaterializerImpl> pimpl;
 
 public:
 
     AnnotationMaterializer(
             const LogicAnnotation& A,
             FactoryNest FN,
-            MetaInfoTracker* MI);
+            VariableInfoTracker* MI);
+
+
+    AnnotationMaterializer(
+            const LogicAnnotation& A,
+            FactoryNest FN,
+            VariableInfoTracker* MI,
+            llvm::Function* externalFunction);
     ~AnnotationMaterializer();
 
-    MetaInfoTracker::ValueDescriptor forName(const std::string& name) const;
+    llvm::LLVMContext& getLLVMContext() const;
+    VariableInfoTracker::ValueDescriptor forName(const std::string& name) const;
     const NameContext& nameContext() const;
     TermFactory& factory() const;
+
+    VariableInfoTracker::ValueDescriptors forValue(llvm::Value* value) const;
+    VariableInfoTracker::ValueDescriptor forValueSingle(llvm::Value* value) const;
 
     Annotation::Ptr doit();
 
     void failWith(const std::string& message);
-    inline void failWith(llvm::Twine twine) {
-        failWith(twine.str());
-    }
+    inline void failWith(llvm::Twine twine) { failWith(twine.str()); }
     // resolving ambiguity
-    inline void failWith(const char* r) {
-        failWith(std::string(r));
-    }
+    inline void failWith(const char* r) { failWith(std::string(r)); }
 
-    Term::Ptr transformOpaqueVarTerm(OpaqueVarTermPtr trm) {
-        auto ret = forName(trm->getName());
-        if (ret.isInvalid()) failWith(trm->getName() + " : variable not found in scope");
+    // note this is called without a "Term" at the end, meaning
+    // it is called before (and instead of) transforming children
+    Term::Ptr transformOpaqueCall(OpaqueCallTermPtr trm);
 
-        if (ret.shouldBeDereferenced) {
-            return factory().getLoadTerm(factory().getValueTerm(ret.val));
-        } else {
-            return factory().getValueTerm(ret.val);
-        }
-    }
+    Term::Ptr transformDirectOpaqueMemberAccessTerm(OpaqueMemberAccessTermPtr trm);
+    Term::Ptr transformIndirectOpaqueMemberAccessTerm(OpaqueMemberAccessTermPtr trm);
+    Term::Ptr transformOpaqueMemberAccessTerm(OpaqueMemberAccessTermPtr trm);
+    Term::Ptr transformArrayOpaqueIndexingTerm(OpaqueIndexingTermPtr trm);
+    Term::Ptr transformOpaqueIndexingTerm(OpaqueIndexingTermPtr trm);
+    Term::Ptr transformOpaqueVarTerm(OpaqueVarTermPtr trm);
+    Term::Ptr transformOpaqueBuiltinTerm(OpaqueBuiltinTermPtr trm);
 
-    Term::Ptr transformOpaqueBuiltinTerm(OpaqueBuiltinTermPtr trm) {
-        const llvm::StringRef name = trm->getName();
-        const auto& ctx = nameContext();
+    Term::Ptr transformCmpTerm(CmpTermPtr trm);
 
-        if (name == "result") {
-            if (ctx.func && ctx.placement == NameContext::Placement::OuterScope) {
-                return factory().getReturnValueTerm(ctx.func);
-            } else {
-                failWith("\result can only be bound to functions' outer scope");
-            }
-        } else if (name.startswith("arg")) {
-            if (ctx.func && ctx.placement == NameContext::Placement::OuterScope) {
-                std::istringstream ist(name.drop_front(3).str());
-                unsigned val = 0U;
-                ist >> val;
-
-                auto argIt = ctx.func->arg_begin();
-                std::advance(argIt, val);
-
-                return factory().getArgumentTerm(argIt);
-            } else {
-                failWith("\arg# can only be bound to functions' outer scope");
-            }
-        } else {
-            failWith("\\" + name + " : unknown builtin");
-        }
-
-        return trm;
-    }
 };
 
-Annotation::Ptr materialize(Annotation::Ptr, FactoryNest FN, MetaInfoTracker*);
+Annotation::Ptr materialize(Annotation::Ptr, FactoryNest FN, VariableInfoTracker*);
 
 } /* namespace borealis */
 

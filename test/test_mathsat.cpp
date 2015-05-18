@@ -35,10 +35,15 @@ TEST(MathSAT, constants) {
     Config conf = Config::Default();
     Env env = Env(conf);
 
+    Expr one = env.bv_val(1, 32);
+
     Expr a = env.num_val(1234);
     Expr b = env.num_val(-1234);
     Expr c = env.bv_val(1234, 32);
     Expr d = env.bv_val(-1234, 32);
+
+    Expr e = env.bv_val(std::numeric_limits<int>::min(), 32);
+    Expr f = env.bv_val(std::numeric_limits<int>::max(), 32);
 
     auto check_expr = [&](Expr e)->bool {
         Solver solver(e.env());
@@ -50,6 +55,8 @@ TEST(MathSAT, constants) {
     EXPECT_TRUE(check_expr(a == (-b)));
     EXPECT_TRUE(check_expr(c != d));
     EXPECT_TRUE(check_expr(c == (-d)));
+
+    EXPECT_TRUE(check_expr(e == f + one));
 }
 
 TEST(MathSAT, generatingFormulas) {
@@ -118,7 +125,7 @@ TEST(MathSAT, modelIterator) {
         return solver.check() == MSAT_UNSAT;
     };
 
-    for (const auto& e : view(solver.model_begin(), solver.model_end())) {
+    for (const auto& e : solver.get_model()) {
         auto termName = e.term.decl().name();
         ASSERT_TRUE("a" == termName || "b" == termName || "c" == termName);
         ASSERT_TRUE(check_expr(e.value == one));
@@ -146,8 +153,8 @@ TEST(MathSAT, generatingInterpolant) {
     Expr y3 = env.rat_const("y3");
     Expr b = env.rat_const("b");
 
-    Expr A = (f(x1) + x2 == x3) && (f(y1) + y2 == y3) && (y1 <= x1);
-    Expr B = (g(b) == x2) && (g(b) == y2) && (x1 <= y1) && (x3 < y3);
+    Expr A = (f(x1) == x2) && (f(x3) <= y1) && (y2 > y3);
+    Expr B = (g(x1) != x2) && (g(x3) < y1) && (y2 + b == y3) && (f(x1) != x2);
 
     ISolver sol(env);
     sol.push();
@@ -168,17 +175,17 @@ TEST(MathSAT, generatingInterpolant) {
     int group_b = msat_create_itp_group(sol.env());
 
     formula = msat_from_string(sol.env(),
-            "(and (= (+ (f x1) x2) x3)"
-            "(= (+ (f y1) y2) y3)"
-            "(<= y1 x1))");
+                "(and (= (f x1) x2)"
+                "(<= (f x3) y1)"
+                "(> y2 y3))");
     msat_set_itp_group(sol.env(), group_a);
     msat_assert_formula(sol.env(), formula);
 
     formula = msat_from_string(sol.env(),
-            "(and (= x2 (g b))"
-            "(= y2 (g b))"
-            "(<= x1 y1)"
-            "(< x3 y3))");
+                "(and (not (= x2 (g x1)))"
+                "(< y1 (g x3))"
+                "(= (+ y2 b) y3)"
+                "(not (= (f x1) x2)))");
     msat_set_itp_group(sol.env(), group_b);
     msat_assert_formula(sol.env(), formula);
 
@@ -297,10 +304,10 @@ TEST(MathSAT, memoryArray) {
         };
 
         factory.getBoolConst(true);
-        EXPECT_NO_THROW(factory.getNoMemoryArray());
-        EXPECT_NO_FATAL_FAILURE(factory.getNoMemoryArray());
+        EXPECT_NO_THROW(factory.getNoMemoryArray("mem"));
+        EXPECT_NO_FATAL_FAILURE(factory.getNoMemoryArray("mem"));
 
-        auto arr = factory.getNoMemoryArray();
+        auto arr = factory.getNoMemoryArray("mem");
         // empty mem is filled with 0xFFs
         for (int i = 0; i < 153; i++) {
             EXPECT_TRUE(check_expr(arr[i] == mkbyte(0xFF)));
@@ -316,9 +323,9 @@ TEST(MathSAT, mergeMemory) {
 
         ExprFactory factory;
 
-        ExecutionContext default_memory(factory, (1 << 16) + 1);
-        ExecutionContext memory_with_a(factory,  (1 << 16) + 1);
-        ExecutionContext memory_with_b(factory,  (1 << 16) + 1);
+        ExecutionContext default_memory(factory, (1 << 16) + 1, (2 << 16) + 1);
+        ExecutionContext memory_with_a(factory,  (1 << 16) + 1, (2 << 16) + 1);
+        ExecutionContext memory_with_b(factory,  (1 << 16) + 1, (2 << 16) + 1);
 
         Pointer ptr = factory.getPtrVar("ptr");
         Integer a = factory.getIntConst(0xdeadbeef);
@@ -393,7 +400,7 @@ TEST(MathSAT, Unlogic) {
     Env env = factory.unwrap();
 
     auto check_undo = [&](Expr e)->bool {
-        ExecutionContext ctx(factory, (1 << 16) + 1);
+        ExecutionContext ctx(factory, (1 << 16) + 1, (2 << 16) + 1);
         Dynamic dynE(e);
         auto undoed = unlogic::undoThat(dynE);
         auto redoed = borealis::SMT<borealis::MathSAT>::doit(undoed, factory, &ctx);

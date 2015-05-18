@@ -9,11 +9,11 @@
 #define UTIL_H_
 
 #include <llvm/Analysis/LoopInfo.h>
-#include <llvm/Constants.h>
-#include <llvm/Function.h>
-#include <llvm/Instructions.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/Value.h>
+#include <llvm/IR/Value.h>
 
 #include <list>
 #include <string>
@@ -31,11 +31,6 @@
 #include "Util/util.hpp"
 
 namespace llvm {
-
-// copy the standard ostream behavior with functions
-llvm::raw_ostream& operator<<(
-        llvm::raw_ostream& ost,
-        llvm::raw_ostream& (*op)(llvm::raw_ostream&));
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& OS, const llvm::Type& T);
 
@@ -86,6 +81,11 @@ ConditionType conditionType(int cond);
 std::string conditionString(int cond);
 std::string conditionString(ConditionType cond);
 
+ConditionType forceSigned(ConditionType cond);
+ConditionType forceUnsigned(ConditionType cond);
+
+ConditionType makeNot(ConditionType cond);
+
 /** protobuf -> Util/ArithType.proto
 package borealis.proto;
 
@@ -119,7 +119,8 @@ enum class ArithType {
     XOR  = 9,
     SHL  = 10,
     ASHR = 11,
-    LSHR = 12
+    LSHR = 12,
+    IMPLIES = 13
 };
 ArithType arithType(llvm::BinaryOperator::BinaryOps llops);
 std::string arithString(ArithType opCode);
@@ -140,6 +141,26 @@ enum class UnaryArithType {
     BNOT = 2
 };
 std::string unaryArithString(UnaryArithType opCode);
+
+/** protobuf -> Util/Signedness.proto
+package borealis.proto;
+
+enum Signedness {
+    Unknown  = 0;
+    Unsigned = 1;
+    Signed   = 2;
+}
+
+**/
+enum class Signedness {
+    Unknown  = 0,
+    Unsigned = 1,
+    Signed   = 2
+};
+
+#include "Util/generate_macros.h"
+GENERATE_ENUM_PRINT(Signedness, Unknown, Unsigned, Signed);
+#include "Util/generate_unmacros.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -169,7 +190,8 @@ inline std::string valueSummary(const Value* v) {
     } else if (auto* bb = llvm::dyn_cast<BasicBlock>(v)) {
         return ("basic block " + bb->getName()).str();
     } else if (auto* i = llvm::dyn_cast<Instruction>(v)) {
-        return borealis::util::toString(*i).c_str()+2;
+        auto ss = borealis::util::toString(*i);
+        return llvm::StringRef(ss).trim().str();
     } else return borealis::util::toString(*v);
 }
 
@@ -177,10 +199,17 @@ inline std::string valueSummary(const Value& v) {
     return valueSummary(&v);
 }
 
+inline bool isMain(const Function& f) {
+    return (f.getName() == "main")  || (f.getName() == "__main");
+}
+
 } // namespace llvm
 
 namespace borealis {
 namespace util {
+
+void initFilePaths(const char ** argv);
+std::string getFilePathIfExists(const std::string& path);
 
 std::string nospaces(const std::string& v);
 std::string nospaces(std::string&& v);
@@ -191,12 +220,13 @@ std::string nochar(std::string&& v, char c);
 
 std::string& replace(const std::string& from, const std::string& to, std::string& in);
 
-namespace streams {
+template<class Lambda>
+struct scope_guard {
+    Lambda lam;
+    scope_guard(Lambda lam): lam(lam) {};
+    ~scope_guard() { lam(); }
+};
 
-// copy the standard ostream endl
-llvm::raw_ostream& endl(llvm::raw_ostream& ost);
-
-} // namespace streams
 } // namespace util
 } // namespace borealis
 

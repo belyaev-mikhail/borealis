@@ -52,6 +52,10 @@ ValueExpr& ValueExpr::operator=(const ValueExpr& that) {
     return *this;
 }
 
+std::string ValueExpr::getName() const {
+    return z3impl::getName(this);
+}
+
 std::string ValueExpr::toSmtLib() const {
     return z3impl::asSmtLib(this);
 }
@@ -84,6 +88,12 @@ namespace z3impl {
 
     z3::context& getContext(const ValueExpr& a) {
         return a.pimpl->inner.ctx();
+    }
+
+    std::string getName(const ValueExpr& a) {
+        std::ostringstream oss;
+        oss << getExpr(a).decl().name();
+        return oss.str();
     }
 
     z3::expr asAxiom(const ValueExpr& a) {
@@ -201,7 +211,7 @@ DynBitVectorExpr operator%(const DynBitVectorExpr& lhv, const DynBitVectorExpr& 
     DynBitVectorExpr drhv = rhv.growTo(sz);
     auto& ctx = z3impl::getContext(lhv);
 
-    auto res = z3::to_expr(ctx, Z3_mk_bvsmod(ctx, z3impl::getExpr(dlhv), z3impl::getExpr(drhv)));
+    auto res = z3::to_expr(ctx, Z3_mk_bvsrem(ctx, z3impl::getExpr(dlhv), z3impl::getExpr(drhv)));
     auto axm = z3impl::spliceAxioms(lhv, rhv);
     return DynBitVectorExpr{ res, axm };
 }

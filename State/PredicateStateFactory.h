@@ -19,7 +19,7 @@ class PredicateStateFactory {
 
 public:
 
-    typedef std::shared_ptr<PredicateStateFactory> Ptr;
+    using Ptr = std::shared_ptr<PredicateStateFactory>;
 
     PredicateState::Ptr Chain(
             PredicateState::Ptr base,
@@ -31,17 +31,19 @@ public:
 
     PredicateState::Ptr Choice(
             const std::vector<PredicateState::Ptr>& choices);
+    PredicateState::Ptr Choice(
+            std::vector<PredicateState::Ptr>&& choices);
 
     PredicateState::Ptr Basic();
 
-    static PredicateStateFactory::Ptr get() {
-        static PredicateStateFactory::Ptr instance(new PredicateStateFactory());
-        return instance;
-    }
+    PredicateState::Ptr Basic(const std::vector<Predicate::Ptr>& data);
+    PredicateState::Ptr Basic(std::vector<Predicate::Ptr>&& data);
+
+    static PredicateStateFactory::Ptr get();
 
 private:
 
-    PredicateStateFactory() {};
+    PredicateStateFactory() = default;
 
 };
 

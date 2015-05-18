@@ -24,6 +24,10 @@ std::string getCalledFunctionName(const llvm::CallInst& ci) {
     return F->hasName() ? F->getName() : "";
 }
 
+static llvm::StringRef getFunctionName(const llvm::Function& F) {
+    return F.hasName() ? F.getName() : "";
+}
+
 static RegisterIntrinsic INTRINSIC_PTR_VERSION {
     function_type::INTRINSIC_PTR_VERSION,
     "ptrver",
@@ -72,13 +76,61 @@ static RegisterIntrinsic INTRINSIC_MALLOC {
           llvm::Function* F,
           FactoryNest FN
       ) -> PredicateState::Ptr {
-        ASSERTC(F->arg_size() > 0);
+        ASSERTC(F->arg_size() > 2);
+
+        auto it = F->arg_begin();
+        auto resolvedSize = it++;
+        auto origElemSize = it++;
+        auto origNumElems = it++;
+
         return FN.State->Basic() +
                FN.Predicate->getMallocPredicate(
                    FN.Term->getReturnValueTerm(F),
-                   FN.Term->getArgumentTerm(F->arg_begin())
+                   FN.Term->getArgumentTerm(resolvedSize),
+                   FN.Term->getBinaryTerm(
+                       llvm::ArithType::MUL,
+                       FN.Term->getArgumentTerm(origElemSize),
+                       FN.Term->getArgumentTerm(origNumElems)
+                   )
                );
     }
+};
+
+static RegisterIntrinsic INTRINSIC_ALLOC {
+    function_type::INTRINSIC_ALLOC,
+    "alloc",
+    [](
+          llvm::Function* F,
+          FactoryNest FN
+      ) -> PredicateState::Ptr {
+        ASSERTC(F->arg_size() > 2);
+
+        auto it = F->arg_begin();
+        auto resolvedSize = it++;
+        auto origElemSize = it++;
+        auto origNumElems = it++;
+
+        return FN.State->Basic() +
+               FN.Predicate->getAllocaPredicate(
+                   FN.Term->getReturnValueTerm(F),
+                   FN.Term->getArgumentTerm(resolvedSize),
+                   FN.Term->getBinaryTerm(
+                       llvm::ArithType::MUL,
+                       FN.Term->getArgumentTerm(origElemSize),
+                       FN.Term->getArgumentTerm(origNumElems)
+                   )
+               );
+    }
+};
+
+static RegisterIntrinsic INTRINSIC_NONDET {
+    function_type::INTRINSIC_NONDET,
+    "nondet"
+};
+
+static RegisterIntrinsic INTRINSIC_CONSUME {
+    function_type::INTRINSIC_CONSUME,
+    "consume"
 };
 
 static RegisterIntrinsic BUILTIN_BOR_ASSERT {
@@ -89,15 +141,27 @@ static RegisterIntrinsic BUILTIN_BOR_ASSERT {
           FactoryNest FN
       ) -> PredicateState::Ptr {
         ASSERTC(F->arg_size() > 0);
-        return FN.State->Basic() +
-               FN.Predicate->getInequalityPredicate(
-                   FN.Term->getArgumentTerm(F->arg_begin()),
-                   FN.Term->getIntTerm(0ULL),
-                   PredicateType::REQUIRES
-               );
+        if (F->arg_begin()->getType()->isIntegerTy(1)) {
+            return FN.State->Basic() +
+                   FN.Predicate->getEqualityPredicate(
+                       FN.Term->getArgumentTerm(F->arg_begin()),
+                       FN.Term->getTrueTerm(),
+                       Locus(),
+                       PredicateType::REQUIRES
+                   );
+        } else {
+            return FN.State->Basic() +
+                   FN.Predicate->getInequalityPredicate(
+                       FN.Term->getArgumentTerm(F->arg_begin()),
+                       FN.Term->getIntTerm(0ULL),
+                       Locus(),
+                       PredicateType::REQUIRES
+                   );
+        }
     },
-    [](const IntrinsicsManager&, const llvm::CallInst& ci) -> function_type {
-        auto name = getCalledFunctionName(ci);
+    [](const IntrinsicsManager&, const llvm::Function& f) -> function_type {
+        auto name = getFunctionName(f);
+
         return name == "borealis_assert"
                ? function_type::BUILTIN_BOR_ASSERT
                : function_type::UNKNOWN;
@@ -112,15 +176,26 @@ static RegisterIntrinsic BUILTIN_BOR_ASSUME {
           FactoryNest FN
       ) -> PredicateState::Ptr {
         ASSERTC(F->arg_size() > 0);
-        return FN.State->Basic() +
-               FN.Predicate->getInequalityPredicate(
-                   FN.Term->getArgumentTerm(F->arg_begin()),
-                   FN.Term->getIntTerm(0ULL),
-                   PredicateType::ENSURES
-               );
+        if (F->arg_begin()->getType()->isIntegerTy(1)) {
+            return FN.State->Basic() +
+                   FN.Predicate->getEqualityPredicate(
+                       FN.Term->getArgumentTerm(F->arg_begin()),
+                       FN.Term->getTrueTerm(),
+                       Locus(),
+                       PredicateType::ENSURES
+                   );
+        } else {
+            return FN.State->Basic() +
+                   FN.Predicate->getInequalityPredicate(
+                       FN.Term->getArgumentTerm(F->arg_begin()),
+                       FN.Term->getIntTerm(0ULL),
+                       Locus(),
+                       PredicateType::ENSURES
+                   );
+        }
     },
-    [](const IntrinsicsManager&, const llvm::CallInst& ci) -> function_type {
-        auto name = getCalledFunctionName(ci);
+    [](const IntrinsicsManager&, const llvm::Function& f) -> function_type {
+        auto name = getFunctionName(f);
         return name == "borealis_assume"
                ? function_type::BUILTIN_BOR_ASSUME
                : function_type::UNKNOWN;
@@ -131,8 +206,8 @@ static RegisterIntrinsic ACTION_DEFECT {
     function_type::ACTION_DEFECT,
     "borealis_action_defect",
     RegisterIntrinsic::DefaultGenerator,
-    [](const IntrinsicsManager&, const llvm::CallInst& ci) -> function_type {
-        auto name = getCalledFunctionName(ci);
+    [](const IntrinsicsManager&, const llvm::Function& f) -> function_type {
+        auto name = getFunctionName(f);
         return name == "borealis_action_defect"
                ? function_type::ACTION_DEFECT
                : function_type::UNKNOWN;
@@ -157,13 +232,13 @@ static RegisterIntrinsic BUILTIN_BOR_GETPROP {
                    FN.Term->getReturnValueTerm(F),
                    FN.Term->getReadPropertyTerm(
                        FN.Type->cast(F->getReturnType()),
-                       FN.Term->getArgumentTerm(propName),
+                       FN.Term->getStringArgumentTerm(propName),
                        FN.Term->getArgumentTerm(ptr)
                    )
                );
     },
-    [](const IntrinsicsManager&, const llvm::CallInst& ci) -> function_type {
-        auto name = getCalledFunctionName(ci);
+    [](const IntrinsicsManager&, const llvm::Function& f) -> function_type {
+        auto name = getFunctionName(f);
         return name == "borealis_get_property"
                ? function_type::BUILTIN_BOR_GETPROP
                : function_type::UNKNOWN;
@@ -186,13 +261,13 @@ static RegisterIntrinsic BUILTIN_BOR_SETPROP {
 
         return FN.State->Basic() +
                FN.Predicate->getWritePropertyPredicate(
-                   FN.Term->getArgumentTerm(propName),
+                   FN.Term->getStringArgumentTerm(propName),
                    FN.Term->getArgumentTerm(ptr),
                    FN.Term->getArgumentTerm(value)
                );
     },
-    [](const IntrinsicsManager&, const llvm::CallInst& ci) -> function_type {
-        auto name = getCalledFunctionName(ci);
+    [](const IntrinsicsManager&, const llvm::Function& f) -> function_type {
+        auto name = getFunctionName(f);
         return name == "borealis_set_property"
                ? function_type::BUILTIN_BOR_SETPROP
                : function_type::UNKNOWN;

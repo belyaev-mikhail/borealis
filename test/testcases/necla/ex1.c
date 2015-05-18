@@ -5,9 +5,10 @@
 int A[N];
 int B[N/2];
 
-// @requires p != 0
-int pair (int* p) {
-  return *p + p[1];
+// @requires \is_valid_ptr(p)
+// @requires \bound(p) >= 2
+int pair(int* p) {
+  return p[0] + p[1];
 }
 
 int main() {

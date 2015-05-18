@@ -65,6 +65,7 @@ namespace z3impl {
     z3::expr getAxiom(const ValueExpr& a);
     z3::sort getSort(const ValueExpr& a);
     z3::context& getContext(const ValueExpr& a);
+    std::string getName(const ValueExpr& e);
     z3::expr asAxiom(const ValueExpr& e);
     std::string asSmtLib(const ValueExpr& e);
 
@@ -79,6 +80,9 @@ namespace z3impl {
     }
     inline z3::context& getContext(const ValueExpr* a) {
         ASSERTC(a != nullptr); return getContext(*a);
+    }
+    inline std::string getName(const ValueExpr* e) {
+        ASSERTC(e != nullptr); return getName(*e);
     }
     inline z3::expr asAxiom(const ValueExpr* e) {
         ASSERTC(e != nullptr); return asAxiom(*e);
@@ -107,9 +111,11 @@ public:
     friend z3::expr z3impl::asAxiom(const ValueExpr& a);
     friend z3::sort z3impl::getSort(const ValueExpr& a);
     friend z3::context& z3impl::getContext(const ValueExpr& a);
+    friend std::string z3impl::getName(const ValueExpr& a);
 
     void swap(ValueExpr&);
 
+    std::string getName() const;
     std::string toSmtLib() const;
 
     ValueExpr simplify() const;
@@ -536,11 +542,18 @@ std::tuple<Args...> mkBounds(z3::context& ctx) {
 
 namespace z3impl {
 
+template<class Expr>
+Z3_pattern make_pattern(z3::context& ctx, Expr e) {
+    Z3_ast pats[1];
+    pats[0] = getExpr(e);
+    return Z3_mk_pattern(ctx, 1, pats);
+}
+
 template<class Res, class ...Args>
 z3::expr forAll(
         z3::context& ctx,
         std::function<Res(Args...)> func
-    ) {
+) {
 
     using borealis::util::toString;
     using borealis::util::view;
@@ -549,7 +562,7 @@ z3::expr forAll(
     size_t numBounds = sorts.size();
 
     auto bounds = mkBounds<Args...>(ctx);
-    auto body = util::apply_packed(func, bounds);
+    auto body = as_packed(func)(bounds);
 
     std::vector<Z3_sort> sort_array(sorts.rbegin(), sorts.rend());
 
@@ -565,7 +578,48 @@ z3::expr forAll(
                     ctx,
                     0,
                     0,
-                    nullptr,
+                    0,
+                    numBounds,
+                    &sort_array[0],
+                    &name_array[0],
+                    z3impl::getExpr(body)));
+    return axiom.simplify();
+}
+
+template<class Res, class Patterns, class ...Args>
+z3::expr forAll(
+        z3::context& ctx,
+        std::function<Res(Args...)> func,
+        std::function<Patterns(Args...)> patternGenerator
+    ) {
+
+    using borealis::util::toString;
+    using borealis::util::view;
+    std::vector<z3::sort> sorts { impl::generator<Args>::sort(ctx)... };
+
+    size_t numBounds = sorts.size();
+
+    auto bounds = mkBounds<Args...>(ctx);
+    auto body = as_packed(func)(bounds);
+
+    std::vector<Z3_sort> sort_array(sorts.rbegin(), sorts.rend());
+
+    std::vector<Z3_symbol> name_array;
+    for (size_t i = 0U; i < numBounds; ++i) {
+        std::string name = "forall_bound_" + toString(numBounds - i - 1);
+        name_array.push_back(ctx.str_symbol(name.c_str()));
+    }
+
+    auto patterns = as_packed(patternGenerator)(bounds);
+    std::vector<Z3_pattern> pattern_array = util::viewContainer(patterns).map(LAM(Expr, make_pattern(ctx, Expr))).toVector();
+
+    auto axiom = z3::to_expr(
+            ctx,
+            Z3_mk_forall(
+                    ctx,
+                    0,
+                    pattern_array.size(),
+                    pattern_array.data(),
                     numBounds,
                     &sort_array[0],
                     &name_array[0],
@@ -826,6 +880,15 @@ Bool forAll(
     return Bool{ z3impl::forAll(ctx, func) };
 }
 
+template<class ...Args>
+Bool forAll(
+        z3::context& ctx,
+        std::function<Bool(Args...)> func,
+        std::function<std::vector<SomeExpr>(Args...)> patternGen
+    ) {
+    return Bool{ z3impl::forAll(ctx, func, patternGen) };
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 template< class >
@@ -884,6 +947,10 @@ public:
     z3::func_decl get() const { return inner; }
     z3::expr axiom() const { return axiomatic; }
     z3::context& ctx() const { return inner.ctx(); }
+
+    Self withAxiom(const ValueExpr& ax) const {
+        return Self{ inner, z3impl::spliceAxioms(axiom(), z3impl::asAxiom(ax)) };
+    }
 
     Res operator()(Args... args) const {
         return Res(inner(z3impl::getExpr(args)...), z3impl::spliceAxioms(axiom(), massAxiomAnd(args...)));
@@ -1117,7 +1184,7 @@ public:
 
         // XXX akhin this is as fucked up as before, but also works for now
 
-        auto initial = Function<Elem(Index)>::mkFreshFunc(ctx, "$$__initial_mem__$$");
+        auto initial = Function<Elem(Index)>::mkFreshFunc(ctx, "(initial)" + name);
         inner = [initial,&ctx](Index ix) -> Elem {
             return initial(ix);
         };
@@ -1293,7 +1360,7 @@ public:
     ScatterArray& operator=(const ScatterArray&) = default;
     ScatterArray& operator=(ScatterArray&&) = default;
 
-    SomeExpr select(Index i, size_t elemBitSize) {
+    SomeExpr select(Index i, size_t elemBitSize) const {
         std::vector<Byte> bytes;
         for (size_t j = 0; j < elemBitSize/ElemSize; ++j) {
             bytes.push_back(inner[i+j]);
@@ -1302,7 +1369,7 @@ public:
     }
 
     template<class Elem>
-    Elem select(Index i) {
+    Elem select(Index i) const {
         enum{ elemBitSize = Elem::bitsize };
 
         std::vector<Byte> bytes;
@@ -1314,11 +1381,11 @@ public:
 
     z3::context& ctx() const { return inner.ctx(); }
 
-    Byte operator[](Index i) {
+    Byte operator[](Index i) const {
         return inner[i];
     }
 
-    Byte operator[](long long i) {
+    Byte operator[](long long i) const {
         return inner[Index::mkConst(ctx(), i)];
     }
 

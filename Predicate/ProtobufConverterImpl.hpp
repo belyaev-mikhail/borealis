@@ -18,10 +18,14 @@
 #include "Protobuf/Gen/Predicate/GlobalsPredicate.pb.h"
 #include "Protobuf/Gen/Predicate/InequalityPredicate.pb.h"
 #include "Protobuf/Gen/Predicate/MallocPredicate.pb.h"
+#include "Protobuf/Gen/Predicate/SeqDataPredicate.pb.h"
+#include "Protobuf/Gen/Predicate/SeqDataZeroPredicate.pb.h"
 #include "Protobuf/Gen/Predicate/StorePredicate.pb.h"
 #include "Protobuf/Gen/Predicate/WritePropertyPredicate.pb.h"
+#include "Protobuf/Gen/Predicate/WriteBoundPredicate.pb.h"
 
 #include "Term/ProtobufConverterImpl.hpp"
+#include "Util/ProtobufConverterImpl.hpp"
 
 #include "Factory/Nest.h"
 #include "Util/util.h"
@@ -53,16 +57,22 @@ struct protobuf_traits_impl<AllocaPredicate> {
         res->set_allocated_numelements(
             TermConverter::toProtobuf(*p.getNumElems()).release()
         );
+        res->set_allocated_orignumelements(
+            TermConverter::toProtobuf(*p.getOrigNumElems()).release()
+        );
         return std::move(res);
     }
 
     static Predicate::Ptr fromProtobuf(
             const FactoryNest& fn,
-            PredicateType type,
+            Predicate::Ptr base,
             const proto::AllocaPredicate& p) {
         auto lhv = TermConverter::fromProtobuf(fn, p.lhv());
         auto numElems = TermConverter::fromProtobuf(fn, p.numelements());
-        return Predicate::Ptr{ new AllocaPredicate(lhv, numElems, type) };
+        auto origNumElems = TermConverter::fromProtobuf(fn, p.orignumelements());
+        return Predicate::Ptr{
+            new AllocaPredicate(lhv, numElems, origNumElems, base->getLocation(), base->getType())
+        };
     }
 };
 
@@ -86,7 +96,7 @@ struct protobuf_traits_impl<DefaultSwitchCasePredicate> {
 
     static Predicate::Ptr fromProtobuf(
             const FactoryNest& fn,
-            PredicateType type,
+            Predicate::Ptr base,
             const proto::DefaultSwitchCasePredicate& p) {
         auto cond = TermConverter::fromProtobuf(fn, p.cond());
 
@@ -98,7 +108,9 @@ struct protobuf_traits_impl<DefaultSwitchCasePredicate> {
             );
         }
 
-        return Predicate::Ptr{ new DefaultSwitchCasePredicate(cond, cases, type) };
+        return Predicate::Ptr{
+            new DefaultSwitchCasePredicate(cond, cases, base->getLocation(), base->getType())
+        };
     }
 };
 
@@ -120,11 +132,13 @@ struct protobuf_traits_impl<EqualityPredicate> {
 
     static Predicate::Ptr fromProtobuf(
             const FactoryNest& fn,
-            PredicateType type,
+            Predicate::Ptr base,
             const proto::EqualityPredicate& p) {
         auto lhv = TermConverter::fromProtobuf(fn, p.lhv());
         auto rhv = TermConverter::fromProtobuf(fn, p.rhv());
-        return Predicate::Ptr{ new EqualityPredicate(lhv, rhv, type) };
+        return Predicate::Ptr{
+            new EqualityPredicate(lhv, rhv, base->getLocation(), base->getType())
+        };
     }
 };
 
@@ -145,7 +159,7 @@ struct protobuf_traits_impl<GlobalsPredicate> {
 
     static Predicate::Ptr fromProtobuf(
             const FactoryNest& fn,
-            PredicateType type,
+            Predicate::Ptr base,
             const proto::GlobalsPredicate& p) {
         std::vector<Term::Ptr> globals;
         globals.reserve(p.globals_size());
@@ -154,7 +168,9 @@ struct protobuf_traits_impl<GlobalsPredicate> {
                 TermConverter::fromProtobuf(fn, g)
             );
         }
-        return Predicate::Ptr{ new GlobalsPredicate(globals, type) };
+        return Predicate::Ptr{
+            new GlobalsPredicate(globals, base->getLocation(), base->getType())
+        };
     }
 };
 
@@ -176,11 +192,13 @@ struct protobuf_traits_impl<InequalityPredicate> {
 
     static Predicate::Ptr fromProtobuf(
             const FactoryNest& fn,
-            PredicateType type,
+            Predicate::Ptr base,
             const proto::InequalityPredicate& p) {
         auto lhv = TermConverter::fromProtobuf(fn, p.lhv());
         auto rhv = TermConverter::fromProtobuf(fn, p.rhv());
-        return Predicate::Ptr{ new InequalityPredicate(lhv, rhv, type) };
+        return Predicate::Ptr{
+            new InequalityPredicate(lhv, rhv, base->getLocation(), base->getType())
+        };
     }
 };
 
@@ -197,16 +215,86 @@ struct protobuf_traits_impl<MallocPredicate> {
         res->set_allocated_numelements(
             TermConverter::toProtobuf(*p.getNumElems()).release()
         );
+        res->set_allocated_orignumelements(
+            TermConverter::toProtobuf(*p.getOrigNumElems()).release()
+        );
         return std::move(res);
     }
 
     static Predicate::Ptr fromProtobuf(
             const FactoryNest& fn,
-            PredicateType type,
+            Predicate::Ptr base,
             const proto::MallocPredicate& p) {
         auto lhv = TermConverter::fromProtobuf(fn, p.lhv());
         auto numElems = TermConverter::fromProtobuf(fn, p.numelements());
-        return Predicate::Ptr{ new MallocPredicate(lhv, numElems, type) };
+        auto origNumElems = TermConverter::fromProtobuf(fn, p.orignumelements());
+        return Predicate::Ptr{
+            new MallocPredicate(lhv, numElems, origNumElems, base->getLocation(), base->getType())
+        };
+    }
+};
+
+template<>
+struct protobuf_traits_impl<SeqDataPredicate> {
+
+    typedef protobuf_traits<Term> TermConverter;
+
+    static std::unique_ptr<proto::SeqDataPredicate> toProtobuf(const SeqDataPredicate& p) {
+        auto res = util::uniq(new proto::SeqDataPredicate());
+        res->set_allocated_base(
+            TermConverter::toProtobuf(*p.getBase()).release()
+        );
+        for (const auto& d : p.getData()) {
+            res->mutable_data()->AddAllocated(
+                TermConverter::toProtobuf(*d).release()
+            );
+        }
+        return std::move(res);
+    }
+
+    static Predicate::Ptr fromProtobuf(
+            const FactoryNest& fn,
+            Predicate::Ptr base,
+            const proto::SeqDataPredicate& p) {
+        auto b = TermConverter::fromProtobuf(fn, p.base());
+
+        std::vector<Term::Ptr> data;
+        data.reserve(p.data_size());
+        for (const auto& d : p.data()) {
+            data.push_back(
+                TermConverter::fromProtobuf(fn, d)
+            );
+        }
+
+        return Predicate::Ptr{
+            new SeqDataPredicate(b, data, base->getLocation(), base->getType())
+        };
+    }
+};
+
+template<>
+struct protobuf_traits_impl<SeqDataZeroPredicate> {
+
+    typedef protobuf_traits<Term> TermConverter;
+
+    static std::unique_ptr<proto::SeqDataZeroPredicate> toProtobuf(const SeqDataZeroPredicate& p) {
+        auto res = util::uniq(new proto::SeqDataZeroPredicate());
+        res->set_allocated_base(
+            TermConverter::toProtobuf(*p.getBase()).release()
+        );
+        res->set_size(p.getSize());
+        return std::move(res);
+    }
+
+    static Predicate::Ptr fromProtobuf(
+            const FactoryNest& fn,
+            Predicate::Ptr base,
+            const proto::SeqDataZeroPredicate& p) {
+        auto b = TermConverter::fromProtobuf(fn, p.base());
+
+        return Predicate::Ptr{
+            new SeqDataZeroPredicate(b, p.size(), base->getLocation(), base->getType())
+        };
     }
 };
 
@@ -228,11 +316,13 @@ struct protobuf_traits_impl<StorePredicate> {
 
     static Predicate::Ptr fromProtobuf(
             const FactoryNest& fn,
-            PredicateType type,
+            Predicate::Ptr base,
             const proto::StorePredicate& p) {
         auto lhv = TermConverter::fromProtobuf(fn, p.lhv());
         auto rhv = TermConverter::fromProtobuf(fn, p.rhv());
-        return Predicate::Ptr{ new StorePredicate(lhv, rhv, type) };
+        return Predicate::Ptr{
+            new StorePredicate(lhv, rhv, base->getLocation(), base->getType())
+        };
     }
 };
 
@@ -257,12 +347,42 @@ struct protobuf_traits_impl<WritePropertyPredicate> {
 
     static Predicate::Ptr fromProtobuf(
             const FactoryNest& fn,
-            PredicateType type,
+            Predicate::Ptr base,
             const proto::WritePropertyPredicate& p) {
         auto propName = TermConverter::fromProtobuf(fn, p.propname());
         auto lhv = TermConverter::fromProtobuf(fn, p.lhv());
         auto rhv = TermConverter::fromProtobuf(fn, p.rhv());
-        return Predicate::Ptr{ new WritePropertyPredicate(propName, lhv, rhv, type) };
+        return Predicate::Ptr{
+            new WritePropertyPredicate(propName, lhv, rhv, base->getLocation(), base->getType())
+        };
+    }
+};
+
+template<>
+struct protobuf_traits_impl<WriteBoundPredicate> {
+
+    typedef protobuf_traits<Term> TermConverter;
+
+    static std::unique_ptr<proto::WriteBoundPredicate> toProtobuf(const WriteBoundPredicate& p) {
+        auto res = util::uniq(new proto::WriteBoundPredicate());
+        res->set_allocated_lhv(
+            TermConverter::toProtobuf(*p.getLhv()).release()
+        );
+        res->set_allocated_rhv(
+            TermConverter::toProtobuf(*p.getRhv()).release()
+        );
+        return std::move(res);
+    }
+
+    static Predicate::Ptr fromProtobuf(
+            const FactoryNest& fn,
+            Predicate::Ptr base,
+            const proto::WriteBoundPredicate& p) {
+        auto lhv = TermConverter::fromProtobuf(fn, p.lhv());
+        auto rhv = TermConverter::fromProtobuf(fn, p.rhv());
+        return Predicate::Ptr{
+            new WriteBoundPredicate(lhv, rhv, base->getLocation(), base->getType())
+        };
     }
 };
 

@@ -20,24 +20,54 @@
 namespace borealis {
 
 AbstractPredicateStateAnalysis::AbstractPredicateStateAnalysis() {};
-AbstractPredicateStateAnalysis::~AbstractPredicateStateAnalysis() {};
+
+void AbstractPredicateStateAnalysis::init() {
+    initialState.reset();
+    instructionStates.clear();
+}
+
+void AbstractPredicateStateAnalysis::finalize() {}
+
+void AbstractPredicateStateAnalysis::printInstructionStates(llvm::raw_ostream&, const llvm::Module*) const {
+    infos() << "Predicate state analysis results" << endl;
+    infos() << "Initial state" << endl
+            << initialState << endl;
+    for (auto&& e : instructionStates) {
+        infos() << *e.first << endl
+                << e.second << endl;
+    }
+    infos() << "End of predicate state analysis results" << endl;
+}
+
+PredicateState::Ptr AbstractPredicateStateAnalysis::getInitialState() const {
+    return initialState;
+}
+
+PredicateState::Ptr AbstractPredicateStateAnalysis::getInstructionState(const llvm::Instruction* I) const {
+    if (borealis::util::containsKey(instructionStates, I)) {
+        return instructionStates.at(I);
+    } else {
+        return nullptr;
+    }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 PredicateStateAnalysis::PredicateStateAnalysis() :
-        ProxyFunctionPass(ID) {}
+        ProxyFunctionPass(ID), delegate(nullptr) {}
 PredicateStateAnalysis::PredicateStateAnalysis(llvm::Pass* pass) :
-        ProxyFunctionPass(ID, pass) {}
+        ProxyFunctionPass(ID, pass), delegate(nullptr) {}
 
 void PredicateStateAnalysis::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
 
-    if ("one-for-one" == Mode())
+    if ("one-for-one" == Mode()) {
         AUX<OneForOne>::addRequiredTransitive(AU);
-    else if ("one-for-all" == Mode())
+    } else if ("one-for-all" == Mode()) {
         AUX<OneForAll>::addRequiredTransitive(AU);
-    else
+    } else {
         BYE_BYE_VOID("Unknown PSA mode: " + Mode());
+    }
 
     AUX<FunctionManager>::addRequiredTransitive(AU);
     AUX<LocationManager>::addRequiredTransitive(AU);
@@ -46,15 +76,15 @@ void PredicateStateAnalysis::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 }
 
 bool PredicateStateAnalysis::runOnFunction(llvm::Function& F) {
-    if ("one-for-one" == Mode())
+    if ("one-for-one" == Mode()) {
         delegate = &GetAnalysis<OneForOne>::doit(this, F);
-    else if ("one-for-all" == Mode())
+    } else if ("one-for-all" == Mode()) {
         delegate = &GetAnalysis<OneForAll>::doit(this, F);
-    else
+    } else {
         BYE_BYE(bool, "Unknown PSA mode: " + Mode());
+    }
 
-    auto* st = GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(F);
-    FN = FactoryNest(st);
+    FN = FactoryNest(GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(F));
 
     if ("inline" == Summaries()) {
         updateInlineSummary(F);
@@ -70,7 +100,7 @@ bool PredicateStateAnalysis::runOnFunction(llvm::Function& F) {
 // Save total function state for inlining
 void PredicateStateAnalysis::updateInlineSummary(llvm::Function& F) {
 
-    auto& FM = GetAnalysis<FunctionManager>::doit(this);
+    auto&& FM = GetAnalysis<FunctionManager>::doit(this);
 
     // No summary if:
     // - function does not return
@@ -79,13 +109,13 @@ void PredicateStateAnalysis::updateInlineSummary(llvm::Function& F) {
 
     auto* RI = getSingleRetOpt(&F);
     // Function does not return, therefore has no useful summary
-    if (!RI) return;
+    if (not RI) return;
 
-    auto initial = delegate->getInitialState();
-    auto riState = delegate->getInstructionState(RI);
+    auto&& initial = delegate->getInitialState();
+    auto&& riState = delegate->getInstructionState(RI);
     ASSERT(riState, "No state found for: " + llvm::valueSummary(RI));
 
-    auto bdy = riState->sliceOn(initial);
+    auto&& bdy = riState->sliceOn(initial);
     ASSERT(bdy, "Function state slicing failed for: " + llvm::valueSummary(RI));
 
     FM.update(&F, bdy);
@@ -99,70 +129,83 @@ void PredicateStateAnalysis::updateInterpolSummary(llvm::Function& F) {
 
     USING_SMT_IMPL(MathSAT);
 
-    auto& FM = GetAnalysis<FunctionManager>::doit(this);
-    auto& NT = GetAnalysis<NameTracker>::doit(this);
+    auto&& FM = GetAnalysis<FunctionManager>::doit(this);
+    auto&& NT = GetAnalysis<NameTracker>::doit(this);
 
-    // No summary if:
-    // - function does not return
-    // - function returns void
-    // - function returns non-pointer
+    // No summary for main function
+    if (llvm::isMain(F)) return;
 
     auto* RI = getSingleRetOpt(&F);
-    if (!RI) return;
+    if (not RI) return;
+
+    std::vector<Term::Ptr> pointers;
 
     auto* retVal = RI->getReturnValue();
-    if (retVal == nullptr) return;
-    if ( ! retVal->getType()->isPointerTy() ) return;
+    if (nullptr != retVal and retVal->getType()->isPointerTy()) {
+        pointers.push_back(FN.Term->getReturnValueTerm(&F));
+    }
 
     std::vector<Term::Ptr> args;
     args.reserve(F.arg_size());
-    for (auto& arg : view(F.arg_begin(), F.arg_end())) {
-        args.push_back(FN.Term->getArgumentTerm(&arg));
+    for (auto&& arg : view(F.arg_begin(), F.arg_end())) {
+        auto&& argTerm = FN.Term->getArgumentTerm(&arg);
+        args.push_back(argTerm);
+        if (arg.getType()->isPointerTy()) {
+            pointers.push_back(argTerm);
+        }
     }
 
-    PredicateState::Ptr query = (
-        FN.State *
-        FN.Predicate->getInequalityPredicate(
-            FN.Term->getReturnValueTerm(&F),
-            FN.Term->getNullPtrTerm()
-        )
-    )();
+    // No summary if:
+    // - function returns non-pointer
+    // - function has no pointer arguments
+    if (pointers.empty()) return;
 
-    auto initial = delegate->getInitialState();
-    auto riState = delegate->getInstructionState(RI);
+    auto&& initial = delegate->getInitialState();
+    auto&& riState = delegate->getInstructionState(RI);
     ASSERT(riState, "No state found for: " + llvm::valueSummary(RI));
 
-    auto bdy = riState->sliceOn(initial);
+    auto&& bdy = riState->sliceOn(initial);
     ASSERT(bdy, "Function state slicing failed for: " + llvm::valueSummary(RI));
+
+    auto&& PSB = FN.State * FN.State->Basic();
+    for (auto&& ptr : pointers) {
+        PSB += FN.Predicate->getEqualityPredicate(
+                       FN.Term->getCmpTerm(
+                           llvm::ConditionType::GT,
+                           FN.Term->getBoundTerm(ptr),
+                           FN.Term->getIntTerm(0)
+                       ),
+                       FN.Term->getTrueTerm()
+               );
+    }
+    auto&& query = PSB();
 
     dbgs() << "Generating summary: " << endl
            << "  At: " << llvm::valueSummary(RI) << endl
            << "  Query: " << query << endl
            << "  State: " << bdy << endl;
 
-    auto fMemId = FM.getMemoryStart(&F);
+    auto&& fMemInfo = FM.getMemoryBounds(&F);
 
     ExprFactory ef;
-    Solver s(ef, fMemId);
+    Solver s(ef, fMemInfo.first, fMemInfo.second);
 
-    auto itp = s.getSummary(args, query, bdy);
+    auto&& itp = s.getSummary(args, query, bdy);
 
-    auto t = TermRebinder(F, &NT, FN);
+    auto&& summ = TermRebinder(F, &NT, FN).transform(undoThat(itp));
 
-    auto summ = undoThat(itp)->map(
-        [&t](Predicate::Ptr p) { return t.transform(p); }
-    );
+    auto&& summ_ = FN.State * FN.Predicate->getEqualityPredicate(summ, FN.Term->getTrueTerm());
 
-    FM.update(&F, summ);
+    FM.update(&F, summ_());
 }
 
 void PredicateStateAnalysis::updateVisitedLocs(llvm::Function& F) {
-    auto& LM = GetAnalysis<LocationManager>::doit(this);
+    auto&& LM = GetAnalysis<LocationManager>::doit(this);
 
     auto* RI = getSingleRetOpt(&F);
-    if (!RI) return;
+    if (not RI) return;
 
-    auto riState = delegate->getInstructionState(RI);
+    auto&& riState = delegate->getInstructionState(RI);
     ASSERT(riState, "No state found for: " + llvm::valueSummary(RI));
 
     LM.addLocations(riState->getVisited());
@@ -193,7 +236,7 @@ bool PredicateStateAnalysis::CheckUnreachable() {
 }
 
 const std::string PredicateStateAnalysis::Summaries() {
-    static config::ConfigEntry<std::string> mode("analysis", "sum-mode");
+    static config::ConfigEntry<std::string> mode("summary", "sum-mode");
     return mode.get("none");
 }
 

@@ -9,16 +9,19 @@
 #define LOCATIONS_H_
 
 #include <clang/Basic/SourceManager.h>
-#include <llvm/Analysis/DebugInfo.h>
-#include <llvm/Instruction.h>
+#include <llvm/IR/DebugInfo.h>
+#include <llvm/IR/Instruction.h>
 
 #include <iostream>
 #include <utility>
 
 #include "Protobuf/Gen/Util/locations.pb.h"
 
+#include "Util/hash.hpp"
 #include "Util/json_traits.hpp"
 #include "Util/xml_traits.hpp"
+
+#include "Util/generate_macros.h"
 
 namespace borealis {
 
@@ -147,21 +150,23 @@ struct LocalLocus {
         }
         return std::move(that);
     }
+
+    // FIXME: some ambiguity shit going on here, fix
+    friend std::ostream& operator<<(std::ostream& ost, const LocalLocus& ll) {
+        if (ll.line == LocalLocus::UNKNOWN_LOC) ost << "<unknown-line>";
+        else ost << ll.line;
+
+        ost << ":";
+
+        if (ll.col == LocalLocus::UNKNOWN_LOC) ost << "<unknown-col>";
+        else ost << ll.col;
+
+        // this is generally fucked up
+        return ost;
+    }
 };
 
-template<class Streamer>
-Streamer& operator<<(Streamer& ost, const LocalLocus& ll) {
-    if (ll.line == LocalLocus::UNKNOWN_LOC) ost << "<unknown-line>";
-    else ost << ll.line;
 
-    ost << ":";
-
-    if (ll.col == LocalLocus::UNKNOWN_LOC) ost << "<unknown-col>";
-    else ost << ll.col;
-
-    // this is generally fucked up
-    return static_cast<Streamer&>(ost);
-}
 
 namespace util {
 template<>
@@ -259,13 +264,16 @@ struct Locus {
         if (isUnknown()) return this;
         else return nullptr;
     }
+
+    // FIXME: some ambiguity shit going on here, fix
+    friend std::ostream& operator<<(std::ostream& ost, const Locus& ll) {
+        // this is generally fucked up
+        return (ost << ll.filename << ":" << ll.loc);
+    }
+
 };
 
-template<class Streamer>
-Streamer& operator<<(Streamer& ost, const Locus& ll) {
-    // this is generally fucked up
-    return static_cast<Streamer&>(ost << ll.filename << ":" << ll.loc);
-}
+
 
 namespace util {
 
@@ -308,26 +316,25 @@ struct LocusRange {
 
 } // namespace borealis
 
+GENERATE_OUTLINE_HASH(borealis::LocusRange, lhv, rhv);
+GENERATE_OUTLINE_JSON_TRAITS(borealis::LocusRange, lhv, rhv);
+
 namespace std {
 template<>
-class hash<borealis::LocalLocus> {
-public:
+struct hash<borealis::LocalLocus> {
     size_t operator()(const borealis::LocalLocus &l) const {
-        size_t h1 = std::hash<unsigned>()(l.line);
-        size_t h2 = std::hash<unsigned>()(l.col);
-        return h2 + (h1 << 16);
+        return borealis::util::hash::defaultHasher()(l.line, l.col);
     }
 };
 
 template<>
-class hash<borealis::Locus> {
-public:
+struct hash<borealis::Locus> {
     size_t operator()(const borealis::Locus &l) const {
-        size_t h1 = std::hash<std::string>()(l.filename);
-        size_t h2 = std::hash<borealis::LocalLocus>()(l.loc);
-        return h2 + (h1 << 16);
+        return borealis::util::hash::defaultHasher()(l.filename, l.loc);
     }
 };
 } // namespace std
+
+#include "Util/generate_unmacros.h"
 
 #endif /* LOCATIONS_H_ */

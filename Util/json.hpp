@@ -1,4 +1,4 @@
-/*
+    /*
  * json.hpp
  *
  *  Created on: Apr 12, 2013
@@ -8,8 +8,9 @@
 #ifndef JSON_HPP_
 #define JSON_HPP_
 
-#include <jsoncpp/json/json.h>
+#include <json/json.h>
 
+#include <iostream>
 #include <memory>
 #include <string>
 
@@ -120,6 +121,21 @@ Json::Value toJson(const T& val) {
 template<class T>
 typename json_traits<T>::optional_ptr_t fromJson(const Json::Value& json) {
     return json_traits<T>::fromJson(json);
+}
+
+template<class K>
+std::decay_t<K> fromJsonWithDefault(const Json::Value& json, K&& orDefault) {
+    if(auto ptr = util::fromJson<std::decay_t<K>>(json)) {
+        return *ptr;
+    } else return std::forward<K>(orDefault);
+}
+
+template<class K>
+bool assignJson(K& where, const Json::Value& json) {
+    if(auto ptr = util::fromJson<std::decay_t<K>>(json)) {
+        where = *ptr;
+        return true;
+    } else return false;
 }
 
 template<class T>

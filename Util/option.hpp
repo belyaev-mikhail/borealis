@@ -15,13 +15,14 @@
 
 #include "Util/copying_ptr.hpp"
 #include "Util/type_traits.hpp"
+#include "Util/json.hpp"
 
 namespace borealis {
 namespace util {
 
 struct nothing_t {};
 
-inline nothing_t nothing() {
+constexpr nothing_t nothing() {
     return nothing_t();
 }
 
@@ -129,8 +130,12 @@ public:
 
     bool empty() const { return holder == nullptr; }
 
-    void swap(self& that) {
+    void swap(self& that) noexcept {
         holder.swap(that.holder);
+    }
+
+    size_t hash() const noexcept {
+        return std::hash<decltype(holder)>{}(holder);
     }
 
     self& operator=(nothing_t) {
@@ -144,31 +149,23 @@ public:
         operator=(option(val));
     }
 
-    bool operator==(const self& that) const {
-        if( empty() ) return that.empty();
-        else if( that.empty() ) return false;
-        else return *holder == *(that.holder);
-    }
-
     bool operator==(const T& that) const {
         if( empty() ) return false;
         else return *holder == that;
     }
 
-    bool operator==(const nothing_t&) const {
-        return empty();
-    }
-
-    bool operator!=(const self& that) const {
-        return !operator==(that);
+    friend bool operator==(const self& a, const self& b) {
+        if( a.empty() ) return b.empty();
+        else if( b.empty() ) return false;
+        else return *a.holder == *b.holder;
     }
 
     bool operator!=(const T& that) const {
         return !operator==(that);
     }
 
-    bool operator!=(const nothing_t&) const {
-        return !empty();
+    friend bool operator!=(const self& a, const self& b) {
+        return !(a == b);
     }
 
     bool operator!() const {
@@ -180,6 +177,11 @@ public:
         static unspec_ unspec;
         if( empty() ) return nullptr;
         else return &unspec;
+    }
+
+    friend std::ostream& operator<<(std::ostream& ost, const self& x) {
+        for(auto&& el: x) return ost << "just(" << el << ")";
+        return ost << "nothing";
     }
 
     const T* get() const {
@@ -268,8 +270,12 @@ public:
 
     bool empty() const { return holder == nullptr; }
 
-    void swap(self& that) {
+    void swap(self& that) noexcept {
         std::swap(holder, that.holder);
+    }
+
+    size_t hash() const noexcept {
+        return std::hash<decltype(holder)>{}(holder);
     }
 
     self& operator=(nothing_t) {
@@ -277,15 +283,8 @@ public:
         swap(temp);
         return *this;
     }
-    self& operator=(const self& that) {
-        self temp(that); // exception safety
-        swap(temp);
-        return *this;
-    }
-    self& operator=(self&& that) {
-        holder = std::move(that.holder);
-        return *this;
-    }
+    self& operator=(const self& that) = default;
+    self& operator=(self&& that) = default;
 
     void push_back(T& val) {
         operator=(option_ref(val));
@@ -318,11 +317,8 @@ public:
         return !empty();
     }
 
-    typedef struct unspec_{}* unspecified_pointer_type;
-    operator unspecified_pointer_type() {
-        static unspec_ unspec;
-        if( empty() ) return nullptr;
-        else return &unspec;
+    explicit operator bool() {
+        return !empty();
     }
 
     bool operator!() const {
@@ -393,7 +389,57 @@ inline option_ref<T> nothingRef() {
     return nothing();
 }
 
+template<class T>
+struct json_traits<option<T>> {
+    typedef std::unique_ptr<option<T>> optional_ptr_t;
+    using delegate = json_traits<T>;
+
+    static Json::Value toJson(const option<T>& val) {
+        for(auto&& el: val) return delegate::toJson(el);
+        return Json::Value{};
+    }
+
+    static optional_ptr_t fromJson(const Json::Value& json) {
+        if(json.isNull()) return optional_ptr_t{ new option<T>{nothing()} };
+        auto del = delegate::fromJson(json);
+        if(!del) return nullptr;
+        else return optional_ptr_t{ new option<T>{just(*del)} };
+    }
+};
+
 } // namespace util
 } // namespace borealis
+
+namespace std {
+
+template<class T>
+void swap(const borealis::util::option<T>& opt1,
+          const borealis::util::option<T>& opt2) noexcept {
+    opt1.swap(opt2);
+    return;
+}
+
+template<class T>
+void swap(const borealis::util::option_ref<T>& opt1,
+          const borealis::util::option_ref<T>& opt2) noexcept {
+    opt1.swap(opt2);
+    return;
+}
+
+template<class T>
+struct hash<borealis::util::option<T>> {
+    size_t operator()(const borealis::util::option<T>& opt) const noexcept {
+        return opt.hash();
+    }
+};
+
+template<class T>
+struct hash<borealis::util::option_ref<T>> {
+    size_t operator()(const borealis::util::option_ref<T>& opt) const noexcept {
+        return opt.hash();
+    }
+};
+
+} // namespace std
 
 #endif /* OPTION_HPP_ */

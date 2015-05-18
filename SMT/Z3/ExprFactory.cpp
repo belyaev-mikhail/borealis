@@ -15,9 +15,9 @@ namespace z3_ {
 
 ExprFactory::ExprFactory() {
     z3::config cfg;
-    cfg.set(":lift-ite", 2);
-    cfg.set(":ng-lift-ite", 2);
-    // cfg.set(":proof-mode", 2);
+    cfg.set("model", true);
+    cfg.set("proof", false);
+    cfg.set("unsat_core", true);
 
     ctx = std::unique_ptr<z3::context>(new z3::context(cfg));
 
@@ -84,18 +84,26 @@ Z3::Real ExprFactory::getRealConst(double v) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Z3::MemArray ExprFactory::getNoMemoryArray() {
+Z3::MemArray ExprFactory::getNoMemoryArray(const std::string& id) {
     static config::ConfigEntry<bool> DefaultsToUnknown("analysis", "memory-defaults-to-unknown");
 
     if (DefaultsToUnknown.get(false)) {
-        return MemArray::mkFree(*ctx, "mem");
+        return getEmptyMemoryArray(id);
     } else {
-        return MemArray::mkDefault(*ctx, "mem", Byte::mkConst(*ctx, 0xff));
+        return getDefaultMemoryArray(id, 0xff);
     }
 }
 
+Z3::MemArray ExprFactory::getEmptyMemoryArray(const std::string& id) {
+    return MemArray::mkFree(*ctx, id);
+}
+
+Z3::MemArray ExprFactory::getDefaultMemoryArray(const std::string& id, int def) {
+    return MemArray::mkDefault(*ctx, id, Byte::mkConst(*ctx, def));
+}
+
 Z3::Pointer ExprFactory::getInvalidPtr() {
-    return getNullPtr();
+    return getPtrConst(~0U);
 }
 
 Z3::Bool ExprFactory::isInvalidPtrExpr(Z3::Pointer ptr) {
@@ -125,14 +133,14 @@ Z3::Dynamic ExprFactory::getVarByTypeAndName(
     else if (isa<type::UnknownType>(type))
         BYE_BYE(Dynamic, "Unknown var type in Z3 conversion");
     else if (isa<type::TypeError>(type))
-        BYE_BYE(Dynamic, "Encountered type error in Z3 conversion");
+        BYE_BYE(Dynamic, "Encountered type error in Z3 conversion: " + util::toString(*type));
 
-    BYE_BYE(Dynamic, "Unreachable!");
+    BYE_BYE(Dynamic, "Unreachable with type: " + util::toString(*type));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void ExprFactory::initialize(llvm::TargetData* TD) {
+void ExprFactory::initialize(const llvm::DataLayout* TD) {
     pointerSize = TD->getPointerSizeInBits();
 }
 

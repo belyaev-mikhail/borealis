@@ -19,102 +19,141 @@ using borealis::util::view;
 BasicPredicateState::BasicPredicateState() :
         PredicateState(class_tag<Self>()) {}
 
+BasicPredicateState::BasicPredicateState(const Data& data) :
+        PredicateState(class_tag<Self>()),
+        data(data) {}
+
+BasicPredicateState::BasicPredicateState(Data&& data) :
+        PredicateState(class_tag<Self>()),
+        data(std::move(data)) {}
+
+const BasicPredicateState::Data& BasicPredicateState::getData() const {
+    return data;
+}
+
 void BasicPredicateState::addPredicateInPlace(Predicate::Ptr pred) {
-    this->data.push_back(pred);
+    data.push_back(pred);
 }
 
-void BasicPredicateState::addVisitedInPlace(const llvm::Value* loc) {
-    this->locs.insert(loc);
+void BasicPredicateState::addVisitedInPlace(const Locus& locus) {
+    loci.insert(locus);
 }
 
-void BasicPredicateState::addVisitedInPlace(const Locs& locs) {
-    this->locs.insert(locs.begin(), locs.end());
+void BasicPredicateState::addVisitedInPlace(const Loci& loci_) {
+    loci.insert(loci_.begin(), loci_.end());
 }
 
 PredicateState::Ptr BasicPredicateState::addPredicate(Predicate::Ptr pred) const {
     ASSERTC(pred != nullptr);
 
-    auto res = SelfPtr(new Self{ *this });
+    auto&& res = Uniquified(*this);
     res->addPredicateInPlace(pred);
     return Simplified(res.release());
 }
 
-PredicateState::Ptr BasicPredicateState::addVisited(const llvm::Value* loc) const {
-    auto res = SelfPtr(new Self{ *this });
-    res->addVisitedInPlace(loc);
+PredicateState::Ptr BasicPredicateState::addVisited(const Locus& locus) const {
+    auto&& res = Uniquified(*this);
+    res->addVisitedInPlace(locus);
     return Simplified(res.release());
 }
 
-bool BasicPredicateState::hasVisited(std::initializer_list<const llvm::Value*> locs) const {
-    return std::all_of(locs.begin(), locs.end(),
-        [this](const llvm::Value* loc) { return contains(this->locs, loc); });
+bool BasicPredicateState::hasVisited(std::initializer_list<Locus> loci_) const {
+    return std::all_of(loci_.begin(), loci_.end(),
+        [&](auto&& locus) { return contains(loci, locus); }
+    );
 }
 
-bool BasicPredicateState::hasVisitedFrom(Locs& visited) const {
-    auto it = visited.begin();
-    auto end = visited.end();
-    for ( ; it != end ; ) {
-        if (contains(locs, *it)) {
+bool BasicPredicateState::hasVisitedFrom(Loci& visited) const {
+    auto&& it = visited.begin();
+    auto&& end = visited.end();
+    while (it != end) {
+        if (contains(loci, *it)) {
             it = visited.erase(it);
         } else {
             ++it;
         }
     }
-
     return visited.empty();
 }
 
-PredicateState::Locs BasicPredicateState::getVisited() const {
-    return locs;
+PredicateState::Loci BasicPredicateState::getVisited() const {
+    return loci;
+}
+
+PredicateState::Ptr BasicPredicateState::fmap(FMapper) const {
+    return this->shared_from_this();
 }
 
 PredicateState::Ptr BasicPredicateState::map(Mapper m) const {
-    auto res = SelfPtr(new Self{});
-    for (auto& p : data) {
+    auto&& res = Uniquified();
+    for (auto&& p : data) {
         res->addPredicateInPlace(m(p));
     }
-    res->addVisitedInPlace(this->locs);
+    res->addVisitedInPlace(loci);
     return Simplified(res.release());
 }
 
 PredicateState::Ptr BasicPredicateState::filterByTypes(std::initializer_list<PredicateType> types) const {
-    auto res = SelfPtr(new Self{});
-    for (auto& p : data) {
+    auto&& res = Uniquified();
+    for (auto&& p : data) {
         if (std::any_of(types.begin(), types.end(),
-            [&](const PredicateType& type) { return p->getType() == type; }
+            [&](auto&& type) { return p->getType() == type; }
         )) res->addPredicateInPlace(p);
     }
-    res->addVisitedInPlace(this->locs);
+    res->addVisitedInPlace(loci);
     return Simplified(res.release());
 }
 
 PredicateState::Ptr BasicPredicateState::filter(Filterer f) const {
-    auto res = SelfPtr(new Self{});
-    for (auto& p : data) {
-        if (f(p))
-            res->addPredicateInPlace(p);
+    auto&& res = Uniquified();
+    for (auto&& p : data) {
+        if (f(p)) res->addPredicateInPlace(p);
     }
-    res->addVisitedInPlace(this->locs);
+    res->addVisitedInPlace(loci);
     return Simplified(res.release());
 }
 
-std::pair<PredicateState::Ptr, PredicateState::Ptr> BasicPredicateState::splitByTypes(std::initializer_list<PredicateType> types) const {
-    auto yes = SelfPtr(new Self{});
-    auto no = SelfPtr(new Self{});
-    for (auto& p : data) {
+PredicateState::Ptr BasicPredicateState::reverse() const {
+    auto&& res = Uniquified();
+    for (auto&& p : view(data.rbegin(), data.rend())) {
+        res->addPredicateInPlace(p);
+    }
+    res->addVisitedInPlace(loci);
+    return Simplified(res.release());
+}
+
+std::pair<PredicateState::Ptr, PredicateState::Ptr> BasicPredicateState::splitByTypes(
+        std::initializer_list<PredicateType> types) const {
+    auto&& yes = Uniquified();
+    auto&& no = Uniquified();
+    for (auto&& p : data) {
         if (std::any_of(types.begin(), types.end(),
-            [&](const PredicateType& type) { return p->getType() == type; }
+            [&](auto&& type) { return p->getType() == type; }
         )) yes->addPredicateInPlace(p);
         else no->addPredicateInPlace(p);
     }
-    yes->addVisitedInPlace(this->locs);
-    no->addVisitedInPlace(this->locs);
-    return std::make_pair(Simplified(yes.release()), Simplified(no.release()));
+    // FIXME: akhin Implement splitting also for locations
+    yes->addVisitedInPlace(loci);
+    no->addVisitedInPlace(loci);
+    return std::make_pair(
+        Simplified(yes.release()),
+        Simplified(no.release())
+    );
 }
 
-PredicateState::Ptr BasicPredicateState::sliceOn(PredicateState::Ptr base) const {
-    if (*this == *base) {
-        return Simplified(new Self{});
+PredicateState::Ptr BasicPredicateState::sliceOn(PredicateState::Ptr on) const {
+    if (*this == *on) {
+        return Simplified(Uniquified().release());
+    } else if (auto* other = llvm::dyn_cast<Self>(on)) {
+        if (util::viewContainer(data).starts_with(other->data)) {
+            return Simplified(
+                Uniquified(
+                    util::viewContainer(data)
+                          .drop(other->data.size())
+                          .toVector()
+                ).release()
+            );
+        }
     }
     return nullptr;
 }
@@ -127,21 +166,34 @@ bool BasicPredicateState::isEmpty() const {
     return data.empty();
 }
 
+unsigned int BasicPredicateState::size() const {
+    return data.size();
+}
+
+bool BasicPredicateState::equals(const PredicateState* other) const {
+    if (auto* o = llvm::dyn_cast_or_null<Self>(other)) {
+        return PredicateState::equals(other) &&
+                util::equal(data, o->data,
+                    [](auto&& a, auto&& b) { return *a == *b; }
+                );
+    } else return false;
+}
+
 borealis::logging::logstream& BasicPredicateState::dump(borealis::logging::logstream& s) const {
     using borealis::logging::endl;
     using borealis::logging::il;
     using borealis::logging::ir;
 
-    s << '(';
+    s << "(";
     s << il << endl;
-    if (!this->isEmpty()) {
-        s << head(this->data)->toString();
-        for (auto& e : tail(this->data)) {
-            s << ',' << endl << e->toString();
+    if (not isEmpty()) {
+        s << head(data);
+        for (auto&& e : tail(data)) {
+            s << "," << endl << e;
         }
     }
     s << ir << endl;
-    s << ')';
+    s << ")";
 
     return s;
 }
@@ -151,14 +203,14 @@ std::string BasicPredicateState::toString() const {
 
     std::ostringstream s;
 
-    s << '(' << endl;
-    if (!this->isEmpty()) {
-        s << "  " << head(this->data)->toString();
-        for (auto& e : tail(this->data)) {
-            s << ',' << endl << "  " << e->toString();
+    s << "(" << endl;
+    if (not isEmpty()) {
+        s << "  " << head(data);
+        for (auto& e : tail(data)) {
+            s << "," << endl << "  " << e;
         }
     }
-    s << endl << ')';
+    s << endl << ")";
 
     return s.str();
 }

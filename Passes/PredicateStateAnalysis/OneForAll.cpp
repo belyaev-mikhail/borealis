@@ -5,7 +5,7 @@
  *      Author: ice-phoenix
  */
 
-#include <llvm/Support/CFG.h>
+#include <llvm/IR/CFG.h>
 
 #include "Logging/tracer.hpp"
 #include "Passes/PredicateAnalysis/Defines.def"
@@ -14,6 +14,8 @@
 #include "State/PredicateStateBuilder.h"
 #include "State/Transformer/AggregateTransformer.h"
 #include "State/Transformer/CallSiteInitializer.h"
+#include "State/Transformer/MemoryContextSplitter.h"
+#include "State/Transformer/StateOptimizer.h"
 #include "Util/graph.h"
 #include "Util/util.h"
 
@@ -21,15 +23,20 @@
 
 namespace borealis {
 
-OneForAll::OneForAll() : ProxyFunctionPass(ID) {}
-OneForAll::OneForAll(llvm::Pass* pass) : ProxyFunctionPass(ID, pass) {}
+OneForAll::OneForAll() :
+        ProxyFunctionPass(ID),
+        NULLPTRIFY3(DT, FM, SLT) {}
+OneForAll::OneForAll(llvm::Pass* pass) :
+        ProxyFunctionPass(ID, pass),
+        NULLPTRIFY3(DT, FM, SLT) {}
 
 void OneForAll::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
 
-    AUX<llvm::DominatorTree>::addRequired(AU);
+    AUX<llvm::DominatorTreeWrapperPass>::addRequired(AU);
     AUX<FunctionManager>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
+    AUX<SourceLocationTracker>::addRequiredTransitive(AU);
 
 #define HANDLE_ANALYSIS(CLASS) \
     AUX<CLASS>::addRequiredTransitive(AU);
@@ -39,48 +46,49 @@ void OneForAll::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 bool OneForAll::runOnFunction(llvm::Function& F) {
     init();
 
+    DT = &GetAnalysis< llvm::DominatorTreeWrapperPass >::doit(this, F).getDomTree();
     FM = &GetAnalysis< FunctionManager >::doit(this, F);
-    DT = &GetAnalysis< llvm::DominatorTree >::doit(this, F);
+    SLT = &GetAnalysis< SourceLocationTracker >::doit(this, F);
 
-    auto* st = GetAnalysis< SlotTrackerPass >::doit(this, F).getSlotTracker(F);
-    FN = FactoryNest(st);
+    FN = FactoryNest(GetAnalysis< SlotTrackerPass >::doit(this, F).getSlotTracker(F));
 
 #define HANDLE_ANALYSIS(CLASS) \
     PA.push_back(static_cast<AbstractPredicateAnalysis*>(&GetAnalysis<CLASS>::doit(this, F)));
 #include "Passes/PredicateAnalysis/Defines.def"
 
-    // Register globals in our predicate states
-    auto& globalList = F.getParent()->getGlobalList();
+    // Register globals in our predicate state
+    auto&& gState = FN.getGlobalState(F.getParent());
 
-    std::vector<Term::Ptr> globals;
-    globals.reserve(globalList.size());
-    for (auto& g : globalList) {
-        globals.push_back(FN.Term->getValueTerm(&g));
-    }
-    Predicate::Ptr gPredicate = FN.Predicate->getGlobalsPredicate(globals);
+    // Register requires
+    auto&& requires = FM->getReq(&F);
+    // Memory split requires
+    auto&& mcs = MemoryContextSplitter(FN);
+    auto&& splittedRequires = mcs.transform(requires);
 
-    // Register REQUIRES
-    PredicateState::Ptr requires = FM->getReq(&F);
-
-    PredicateState::Ptr initialState = (FN.State * gPredicate + requires)();
+    auto&& initialState = (
+        FN.State *
+        gState +
+        mcs.getGeneratedPredicates() +
+        splittedRequires
+    )();
 
     // Register arguments as visited values
-    for (const auto& arg : F.getArgumentList()) {
-        initialState = initialState << arg;
+    for (auto&& arg : F.getArgumentList()) {
+        initialState = initialState << SLT->getLocFor(&arg);
     }
 
     // Save initial state
     this->initialState = initialState;
 
     // Process basic blocks in topological order
-    TopologicalSorter::Result ordered = TopologicalSorter().doit(F);
-    ASSERT(!ordered.empty(),
+    auto&& ordered = TopologicalSorter().doit(F);
+    ASSERT(not ordered.empty(),
            "No topological order for: " + F.getName().str());
     ASSERT(ordered.getUnsafe().size() == F.getBasicBlockList().size(),
            "Topological order does not include all basic blocks for: " + F.getName().str());
 
     dbgs() << "Topological sorting for: " << F.getName() << endl;
-    for (auto* BB : ordered.getUnsafe()) {
+    for (const auto* BB : ordered.getUnsafe()) {
         dbgs() << valueSummary(BB) << endl;
     }
     dbgs() << "End of topological sorting for: " << F.getName() << endl;
@@ -88,6 +96,8 @@ bool OneForAll::runOnFunction(llvm::Function& F) {
     for (auto* BB : ordered.getUnsafe()) {
         processBasicBlock(BB);
     }
+
+    finalize();
 
     return false;
 }
@@ -100,38 +110,52 @@ void OneForAll::init() {
     PA.clear();
 }
 
+void OneForAll::finalize() {
+    AbstractPredicateStateAnalysis::finalize();
+
+    StateOptimizer so{ FN };
+
+    initialState = so.transform(initialState);
+    for (auto&& v : util::viewContainerValues(instructionStates)) {
+        v = so.transform(v);
+    }
+}
+
 void OneForAll::processBasicBlock(llvm::BasicBlock* BB) {
     using namespace llvm;
-    using borealis::util::view;
+    using borealis::util::viewContainer;
 
-    auto inState = BBM(BB);
+    auto&& inState = BBM(BB);
 
-    auto fMemId = FM->getMemoryStart(BB->getParent());
+    auto&& fMemInfo = FM->getMemoryBounds(BB->getParent());
 
-    if (inState == nullptr) return;
-    if (PredicateStateAnalysis::CheckUnreachable() && inState->isUnreachableIn(fMemId)) return;
+    if (nullptr == inState) return;
+    if (PredicateStateAnalysis::CheckUnreachable() and inState->isUnreachableIn(fMemInfo.first, fMemInfo.second)) return;
 
-    for (const auto& I : view(BB->begin(), BB->end())) {
+    for (auto&& I : viewContainer(*BB)) {
 
-        auto instructionState = (FN.State * inState + PM(&I))();
+        auto&& instructionState = (FN.State * inState + PM(&I))();
         instructionStates[&I] = instructionState;
 
         // Add ensures and summary *after* the CallInst has been processed
         if (isa<CallInst>(I)) {
-            auto& CI = cast<CallInst>(I);
+            auto&& CI = cast<CallInst>(I);
 
-            auto callState = (
+            auto&& callState = (
                 FN.State *
                 FM->getBdy(CI, FN) +
                 FM->getEns(CI, FN)
             )();
-            auto t = CallSiteInitializer(CI, FN);
 
-            auto instantiatedCallState = callState->map(
-                [&t](Predicate::Ptr p) { return t.transform(p); }
-            );
+            auto&& instantiatedCallState =
+                    CallSiteInitializer(CI, FN).transform(callState);
 
-            instructionState = (FN.State * instructionState + instantiatedCallState << I)();
+            instructionState = (
+                FN.State *
+                instructionState +
+                instantiatedCallState <<
+                SLT->getLocFor(&I)
+            )();
         }
 
         inState = instructionState;
@@ -151,100 +175,97 @@ PredicateState::Ptr OneForAll::BBM(llvm::BasicBlock* BB) {
 
     const auto* idom = (*DT)[BB]->getIDom();
     // Function entry block does not have an idom
-    if (!idom) {
-        return initialState;
-    }
+    if (not idom) return initialState;
 
     const auto* idomBB = idom->getBlock();
     // idom is unreachable
-    if (!containsKey(basicBlockStates, idomBB)) {
-        return nullptr;
-    }
+    if (not containsKey(basicBlockStates, idomBB)) return nullptr;
 
-    auto base = basicBlockStates.at(idomBB);
+    auto&& base = basicBlockStates.at(idomBB);
     std::vector<PredicateState::Ptr> choices;
 
-    for (const auto* predBB : view(pred_begin(BB), pred_end(BB))) {
+    for (auto* predBB : view(pred_begin(BB), pred_end(BB))) {
         // predecessor is unreachable
-        if (!containsKey(basicBlockStates, predBB)) continue;
+        if (not containsKey(basicBlockStates, predBB)) continue;
 
-        auto stateBuilder = FN.State * basicBlockStates.at(predBB);
+        auto&& stateBuilder = FN.State * basicBlockStates.at(predBB);
 
         // Adding path predicate from predBB
         stateBuilder += TPM({predBB->getTerminator(), BB});
 
         // Adding PHI predicates from predBB
-        for (auto it = BB->begin(); isa<PHINode>(it); ++it) {
-            const PHINode* phi = cast<PHINode>(it);
-            if (phi->getBasicBlockIndex(predBB) != -1) {
+        for (auto&& it = BB->begin(); isa<PHINode>(it); ++it) {
+            const auto* phi = cast<PHINode>(it);
+            if (-1 != phi->getBasicBlockIndex(predBB)) {
                 stateBuilder += PPM({predBB, phi});
             }
         }
 
-        auto inState = stateBuilder();
+        auto&& inState = stateBuilder();
 
-        auto slice = inState->sliceOn(base);
-        ASSERT(slice != nullptr, "Could not slice state on its predecessor");
+        auto&& slice = inState->sliceOn(base);
+        ASSERT(nullptr != slice, "Could not slice state on its predecessor");
 
         choices.push_back(slice);
     }
 
     TRACE_DOWN("psa::bbm", valueSummary(BB));
 
-    if (choices.empty())
-        // All predecessors are unreachable, and we too are as such...
+    if (choices.empty()) {
+        // All predecessors are unreachable, and so we are also as such...
         return nullptr;
-    else
+    } else {
         return (
             FN.State *
             base +
             FN.State->Choice(choices)
         )();
+    }
 }
 
 PredicateState::Ptr OneForAll::PM(const llvm::Instruction* I) {
     using borealis::util::containsKey;
 
-    PredicateState::Ptr res = FN.State->Basic();
+    auto&& res = FN.State->Basic();
 
-    for (AbstractPredicateAnalysis* APA : PA) {
-        auto& map = APA->getPredicateMap();
+    for (auto* APA : PA) {
+        auto&& map = APA->getPredicateMap();
         if (containsKey(map, I)) {
             res = res + map.at(I);
         }
     }
 
-    return res << I;
+    return res << SLT->getLocFor(I);
 }
 
-PredicateState::Ptr OneForAll::PPM(PhiBranch key) {
+PredicateState::Ptr OneForAll::PPM(const PhiBranch& key) {
     using borealis::util::containsKey;
 
-    PredicateState::Ptr res = FN.State->Basic();
+    auto&& res = FN.State->Basic();
 
-    for (AbstractPredicateAnalysis* APA : PA) {
-        auto& map = APA->getPhiPredicateMap();
+    for (auto* APA : PA) {
+        auto&& map = APA->getPhiPredicateMap();
         if (containsKey(map, key)) {
             res = res + map.at(key);
         }
     }
 
-    return res << key.second;
+    return res << SLT->getLocFor(key.second);
 }
 
-PredicateState::Ptr OneForAll::TPM(TerminatorBranch key) {
+PredicateState::Ptr OneForAll::TPM(const TerminatorBranch& key) {
     using borealis::util::containsKey;
 
-    PredicateState::Ptr res = FN.State->Basic();
+    auto&& res = FN.State->Basic();
 
-    for (AbstractPredicateAnalysis* APA : PA) {
-        auto& map = APA->getTerminatorPredicateMap();
+    for (auto* APA : PA) {
+        auto&& map = APA->getTerminatorPredicateMap();
         if (containsKey(map, key)) {
             res = res + map.at(key);
         }
     }
 
-    return res << key.first;
+    return res << SLT->getLocFor(key.first);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

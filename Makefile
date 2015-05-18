@@ -10,7 +10,7 @@ DEFS := \
 	-DGOOGLE_PROTOBUF_NO_RTTI \
 #	-DUSE_MATHSAT_SOLVER
 
-USER_DEFS :=
+USER_DEFS := # -DNO_TRACING
 
 INCLUDE_DIRS := \
 	/usr/include/z3
@@ -24,37 +24,43 @@ CXXFLAGS := \
 	-D__STDC_LIMIT_MACROS \
 	-O0 \
 	-fPIC \
-	-std=c++11 \
+	-std=c++14 \
 	-g \
 	$(RTTIFLAG) \
 	$(INCLUDES) \
 	$(DEFS) \
 	$(USER_DEFS)
 
-LLVMCOMPONENTS := analysis archive asmparser asmprinter bitreader bitwriter \
-	codegen core cppbackend cppbackendcodegen cppbackendinfo debuginfo engine \
-	executionengine instcombine instrumentation interpreter ipa ipo jit linker \
-	mc mcdisassembler mcjit mcparser native nativecodegen object runtimedyld \
-	scalaropts selectiondag support tablegen target transformutils vectorize \
-	linker
+#LLVMCOMPONENTS := analysis asmparser asmprinter bitreader bitwriter \
+#	codegen core cppbackend cppbackendcodegen cppbackendinfo debuginfo engine \
+#	executionengine instcombine instrumentation interpreter ipa ipo jit linker \
+#	mc mcdisassembler mcjit mcparser native nativecodegen object runtimedyld \
+#	scalaropts selectiondag support tablegen target transformutils vectorize \
+#	linker
+#
 
-LLVMLDFLAGS := $(shell llvm-config --ldflags --libs $(LLVMCOMPONENTS))
+LLVMCOMPONENTS := all
+LLVMCONFIG := $(if $(LLVMDIR),$(LLVMDIR)/bin/llvm-config,llvm-config)
+
+LLVMLDFLAGS := $(shell $(LLVMCONFIG) --ldflags)
+LLVMLIBS := $(shell $(LLVMCONFIG) --libs $(LLVMCOMPONENTS))
+LLVMSYSTEMLIBS := $(shell $(LLVMCONFIG) --system-libs)
 
 ################################################################################
 # Compilation tweaking
 ################################################################################
 
-# warnings to show 
+# warnings to show
 WARNINGS_ON := all extra cast-qual float-equal switch \
 	undef init-self pointer-arith cast-align effc++ \
 	strict-prototypes strict-overflow=5 write-strings \
 	aggregate-return super-class-method-mismatch
 # warnings to hide
-WARNINGS_OFF := unused-function
+WARNINGS_OFF := unused-function redundant-decls
 # warnings to treat as errors
 WARNINGS_TAE := overloaded-virtual return-stack-address \
 	implicit-function-declaration address-of-temporary \
-	delete-non-virtual-dtor
+	delete-non-virtual-dtor return-type
 
 ifeq ($(CXX), clang++)
 CXXFLAGS += \
@@ -74,6 +80,7 @@ ADDITIONAL_SOURCE_DIRS := \
 	$(PWD)/Codegen \
 	$(PWD)/Config \
 	$(PWD)/Driver \
+	$(PWD)/Executor \
 	$(PWD)/Factory \
 	$(PWD)/Logging \
 	$(PWD)/Passes \
@@ -81,10 +88,12 @@ ADDITIONAL_SOURCE_DIRS := \
 	$(PWD)/Protobuf \
 	$(PWD)/SMT \
 	$(PWD)/State \
+	$(PWD)/Statistics \
 	$(PWD)/Term \
 	$(PWD)/Type \
 	$(PWD)/Util \
-	$(PWD)/lib/poolalloc/src
+
+#$(PWD)/lib/poolalloc/src
 
 ADDITIONAL_INCLUDE_DIRS := \
 	$(PWD) \
@@ -92,7 +101,8 @@ ADDITIONAL_INCLUDE_DIRS := \
 	$(PWD)/lib \
 	$(PWD)/lib/pegtl/include \
 	$(PWD)/lib/google-test/include \
-	$(PWD)/lib/yaml-cpp/include
+	$(PWD)/lib/yaml-cpp/include \
+	$(PWD)/lib/cfgparser/include
 
 CXXFLAGS += $(foreach dir,$(ADDITIONAL_INCLUDE_DIRS),-I"$(dir)")
 
@@ -141,6 +151,8 @@ TEST_ARCHIVES += $(GOOGLE_TEST_LIB)
 
 CXXFLAGS += -isystem $(GOOGLE_TEST_DIR)/include
 
+GOOGLE_TEST_FILTER := *
+
 ################################################################################
 # yaml-cpp
 ################################################################################
@@ -149,6 +161,26 @@ YAML_CPP_DIR := $(PWD)/lib/yaml-cpp
 
 YAML_CPP_LIB := $(YAML_CPP_DIR)/build/libyaml-cpp.a
 ARCHIVES += $(YAML_CPP_LIB)
+
+################################################################################
+# cfgparser
+################################################################################
+
+# cfgparser needs dbglog, but we don't
+DBGLOG_DIR := $(PWD)/lib/dbglog
+DBGLOG_DIST := $(DBGLOG_DIR)/dist
+DBGLOG_LIB := $(DBGLOG_DIST)/lib/libdbglog.a
+
+CFGPARSER_DIR := $(PWD)/lib/cfgparser
+CFGPARSER_LIB := $(CFGPARSER_DIR)/dist/lib/libcfgparser.a
+ARCHIVES += $(CFGPARSER_LIB)
+ARCHIVES += $(DBGLOG_LIB)
+
+################################################################################
+# andersen
+################################################################################
+
+ANDERSEN_CPP_DIR := $(PWD)/lib/andersen
 
 ################################################################################
 # Exes
@@ -182,10 +214,8 @@ CLANGLIBS := \
 
 LIBS := \
 	$(CLANGLIBS) \
+	$(LLVMLIBS) \
 	-lz3 \
-	-ldl \
-	-lrt \
-	-lcfgparser \
 	-llog4cpp \
 	-lprofiler \
 	-ljsoncpp \
@@ -193,7 +223,8 @@ LIBS := \
 	-ltinyxml2 \
 	-lmathsat \
 	-lgmpxx \
-	-lgmp
+	-lgmp \
+	$(LLVMSYSTEMLIBS)
 
 ################################################################################
 # Test defs management
@@ -254,12 +285,9 @@ PROTOEXT := $(PWD)/extract-protobuf-desc.awk
 
 all: $(EXES)
 
-
 .protobuf:
 	@mkdir -p $(PROTO_SOURCE_DIR)
-	@for H in `find $(PWD) -name "*.cpp" -o -name "*.h" -o -name "*.hpp"`; do \
-		$(PROTOEXT) $$H; \
-	done
+	@$(PROTOEXT) `find $(PWD) -name "*.cpp" -o -name "*.h" -o -name "*.hpp" | sort`
 	@find $(PWD) -name "*.proto" | xargs $(PROTOC)
 	@touch $@
 
@@ -277,10 +305,38 @@ clean.yaml-cpp:
 	rm -f .yaml-cpp
 	$(MAKE) CXX=$(CXX) -C $(YAML_CPP_DIR) clean
 
+# FIXME libdbglog cannot be built with 'make -jN', any workaround would be much appreciated...
+.dbglog:
+	[[ -e $(DBGLOG_DIR)/Makefile ]] && $(MAKE) CXX=$(CXX) -C $(DBGLOG_DIR) distclean || true
+	cd $(DBGLOG_DIR); $(DBGLOG_DIR)/configure --prefix=$(DBGLOG_DIST)
+	$(MAKE) CXX=$(CXX) -C $(DBGLOG_DIR) install
+	touch $@
 
-$(EXES): $(OBJECTS) .protobuf .yaml-cpp
-	$(CXX) -g -o $@ -rdynamic $(OBJECTS) $(LIBS) $(LLVMLDFLAGS) $(LIBS) $(ARCHIVES)
+clean.dbglog:
+	rm -f .dbglog
+	$(MAKE) CXX=$(CXX) -C $(DBGLOG_DIR) clean
+	$(MAKE) CXX=$(CXX) -C $(DBGLOG_DIR) distclean
+	rm -rf $(DBGLOG_DIST)
 
+.cfgparser: .dbglog
+	[[ -e $(CFGPARSER_DIR)/Makefile ]] && $(MAKE) CXX=$(CXX) -C $(CFGPARSER_DIR) distclean || true
+	cd $(CFGPARSER_DIR); $(CFGPARSER_DIR)/configure --prefix=$(CFGPARSER_DIR)/dist --with-dbglog=$(DBGLOG_DIST)
+	$(MAKE) CXX=$(CXX) -C $(CFGPARSER_DIR) install
+	touch $@
+
+clean.cfgparser: clean.dbglog
+	rm -f .cfgparser
+	$(MAKE) CXX=$(CXX) -C $(CFGPARSER_DIR) clean
+	$(MAKE) CXX=$(CXX) -C $(CFGPARSER_DIR) distclean
+	rm -rf $(CFGPARSER_DIR)/dist
+
+.andersen:
+	cd $(ANDERSEN_CPP_DIR) && cmake .
+	$(MAKE) CXX=$(CXX) -C $(ANDERSEN_CPP_DIR)
+	touch $@
+
+$(EXES): $(OBJECTS) .protobuf .yaml-cpp .cfgparser .andersen
+	$(CXX) -g -o $@ -rdynamic $(OBJECTS) $(LLVMLDFLAGS) $(LIBS) $(ARCHIVES)
 
 .google-test:
 	$(MAKE) CXX=$(CXX) -C $(GOOGLE_TEST_DIR)/make gtest.a
@@ -291,8 +347,8 @@ clean.google-test:
 	$(MAKE) CXX=$(CXX) -C $(GOOGLE_TEST_DIR)/make clean
 
 
-$(TEST_EXES): $(TEST_OBJECTS) .protobuf .google-test
-	$(CXX) -g -o $@ $(TEST_OBJECTS) $(LIBS) $(LLVMLDFLAGS) $(LIBS) $(ARCHIVES) $(TEST_ARCHIVES)
+$(TEST_EXES): $(TEST_OBJECTS) .google-test
+	$(CXX) -g -o $@ $(TEST_OBJECTS) $(LLVMLDFLAGS) $(LIBS) $(ARCHIVES) $(TEST_ARCHIVES)
 
 
 tests: $(EXES) $(TEST_EXES)
@@ -302,16 +358,25 @@ tests: $(EXES) $(TEST_EXES)
 
 
 check: tests .regenerate-test-defs
-	$(RUN_TEST_EXES) --gtest_filter=-*Long/*
+	$(RUN_TEST_EXES) --gtest_filter=-*Long/*:-*Summary* # --gtest_filter=$(GOOGLE_TEST_FILTER)
 
 check-with-valgrind: tests .regenerate-test-defs
-	$(VALGRIND) $(RUN_TEST_EXES) --gtest_filter=-*Long/*
+	$(VALGRIND) $(RUN_TEST_EXES) --gtest_filter=-*Long/*:-*Summary* # --gtest_filter=$(GOOGLE_TEST_FILTER)
 
 check-long: tests .regenerate-test-defs
-	$(RUN_TEST_EXES) --gtest_filter=*Long/*
+	$(RUN_TEST_EXES) --gtest_filter=*Long/*:-*Summary* # --gtest_filter=$(GOOGLE_TEST_FILTER)
+
+check-summary: tests .regenerate-test-defs
+	$(RUN_TEST_EXES) --gtest_filter=*Summary*:-*Long/* # --gtest_filter=$(GOOGLE_TEST_FILTER)
+
+check-summary-long: tests .regenerate-test-defs
+	$(RUN_TEST_EXES) --gtest_filter=*SummaryLong/* # --gtest_filter=$(GOOGLE_TEST_FILTER)
+
+check-summary-all: tests .regenerate-test-defs
+	$(RUN_TEST_EXES) --gtest_filter=*Summary* # --gtest_filter=$(GOOGLE_TEST_FILTER)
 
 check-all: tests .regenerate-test-defs
-	$(RUN_TEST_EXES)
+	$(RUN_TEST_EXES) --gtest_filter=-*Summary*# --gtest_filter=$(GOOGLE_TEST_FILTER)
 
 
 clean:

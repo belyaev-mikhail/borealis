@@ -10,39 +10,49 @@
 
 #include <chrono>
 
+#include <tinyformat/tinyformat.h>
+
 #include "Logging/logstream.hpp"
 
 namespace borealis {
 namespace logging {
 
 class func_tracer {
-
     const char* fname_;
     borealis::logging::logstream log;
-    std::chrono::time_point<std::chrono::system_clock> start;
 
 public:
 
     static const std::string logDomain;
 
-    func_tracer(
-        const char* fname,
-        borealis::logging::logstream log):
-            fname_(fname), log(log), start(std::chrono::system_clock::now()) {
-        log << "> " << fname_ << borealis::logging::endl;
+    func_tracer(const char* fname, borealis::logging::logstream log):
+            fname_(fname), log(log) {
+        printTime('>');
     }
 
     ~func_tracer() {
-        auto end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end-start).count();
-        log << "< "
+        printTime('<');
+    }
+
+private:
+    void printTime(char eventType) {
+        using namespace std::chrono;
+        auto micros = duration_cast<microseconds>(system_clock::now().time_since_epoch());
+        log << eventType
+            << " "
             << fname_
             << " : "
-            << duration
+            << micros.count()
             << " µs"
-            << borealis::logging::endl;
+            << borealis::logging::endl
+            << borealis::logging::end;
     }
 };
+
+static struct null_trace_stream_t {} null_trace_stream;
+
+template<class Arg>
+inline null_trace_stream_t operator<<(null_trace_stream_t st, Arg&&) { return st; }
 
 } // namespace logging
 } // namespace borealis
@@ -53,6 +63,14 @@ public:
     borealis::logging::func_tracer ftracer( \
         __PRETTY_FUNCTION__, \
         borealis::logging::dbgsFor(borealis::logging::func_tracer::logDomain));
+
+#define TRACE_PARAM(P) borealis::logging::dbgsFor(borealis::logging::func_tracer::logDomain) \
+    << #P << " = " << P << borealis::logging::endl
+
+#define TRACE_FMT(P...) borealis::logging::dbgsFor(borealis::logging::func_tracer::logDomain) \
+    << tfm::format(P) << borealis::logging::endl
+
+#define TRACES() borealis::logging::dbgsFor(borealis::logging::func_tracer::logDomain)
 
 #define TRACE_BLOCK(ID) \
     borealis::logging::func_tracer ftracer( \
@@ -73,8 +91,11 @@ public:
 
 #else
 #define TRACE_FUNC
+#define TRACE_PARAM(...)
+#define TRACE_FMT(...)
+#define TRACES() borealis::logging::null_trace_stream
 #define TRACE_BLOCK(ID)
-#define TRACE_MEASURMENT(M...)
+#define TRACE_MEASUREMENT(M...)
 #define TRACE_UP(M...)
 #define TRACE_DOWN(M...)
 #endif

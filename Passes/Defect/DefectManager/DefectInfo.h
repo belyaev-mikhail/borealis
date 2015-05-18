@@ -12,6 +12,8 @@
 #include "Util/util.h"
 #include "Util/xml_traits.hpp"
 
+#include "SMT/Result.h"
+
 namespace borealis {
 
 enum class DefectType {
@@ -19,7 +21,9 @@ enum class DefectType {
     REQ_01,
     ENS_01,
     ASR_01,
-    NDF_01
+    NDF_01,
+    BUF_01,
+    UNK_99
 };
 
 struct DefectSummary {
@@ -39,6 +43,8 @@ const std::map<DefectType, const DefectSummary> DefectTypes = {
     { DefectType::ENS_01, { "ENS-01", "Ensures contract check failed" } },
     { DefectType::ASR_01, { "ASR-01", "Assert check failed" } },
     { DefectType::NDF_01, { "NDF-01", "Use of undef value detected" } },
+    { DefectType::BUF_01, { "BUF-01", "Index out of bounds" } },
+    { DefectType::UNK_99, { "UNK-99", "UNKNOWN!" } },
 };
 
 const std::map<std::string, DefectType> DefectTypesByName = {
@@ -46,12 +52,9 @@ const std::map<std::string, DefectType> DefectTypesByName = {
     { "REQ-01", DefectType::REQ_01 },
     { "ENS-01", DefectType::ENS_01 },
     { "ASR-01", DefectType::ASR_01 },
-    { "NDF-01", DefectType::NDF_01 }
-};
-
-struct DefectInfo {
-    std::string type;
-    Locus location;
+    { "NDF-01", DefectType::NDF_01 },
+    { "BUF-01", DefectType::BUF_01 },
+    { "UNK-99", DefectType::UNK_99 },
 };
 
 namespace util {
@@ -74,28 +77,29 @@ struct json_traits<DefectType> {
     }
 };
 
-template<>
-struct json_traits<DefectInfo> {
-    typedef std::unique_ptr<DefectInfo> optional_ptr_t;
+} /* namespace util */
 
-    static Json::Value toJson(const DefectInfo& val) {
-        Json::Value dict;
-        dict["type"] = util::toJson(val.type);
-        dict["location"] = util::toJson(val.location);
-        return dict;
-    }
+#include "Util/generate_macros.h"
 
-    static optional_ptr_t fromJson(const Json::Value& json) {
-        using borealis::util::json_object_builder;
+struct DefectInfo {
+    std::string type;
+    Locus location;
 
-        json_object_builder<DefectInfo, std::string, Locus> builder {
-            "type", "location"
-        };
-        return optional_ptr_t {
-            builder.build(json)
-        };
-    }
+    GENERATE_EQ(DefectInfo, type, location);
+    GENERATE_LESS(DefectInfo, type, location);
+    GENERATE_PRINT_CUSTOM("", "", ":", DefectInfo, type, location);
 };
+
+} /* namespace borealis */
+
+// FIXME: revise this. Do we need the model in json?
+GENERATE_OUTLINE_JSON_TRAITS(borealis::DefectInfo, type, location);
+GENERATE_OUTLINE_HASH(borealis::DefectInfo, type, location);
+
+#include "Util/generate_unmacros.h"
+
+namespace borealis {
+namespace util {
 
 ////////////////////////////////////////////////////////////////////////////////
 // XML
@@ -126,11 +130,6 @@ struct xml_traits<DefectInfo> {
 };
 
 } // namespace util
-
-bool operator==(const DefectInfo& a, const DefectInfo& b);
-bool operator<(const DefectInfo& a, const DefectInfo& b);
-std::ostream& operator<<(std::ostream& s, const DefectInfo& di);
-
 } // namespace borealis
 
 #endif /* DEFECTINFO_H_ */

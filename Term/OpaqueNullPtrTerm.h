@@ -19,27 +19,22 @@ package borealis.proto;
 
 message OpaqueNullPtrTerm {
     extend borealis.proto.Term {
-        optional OpaqueNullPtrTerm ext = 26;
+        optional OpaqueNullPtrTerm ext = $COUNTER_TERM;
     }
 }
 
 **/
 class OpaqueNullPtrTerm: public borealis::Term {
 
-    OpaqueNullPtrTerm(Type::Ptr type):
-        Term(
-            class_tag(*this),
-            type,
-            "<nullptr>"
-        ) {};
+    OpaqueNullPtrTerm(Type::Ptr type);
 
 public:
 
     MK_COMMON_TERM_IMPL(OpaqueNullPtrTerm);
 
     template<class Sub>
-    auto accept(Transformer<Sub>*) const -> const Self* {
-        return new Self( *this );
+    auto accept(Transformer<Sub>*) const -> Term::Ptr {
+        return this->shared_from_this();
     }
 
 };
@@ -50,6 +45,7 @@ struct SMTImpl<Impl, OpaqueNullPtrTerm> {
             const OpaqueNullPtrTerm*,
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>*) {
+        TRACE_FUNC;
         return ef.getNullPtr();
     }
 };
