@@ -20,7 +20,7 @@ package borealis.proto;
 
 message CmpTerm {
     extend borealis.proto.Term {
-        optional CmpTerm ext = 18;
+        optional CmpTerm ext = $COUNTER_TERM;
     }
 
     optional ConditionType opcode = 1;
@@ -32,49 +32,34 @@ message CmpTerm {
 class CmpTerm: public borealis::Term {
 
     llvm::ConditionType opcode;
-    Term::Ptr lhv;
-    Term::Ptr rhv;
 
-    CmpTerm(Type::Ptr type, llvm::ConditionType opcode, Term::Ptr lhv, Term::Ptr rhv):
-        Term(
-            class_tag(*this),
-            type,
-            "(" + lhv->getName() + " " + llvm::conditionString(opcode) + " " + rhv->getName() + ")"
-        ), opcode(opcode), lhv(lhv), rhv(rhv) {};
+    CmpTerm(Type::Ptr type, llvm::ConditionType opcode, Term::Ptr lhv, Term::Ptr rhv);
 
 public:
 
     MK_COMMON_TERM_IMPL(CmpTerm);
 
-    llvm::ConditionType getOpcode() const { return opcode; }
-    Term::Ptr getLhv() const { return lhv; }
-    Term::Ptr getRhv() const { return rhv; }
+    llvm::ConditionType getOpcode() const;
+    Term::Ptr getLhv() const;
+    Term::Ptr getRhv() const;
 
     template<class Sub>
-    auto accept(Transformer<Sub>* tr) const -> const Self* {
-        auto _lhv = tr->transform(lhv);
-        auto _rhv = tr->transform(rhv);
-        auto _type = getTermType(tr->FN.Type, _lhv, _rhv);
-        return new Self{ _type, opcode, _lhv, _rhv };
+    auto accept(Transformer<Sub>* tr) const -> Term::Ptr {
+        auto&& _lhv = tr->transform(getLhv());
+        auto&& _rhv = tr->transform(getRhv());
+        TERM_ON_CHANGED(
+            getLhv() != _lhv || getRhv() != _rhv,
+            new Self( getTermType(tr->FN.Type, _lhv, _rhv), opcode, _lhv, _rhv )
+        );
     }
 
-    virtual bool equals(const Term* other) const override {
-        if (const Self* that = llvm::dyn_cast_or_null<Self>(other)) {
-            return Term::equals(other) &&
-                    that->opcode == opcode &&
-                    *that->lhv == *lhv &&
-                    *that->rhv == *rhv;
-        } else return false;
-    }
-
-    virtual size_t hashCode() const override {
-        return util::hash::defaultHasher()(Term::hashCode(), opcode, lhv, rhv);
-    }
+    virtual bool equals(const Term* other) const override;
+    virtual size_t hashCode() const override;
 
     static Type::Ptr getTermType(TypeFactory::Ptr TyF, Term::Ptr lhv, Term::Ptr rhv) {
-        auto merged = TyF->merge(lhv->getType(), rhv->getType());
+        auto&& merged = TyF->merge(lhv->getType(), rhv->getType());
 
-        if (TyF->isValid(merged)) return TyF->getBool();
+        if (TypeUtils::isValid(merged)) return TyF->getBool();
         else return merged;
     }
 
@@ -88,16 +73,17 @@ struct SMTImpl<Impl, CmpTerm> {
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>* ctx) {
 
+        TRACE_FUNC;
         USING_SMT_IMPL(Impl)
 
-        auto lhvz3 = SMT<Impl>::doit(t->getLhv(), ef, ctx);
-        auto rhvz3 = SMT<Impl>::doit(t->getRhv(), ef, ctx);
+        auto&& lhvz3 = SMT<Impl>::doit(t->getLhv(), ef, ctx);
+        auto&& rhvz3 = SMT<Impl>::doit(t->getRhv(), ef, ctx);
 
         if (lhvz3.isComparable() && rhvz3.isComparable()) {
             auto lhv = lhvz3.toComparable().getUnsafe();
             auto rhv = rhvz3.toComparable().getUnsafe();
 
-            switch(t->getOpcode()) {
+            switch (t->getOpcode()) {
             case llvm::ConditionType::EQ:    return lhv == rhv;
             case llvm::ConditionType::NEQ:   return lhv != rhv;
 
@@ -117,7 +103,7 @@ struct SMTImpl<Impl, CmpTerm> {
             auto lhv = lhvz3.toUnsignedComparable().getUnsafe();
             auto rhv = rhvz3.toUnsignedComparable().getUnsafe();
 
-            switch(t->getOpcode()) {
+            switch (t->getOpcode()) {
             case llvm::ConditionType::UGT:   return lhv.ugt(rhv);
             case llvm::ConditionType::UGE:   return lhv.uge(rhv);
             case llvm::ConditionType::ULT:   return lhv.ult(rhv);
@@ -126,7 +112,7 @@ struct SMTImpl<Impl, CmpTerm> {
             }
         }
 
-        BYE_BYE(Dynamic, "Unsupported CmpTerm: " + util::toString(t->getName()));
+        BYE_BYE(Dynamic, "Unsupported CmpTerm: " + t->getName());
     }
 };
 #include "Util/unmacros.h"

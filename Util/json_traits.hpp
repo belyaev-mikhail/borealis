@@ -10,6 +10,8 @@
 
 #include <map>
 #include <set>
+#include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
 #include "Util/json.hpp"
@@ -17,69 +19,83 @@
 namespace borealis {
 namespace util {
 
-template<class T>
-struct json_traits<std::vector<T>> {
-    typedef std::unique_ptr<std::vector<T>> optional_ptr_t;
+template<class Container, class Appender>
+struct container_json_traits {
+    using value_type = Container;
+    using optional_ptr_t = std::unique_ptr<value_type>;
 
-    static Json::Value toJson(const std::vector<T>& val) {
+    static Json::Value toJson(const value_type& val) {
         Json::Value ret;
         for(const auto& m : val) ret.append(util::toJson(m));
         return ret;
     }
 
     static optional_ptr_t fromJson(const Json::Value& val) {
-        std::vector<T> ret;
+        using T = std::decay_t<decltype(*std::begin(std::declval<Container>()))>;
+
+        value_type ret;
         if(!val.isArray()) return nullptr;
+
         for(const auto& m : val) {
             if(auto v = util::fromJson<T>(m)) {
-                ret.push_back(*v);
-            }
+                Appender{}(ret, *v);
+            } else return nullptr;
         }
-        return optional_ptr_t { new std::vector<T>{std::move(ret)} };
+
+        return optional_ptr_t { new value_type{std::move(ret)} };
     }
 };
 
-template<class T>
-struct json_traits<std::set<T>> {
-    typedef std::unique_ptr<std::set<T>> optional_ptr_t;
+namespace impl_ {
 
-    static Json::Value toJson(const std::set<T>& val) {
-        Json::Value ret;
-        for(const auto& m : val) ret.append(util::toJson(m));
+struct push_backer {
+    template<class Con, class Val>
+    void operator()(Con& con, Val&& v) const {
+        con.push_back(std::forward<Val>(v));
+    }
+};
+
+struct inserter {
+    template<class Con, class Val>
+    void operator()(Con& con, Val&& v) const {
+        con.insert(std::forward<Val>(v));
+    }
+};
+
+} /* namespace impl_ */
+
+template<class T, class Allocator>
+struct json_traits<std::vector<T, Allocator>> : container_json_traits<std::vector<T, Allocator>, impl_::push_backer> {};
+template<class T, class Compare, class Allocator>
+struct json_traits<std::set<T, Compare, Allocator>> : container_json_traits<std::set<T, Compare, Allocator>, impl_::inserter> {};
+template<class T, class Hash, class Compare, class Allocator>
+struct json_traits<std::unordered_set<T, Hash, Compare, Allocator>> : container_json_traits<std::unordered_set<T, Hash, Compare, Allocator>, impl_::inserter> {};
+
+template<class K, class V, class Hash, class Equal, class Alloc>
+struct json_traits<std::unordered_map<K, V, Hash, Equal, Alloc>> {
+    using theMap_t = std::unordered_map<K, V, Hash, Equal, Alloc>;
+    using optional_ptr_t = std::unique_ptr<theMap_t>;
+
+    static Json::Value toJson(const theMap_t& val) {
+        Json::Value ret = Json::arrayValue;
+        for(const auto& kv : val) {
+            Json::Value field = Json::objectValue;
+            field["key"] = util::toJson(kv.first);
+            field["value"] = util::toJson(kv.second);
+            ret.append(field);
+        }
         return ret;
     }
 
     static optional_ptr_t fromJson(const Json::Value& val) {
-        std::set<T> ret;
+        theMap_t ret;
         if(!val.isArray()) return nullptr;
-        for(const auto& m : val) {
-            if(auto v = util::fromJson<T>(m)) {
-                ret.insert(*v);
-            }
+        for(const auto& kv : val) {
+            if(!kv.isObject()) return nullptr;
+            ret.insert(std::make_pair( util::fromJson<K>(kv["key"]), util::fromJson<V>(kv["value"]) ));
         }
-        return optional_ptr_t { new std::set<T>{std::move(ret)} };
-    }
-};
 
-template<class V>
-struct json_traits<std::map<std::string, V>> {
-    typedef std::unique_ptr<std::map<std::string, V>> optional_ptr_t;
-
-    static Json::Value toJson(const std::map<std::string, V>& val) {
-        Json::Value ret;
-        for(const auto& m : val) ret[m.first] = util::toJson(m.second);
-        return ret;
-    }
-
-    static optional_ptr_t fromJson(const Json::Value& val) {
-        std::map<std::string, V> ret;
-        if(!val.isArray()) return nullptr;
-        for(const auto& k : val.getMemberNames()) {
-            if(auto v = util::fromJson<V>(val[k])) {
-                ret[k] = *v;
-            }
-        }
-        return optional_ptr_t { new std::map<std::string, V>{std::move(ret)} };
+        return optional_ptr_t { new theMap_t{ std::move(ret) } };
     }
 };
 

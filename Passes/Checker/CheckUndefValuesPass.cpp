@@ -5,10 +5,11 @@
  *      Author: ice-phoenix
  */
 
-#include <llvm/Support/InstVisitor.h>
+#include <llvm/IR/InstVisitor.h>
 
-#include "Passes/Checker/CheckUndefValuesPass.h"
 #include "Codegen/intrinsics_manager.h"
+#include "Passes/Checker/CheckHelper.hpp"
+#include "Passes/Checker/CheckUndefValuesPass.h"
 
 namespace borealis {
 
@@ -21,19 +22,25 @@ public:
     UndefInstVisitor(CheckUndefValuesPass* pass) : pass(pass) {}
 
     void visitInstruction(llvm::Instruction& I) {
-        using namespace llvm;
-        using borealis::util::view;
 
-        auto& intrinsic_manager = borealis::IntrinsicsManager::getInstance();
-        if (auto* call = dyn_cast<llvm::CallInst>(&I))
-            if (intrinsic_manager.getIntrinsicType(*call) != function_type::UNKNOWN)
-                return;
+        // undefs in phis are normal
+        if (llvm::isa<llvm::PHINode>(&I)) return;
 
-        for (Value* op : view(I.op_begin(), I.op_end())) {
-            if (isa<UndefValue>(op)) {
-                pass->DM->addDefect(DefectType::NDF_01, &I);
-                break;
+        auto&& intrinsic_manager = IntrinsicsManager::getInstance();
+        if (auto* call = llvm::dyn_cast<llvm::CallInst>(&I)) {
+            switch (intrinsic_manager.getIntrinsicType(*call)) {
+                case function_type::INTRINSIC_CONSUME:
+                case function_type::UNKNOWN: break;
+                default: return;
             }
+        }
+
+        // FIXME: Better undef propagation analysis
+
+        if (pass->DM->hasDefect(DefectType::NDF_01, &I)) return;
+
+        if (util::viewContainer(I.operands()).any_of(llvm::isaer<llvm::UndefValue>())) {
+            pass->DM->addDefect(DefectType::NDF_01, &I);
         }
     }
 
@@ -51,10 +58,15 @@ CheckUndefValuesPass::CheckUndefValuesPass(llvm::Pass* pass) : ProxyFunctionPass
 void CheckUndefValuesPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
 
+    AUX<CheckManager>::addRequiredTransitive(AU);
+
     AUX<DefectManager>::addRequiredTransitive(AU);
 }
 
 bool CheckUndefValuesPass::runOnFunction(llvm::Function& F) {
+
+    CM = &GetAnalysis<CheckManager>::doit(this, F);
+    if (CM->shouldSkipFunction(&F)) return false;
 
     DM = &GetAnalysis<DefectManager>::doit(this, F);
 

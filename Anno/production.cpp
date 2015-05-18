@@ -9,7 +9,8 @@
 
 #include "Anno/production.h"
 
-// FIXME: move to borealis::anno from default namespace?
+namespace borealis {
+namespace anno {
 
 using std::boolalpha;
 using std::make_shared;
@@ -238,7 +239,20 @@ void printingVisitor::onBinary(bin_opcode opc, const prod_t& op0, const prod_t& 
         op1->accept(*this);
         ost_ << "]";
         return;
-    // end of special handling
+
+    // property access are special only to provide more sugar
+    case op::OPCODE_PROPERTY:
+        (*op0).accept(*this);
+        ost_ << ".";
+        (*op1).accept(*this);
+        return;
+    case op::OPCODE_INDIR_PROPERTY:
+        (*op0).accept(*this);
+        ost_ << "->";
+        (*op1).accept(*this);
+        return;
+   // end of special handling
+
 
     default:
         ops = "???"; break;
@@ -349,6 +363,18 @@ prod_t index(const prod_t& op0, const prod_t& op1) {
     return productionFactory::createBinary(bin_opcode::OPCODE_INDEX, op0, op1);
 }
 
+prod_t property_access(const prod_t& op0, const prod_t& op1) {
+    return productionFactory::createBinary(bin_opcode::OPCODE_PROPERTY, op0, op1);
+}
+
+prod_t property_indirect_access(const prod_t& op0, const prod_t& op1) {
+    return productionFactory::createBinary(bin_opcode::OPCODE_INDIR_PROPERTY, op0, op1);
+}
+
+prod_t imply(const prod_t& op0, const prod_t& op1) {
+    return productionFactory::createBinary(bin_opcode::OPCODE_IMPLIES, op0, op1);
+}
+
 prod_t deref(const prod_t& op0) {
     return productionFactory::createUnary(un_opcode::OPCODE_LOAD, op0);
 }
@@ -364,3 +390,6 @@ prod_t operator-(const prod_t& op0) {
 prod_t operator~(const prod_t& op0) {
     return productionFactory::createUnary(un_opcode::OPCODE_BNOT, op0);
 }
+
+} /* namespace anno */
+} /* namespace borealis */

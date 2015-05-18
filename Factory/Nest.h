@@ -8,6 +8,8 @@
 #ifndef FACTORY_NEST_H_
 #define FACTORY_NEST_H_
 
+#include <llvm/IR/Module.h>
+
 #include "Predicate/PredicateFactory.h"
 #include "State/PredicateStateFactory.h"
 #include "Term/TermFactory.h"
@@ -20,6 +22,7 @@ class FactoryNest {
 
 public:
 
+    SlotTracker* Slot;
     TypeFactory::Ptr Type;
     TermFactory::Ptr Term;
     PredicateFactory::Ptr Predicate;
@@ -34,6 +37,8 @@ public:
     FactoryNest& operator=(FactoryNest&&);
 
     FactoryNest(SlotTracker* st);
+
+    PredicateState::Ptr getGlobalState(const llvm::Module* M);
 
 };
 

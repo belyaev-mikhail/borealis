@@ -19,27 +19,22 @@ package borealis.proto;
 
 message ConstTerm {
     extend borealis.proto.Term {
-        optional ConstTerm ext = 19;
+        optional ConstTerm ext = $COUNTER_TERM;
     }
 }
 
 **/
 class ConstTerm: public borealis::Term {
 
-    ConstTerm(Type::Ptr type, const std::string& name) :
-        Term(
-                class_tag(*this),
-                type,
-                name
-        ) {};
+    ConstTerm(Type::Ptr type, const std::string& name);
 
 public:
 
     MK_COMMON_TERM_IMPL(ConstTerm);
 
     template<class Sub>
-    auto accept(Transformer<Sub>*) const -> const Self* {
-        return new Self( *this );
+    auto accept(Transformer<Sub>*) const -> Term::Ptr {
+        return this->shared_from_this();
     }
 
 };
@@ -51,10 +46,13 @@ struct SMTImpl<Impl, ConstTerm> {
             const ConstTerm* t,
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>*) {
+
+        TRACE_FUNC;
+
         using borealis::logging::endl;
         using borealis::logging::wtf;
         // XXX: ConstTerm means we have an unsupported LLVM constant somewhere...
-        auto res = ef.getVarByTypeAndName(t->getType(), t->getName());
+        auto&& res = ef.getVarByTypeAndName(t->getType(), t->getName());
         wtf() << "Got " << res << " for " << t->getName() << endl;
         return res;
     }

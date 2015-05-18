@@ -9,8 +9,7 @@
 
 #include "Logging/logger.hpp"
 #include "Util/slottracker.h"
-#include "Util/streams.hpp"
-#include "Util/util.hpp"
+#include "Util/util.h"
 
 #include "Util/macros.h"
 
@@ -210,6 +209,7 @@ void SlotTracker::CreateModuleSlot(const GlobalValue *V) {
 
     unsigned DestSlot = mNext++;
     mMap[V] = DestSlot;
+    mSap[DestSlot] = V;
 
     ST_DEBUG("  Inserting value [" << V->getType() << "] = " << V << " slot=" << DestSlot << " [");
     // G = Global, F = Function, A = Alias, o = other
@@ -224,6 +224,7 @@ void SlotTracker::CreateFunctionSlot(const Value *V) {
 
     unsigned DestSlot = fNext++;
     fMap[V] = DestSlot;
+    fSap[DestSlot] = V;
 
     // G = Global, F = Function, o = other
     ST_DEBUG("  Inserting value [" << V->getType() << "] = " << V << " slot=" << DestSlot << " [o]\n");
@@ -272,6 +273,23 @@ std::string SlotTracker::getLocalName(const Value *V) {
             return "NO_LOCAL_SLOT_FOR_" + toString(V);
         }
     }
+}
+
+const llvm::Value* SlotTracker::getLocalValue(const std::string& name) {
+    if ('%' == name[0]) {
+        initialize();
+        auto&& slot = std::stoul(name.substr(1));
+        return fSap.lookup(slot);
+    } else {
+        return TheFunction ? TheFunction->getValueSymbolTable().lookup(name) : nullptr;
+    }
+}
+
+const llvm::Value* SlotTracker::getGlobalValue(const std::string& name) {
+    // XXX: akhin Can global values be slots (i.e., do not have a name?)
+    return TheFunction && TheFunction->getParent()
+           ? TheFunction->getParent()->getValueSymbolTable().lookup(name)
+           : nullptr;
 }
 
 } /* namespace borealis */

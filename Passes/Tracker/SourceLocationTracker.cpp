@@ -7,6 +7,7 @@
 
 #include <llvm/ADT/DepthFirstIterator.h>
 
+#include "Codegen/llvm.h"
 #include "Passes/Tracker/SourceLocationTracker.h"
 #include "Util/passes.hpp"
 #include "Util/util.h"
@@ -20,10 +21,10 @@ bool SourceLocationTracker::runOnModule(llvm::Module& M) {
     using borealis::util::viewContainer;
 
     // Get metadata about functions (subprograms)
-    llvm::DebugInfoFinder dif;
+    borealis::DebugInfoFinder dif;
     dif.processModule(M);
 
-    for (auto* mdnode : view(dif.subprogram_begin(), dif.subprogram_end())) {
+    for (DISubprogram mdnode : viewContainer(dif.subprograms())) {
         DIDescriptor diDesc(mdnode);
         if (!diDesc.isSubprogram()) continue;
 
@@ -32,7 +33,7 @@ bool SourceLocationTracker::runOnModule(llvm::Module& M) {
             valueDebugInfo.put(Locus(subProg.getFilename().str(), subProg.getLineNumber(), 0U), subProg.getFunction());
     }
 
-    for (auto* mdnode : view(dif.global_variable_begin(), dif.global_variable_end())) {
+    for (DIGlobalVariable mdnode : viewContainer(dif.global_variables())) {
         DIDescriptor diDesc(mdnode);
         if (!diDesc.isGlobalVariable()) continue;
 
@@ -41,6 +42,7 @@ bool SourceLocationTracker::runOnModule(llvm::Module& M) {
             valueDebugInfo.put(Locus(glob.getFilename().str(), glob.getLineNumber(), 0U), glob.getGlobal());
     }
 
+    Locus lastSeen;
 
     for (auto& I : viewContainer(M).flatten().flatten()) {
         Value* func = I.getParent()->getParent();
@@ -57,6 +59,13 @@ bool SourceLocationTracker::runOnModule(llvm::Module& M) {
                 DILocation diloc(locmd);
                 retloc = diloc;
             }
+
+            // Assume locations are in strictly increasing order
+            // FIXME: Do better
+            if (retloc.isUnknown()) {
+                retloc = lastSeen;
+            }
+            lastSeen = retloc;
 
             valueDebugInfo.put(retloc, &I);
         }

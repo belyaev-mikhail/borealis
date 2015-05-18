@@ -8,7 +8,7 @@
 #ifndef MATHSAT_EXPRFACTORY_H_
 #define MATHSAT_EXPRFACTORY_H_
 
-#include <llvm/Target/TargetData.h>
+#include <llvm/IR/DataLayout.h>
 
 #include "SMT/MathSAT/MathSAT.h"
 #include "SMT/MathSAT/MathSatTypes.h"
@@ -27,9 +27,10 @@ public:
         using llvm::isa;
         return isa<type::Integer>(type) ? Integer::bitsize :
                isa<type::Pointer>(type) ? Pointer::bitsize :
+               isa<type::Array>(type)   ? Pointer::bitsize : // FIXME: ???
                isa<type::Float>(type)   ? Real::bitsize :
                util::sayonara<size_t>(__FILE__, __LINE__, __PRETTY_FUNCTION__,
-                        "Cannot acquire bitsize for type " + util::toString(type));
+                        "Cannot acquire bitsize for type " + util::toString(*type));
     }
 
     ExprFactory();
@@ -58,7 +59,7 @@ public:
     Real getRealConst(int v);
     Real getRealConst(double v);
     // Memory
-    MemArray getNoMemoryArray();
+    MemArray getNoMemoryArray(const std::string& id);
 
     // Generic functions
     Dynamic getVarByTypeAndName(
@@ -76,6 +77,10 @@ public:
     auto if_(Bool cond) QUICK_RETURN(logic::if_(cond))
 #include "Util/unmacros.h"
 
+    Bool implies(Bool lhv, Bool rhv) {
+        return logic::implies(lhv, rhv);
+    }
+
     template<class T, class U>
     T switch_(
             U val,
@@ -91,7 +96,7 @@ public:
         return logic::switch_(cases, default_);
     }
 
-    static void initialize(llvm::TargetData* TD);
+    static void initialize(llvm::DataLayout* TD);
 
 private:
 

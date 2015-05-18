@@ -8,26 +8,26 @@
 #ifndef SLOTTRACKER_H_
 #define SLOTTRACKER_H_
 
-#include <llvm/Assembly/AssemblyAnnotationWriter.h>
-#include <llvm/Assembly/PrintModulePass.h>
-#include <llvm/Assembly/Writer.h>
-#include <llvm/CallingConv.h>
-#include <llvm/Constants.h>
-#include <llvm/DerivedTypes.h>
-#include <llvm/InlineAsm.h>
-#include <llvm/Instruction.h>
-#include <llvm/Instructions.h>
-#include <llvm/IntrinsicInst.h>
-#include <llvm/LLVMContext.h>
-#include <llvm/Module.h>
-#include <llvm/Operator.h>
-#include <llvm/ValueSymbolTable.h>
+#include <llvm/IR/AssemblyAnnotationWriter.h>
+#include <llvm/IR/IRPrintingPasses.h>
+// // // // #include <llvm/Assembly/Writer.h> // migration // migration // migration // FIXME: migration
+#include <llvm/IR/CallingConv.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/InlineAsm.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/IntrinsicInst.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Operator.h>
+#include <llvm/IR/ValueSymbolTable.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallString.h>
 #include <llvm/ADT/StringExtras.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/Support/Casting.h>
-#include <llvm/Support/CFG.h>
+#include <llvm/IR/CFG.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/Dwarf.h>
 #include <llvm/Support/ErrorHandling.h>
@@ -49,6 +49,7 @@ class SlotTracker {
 public:
   /// ValueMap - A mapping of Values to slot numbers.
   typedef llvm::DenseMap<const llvm::Value*, unsigned> ValueMap;
+  typedef llvm::DenseMap<unsigned, const llvm::Value*> SlotMap;
 
 private:
   /// TheModule - The module for which we are holding slot numbers.
@@ -60,10 +61,12 @@ private:
 
   /// mMap - The slot map for the module level data.
   ValueMap mMap;
+  SlotMap mSap;
   unsigned mNext;
 
   /// fMap - The slot map for the function level data.
   ValueMap fMap;
+  SlotMap fSap;
   unsigned fNext;
 
   /// mdnMap - Map for MDNodes.
@@ -82,6 +85,8 @@ public:
   int getMetadataSlot(const llvm::MDNode *N);
 
   std::string getLocalName(const llvm::Value *V);
+  const llvm::Value* getLocalValue(const std::string& name);
+  const llvm::Value* getGlobalValue(const std::string& name);
 
   /// If you'd like to deal with a function instead of just a module, use
   /// this method to get its data into the SlotTracker.

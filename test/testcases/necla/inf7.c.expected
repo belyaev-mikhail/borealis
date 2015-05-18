@@ -8,10 +8,10 @@
 			"loc" : 
 			{
 				"col" : 3,
-				"line" : 27
+				"line" : 28
 			}
 		},
-		"type" : "INI-03"
+		"type" : "BUF-01"
 	},
 	
 	{
@@ -21,10 +21,10 @@
 			"loc" : 
 			{
 				"col" : 3,
-				"line" : 60
+				"line" : 62
 			}
 		},
-		"type" : "INI-03"
+		"type" : "BUF-01"
 	},
 	
 	{
@@ -34,23 +34,10 @@
 			"loc" : 
 			{
 				"col" : 5,
-				"line" : 67
+				"line" : 69
 			}
 		},
-		"type" : "INI-03"
-	},
-	
-	{
-		"location" : 
-		{
-			"filename" : "test/testcases/necla/inf7.c",
-			"loc" : 
-			{
-				"col" : 3,
-				"line" : 26
-			}
-		},
-		"type" : "REQ-01"
+		"type" : "BUF-01"
 	},
 	
 	{
@@ -86,7 +73,7 @@
 			"loc" : 
 			{
 				"col" : 3,
-				"line" : 32
+				"line" : 29
 			}
 		},
 		"type" : "REQ-01"
@@ -99,7 +86,7 @@
 			"loc" : 
 			{
 				"col" : 3,
-				"line" : 35
+				"line" : 33
 			}
 		},
 		"type" : "REQ-01"
@@ -112,7 +99,20 @@
 			"loc" : 
 			{
 				"col" : 3,
-				"line" : 72
+				"line" : 36
+			}
+		},
+		"type" : "REQ-01"
+	},
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/necla/inf7.c",
+			"loc" : 
+			{
+				"col" : 3,
+				"line" : 74
 			}
 		},
 		"type" : "REQ-01"

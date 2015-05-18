@@ -19,27 +19,22 @@ package borealis.proto;
 
 message OpaqueUndefTerm {
     extend borealis.proto.Term {
-        optional OpaqueUndefTerm ext = 27;
+        optional OpaqueUndefTerm ext = $COUNTER_TERM;
     }
 }
 
 **/
 class OpaqueUndefTerm: public borealis::Term {
 
-    OpaqueUndefTerm(Type::Ptr type):
-        Term(
-            class_tag(*this),
-            type,
-            "<undef>"
-        ) {};
+    OpaqueUndefTerm(Type::Ptr type);
 
 public:
 
     MK_COMMON_TERM_IMPL(OpaqueUndefTerm);
 
     template<class Sub>
-    auto accept(Transformer<Sub>*) const -> const Self* {
-        return new Self( *this );
+    auto accept(Transformer<Sub>*) const -> Term::Ptr {
+        return this->shared_from_this();
     }
 
 };
@@ -50,7 +45,8 @@ struct SMTImpl<Impl, OpaqueUndefTerm> {
             const OpaqueUndefTerm* t,
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>*) {
-        return ef.getVarByTypeAndName(t->getType(), t->getName(), true);
+        TRACE_FUNC;
+        return ef.getVarByTypeAndName(t->getType(), t->getName(), /*fresh = */true);
     }
 };
 

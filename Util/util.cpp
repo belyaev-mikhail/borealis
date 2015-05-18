@@ -5,25 +5,20 @@
  *      Author: belyaev
  */
 
-#include <llvm/Constants.h>
-#include <llvm/InstrTypes.h>
-#include <llvm/LLVMContext.h>
+#include <llvm/Support/Program.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/LLVMContext.h>
 
 #include <cstdlib>
 #include <unordered_set>
 
 #include "Util/util.h"
+#include "Util/functional.hpp"
 
 #include "Util/macros.h"
 
 namespace llvm {
-
-// copy the standard ostream behavior with functions
-llvm::raw_ostream& operator<<(
-        llvm::raw_ostream& ost,
-        llvm::raw_ostream& (*op)(llvm::raw_ostream&)) {
-    return op(ost);
-}
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& OS, const llvm::Type& T) {
     T.print(OS);
@@ -122,6 +117,49 @@ std::string conditionString(ConditionType cond) {
     }
 }
 
+ConditionType forceSigned(ConditionType cond) {
+    switch(cond) {
+    case ConditionType::UGT: return ConditionType::GT;
+    case ConditionType::UGE: return ConditionType::GE;
+    case ConditionType::ULT: return ConditionType::LT;
+    case ConditionType::ULE: return ConditionType::LE;
+    default: return cond;
+    }
+}
+
+ConditionType forceUnsigned(ConditionType cond) {
+    switch(cond) {
+    case ConditionType::GT: return ConditionType::UGT;
+    case ConditionType::GE: return ConditionType::UGE;
+    case ConditionType::LT: return ConditionType::ULT;
+    case ConditionType::LE: return ConditionType::ULE;
+    default: return cond;
+    }
+}
+
+ConditionType makeNot(ConditionType cond) {
+    switch(cond) {
+    case ConditionType::EQ:    return ConditionType::NEQ;
+    case ConditionType::NEQ:   return ConditionType::EQ;
+
+    case ConditionType::GT:    return ConditionType::LE;
+    case ConditionType::GE:    return ConditionType::LT;
+    case ConditionType::LT:    return ConditionType::GE;
+    case ConditionType::LE:    return ConditionType::GT;
+
+    case ConditionType::UGT:   return ConditionType::ULE;
+    case ConditionType::UGE:   return ConditionType::ULT;
+    case ConditionType::ULT:   return ConditionType::UGE;
+    case ConditionType::ULE:   return ConditionType::UGT;
+
+    case ConditionType::TRUE:  return ConditionType::FALSE;
+    case ConditionType::FALSE: return ConditionType::TRUE;
+    default: BYE_BYE(ConditionType, "Unreachable!");
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 ArithType arithType(llvm::BinaryOperator::BinaryOps llops) {
     typedef llvm::BinaryOperator::BinaryOps ops;
 
@@ -165,6 +203,7 @@ std::string arithString(ArithType opCode) {
     case ArithType::SHL:  return "<<";
     case ArithType::ASHR: return ">>";
     case ArithType::LSHR: return ">>>";
+    case ArithType::IMPLIES: return "==>";
     default: BYE_BYE(std::string, "Unreachable!");
     }
 }
@@ -209,16 +248,16 @@ Loop* getLoopFor(Instruction* inst, LoopInfo* LI) {
 }
 
 std::list<ReturnInst*> getAllRets(Function* F) {
-    using borealis::util::isValid;
-    using borealis::util::takePtr;
     using borealis::util::viewContainer;
+    using namespace borealis::ops;
 
     std::unordered_set<ReturnInst*> rets;
 
-    for (ReturnInst* RI : viewContainer(F).flatten()
-                          .map(takePtr())
+    for (ReturnInst* RI : viewContainer(*F)
+                          .flatten()
+                          .map(take_pointer)
                           .map(dyn_caster<ReturnInst>())
-                          .filter(isValid())) {
+                          .filter()) {
         rets.insert(RI);
     }
 
@@ -239,6 +278,43 @@ ReturnInst* getSingleRetOpt(Function* F) {
 
 namespace borealis {
 namespace util {
+
+static std::string executableDirectory;
+
+void initFilePaths(const char ** argv) {
+    auto execPath = llvm::sys::FindProgramByName(argv[0]);
+    executableDirectory = llvm::sys::path::parent_path(execPath).str();
+}
+
+static bool fileExists(llvm::Twine path) {
+    llvm::sys::fs::file_status fst;
+    llvm::sys::fs::status(path, fst);
+    return llvm::sys::fs::exists(fst);
+}
+
+std::string getFilePathIfExists(const std::string& path) {
+    if(llvm::sys::path::is_absolute(path)) {
+        if(fileExists(path)) return path;
+        return "";
+    }
+
+    llvm::SmallString<256> tryPath;
+    llvm::sys::fs::current_path(tryPath);
+    llvm::sys::path::append(tryPath, path);
+
+    if(fileExists(llvm::Twine(tryPath))) {
+        return tryPath.str().str();
+    }
+
+    tryPath = llvm::StringRef(executableDirectory);
+    llvm::sys::path::append(tryPath, path);
+
+    if(fileExists(llvm::Twine(tryPath))) {
+        return tryPath.str().str();
+    }
+
+    return "";
+}
 
 std::string nospaces(const std::string& v) {
     return nospaces(std::string(v));
@@ -272,16 +348,6 @@ std::string& replace(const std::string& from, const std::string& to, std::string
     else return in.replace(pos, from.length(), to);
 }
 
-namespace streams {
-
-// copy the standard ostream endl
-llvm::raw_ostream& endl(llvm::raw_ostream& ost) {
-    ost << '\n';
-    ost.flush();
-    return ost;
-}
-
-} // namespace streams
 } // namespace util
 } // namespace borealis
 

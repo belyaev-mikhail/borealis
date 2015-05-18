@@ -12,6 +12,7 @@
 #include "State/PredicateStateBuilder.h"
 #include "State/Transformer/AggregateTransformer.h"
 #include "State/Transformer/CallSiteInitializer.h"
+#include "State/Transformer/MemoryContextSplitter.h"
 #include "Util/util.h"
 
 namespace borealis {
@@ -23,6 +24,7 @@ void OneForOne::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
 
     AUX<FunctionManager>::addRequiredTransitive(AU);
+    AUX<SourceLocationTracker>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
 
 #define HANDLE_ANALYSIS(CLASS) \
@@ -34,6 +36,7 @@ bool OneForOne::runOnFunction(llvm::Function& F) {
     init();
 
     FM = &GetAnalysis< FunctionManager >::doit(this, F);
+    SLT = &GetAnalysis< SourceLocationTracker >::doit(this, F);
 
     auto* st = GetAnalysis< SlotTrackerPass >::doit(this, F).getSlotTracker(F);
     FN = FactoryNest(st);
@@ -42,24 +45,27 @@ bool OneForOne::runOnFunction(llvm::Function& F) {
     PA.push_back(static_cast<AbstractPredicateAnalysis*>(&GetAnalysis<CLASS>::doit(this, F)));
 #include "Passes/PredicateAnalysis/Defines.def"
 
-    // Register globals in our predicate states
-    auto& globalList = F.getParent()->getGlobalList();
-
-    std::vector<Term::Ptr> globals;
-    globals.reserve(globalList.size());
-    for (auto& g : globalList) {
-        globals.push_back(FN.Term->getValueTerm(&g));
-    }
-    Predicate::Ptr gPredicate = FN.Predicate->getGlobalsPredicate(globals);
+    // Register globals in our predicate state
+    PredicateState::Ptr gState = FN.getGlobalState(F.getParent());
 
     // Register REQUIRES
     PredicateState::Ptr requires = FM->getReq(&F);
+    // Memory split requires
+    auto mcs = MemoryContextSplitter(FN);
+    PredicateState::Ptr splittedRequires = requires->map(
+        [&mcs](Predicate::Ptr p) { return mcs.transform(p); }
+    );
 
-    PredicateState::Ptr initialState = (FN.State * gPredicate + requires)();
+    PredicateState::Ptr initialState = (
+        FN.State *
+        gState +
+        mcs.getGeneratedPredicates() +
+        splittedRequires
+    )();
 
     // Register arguments as visited values
     for (auto& arg : F.getArgumentList()) {
-        initialState = initialState << arg;
+        initialState = initialState << SLT->getLocFor(&arg);
     }
 
     // Save initial state
@@ -121,9 +127,9 @@ void OneForOne::processBasicBlock(const WorkQueueEntry& wqe) {
     const BasicBlock* bb = std::get<1>(wqe);
     PredicateState::Ptr inState = std::get<2>(wqe);
 
-    auto fMemId = FM->getMemoryStart(bb->getParent());
+    auto&& fMemInfo = FM->getMemoryBounds(bb->getParent());
 
-    if (PredicateStateAnalysis::CheckUnreachable() && inState->isUnreachableIn(fMemId)) return;
+    if (PredicateStateAnalysis::CheckUnreachable() and inState->isUnreachableIn(fMemInfo.first, fMemInfo.second)) return;
 
     auto iter = bb->begin();
 
@@ -148,7 +154,7 @@ void OneForOne::processBasicBlock(const WorkQueueEntry& wqe) {
 
         // Add ensures and summary *after* the CallInst has been processed
         if (isa<CallInst>(I)) {
-            CallInst& CI = cast<CallInst>(I);
+            auto&& CI = cast<CallInst>(I);
 
             auto callState = (
                 FN.State *
@@ -161,7 +167,12 @@ void OneForOne::processBasicBlock(const WorkQueueEntry& wqe) {
                 [&t](Predicate::Ptr p) { return t.transform(p); }
             );
 
-            modifiedInState = (FN.State * modifiedInState + instantiatedCallState << I)();
+            modifiedInState = (
+                FN.State *
+                modifiedInState +
+                instantiatedCallState <<
+                SLT->getLocFor(&I)
+            )();
         }
 
         inState = modifiedInState;
@@ -229,7 +240,7 @@ PredicateState::Ptr OneForOne::PM(const llvm::Instruction* I) {
         }
     }
 
-    return res << I;
+    return res << SLT->getLocFor(I);
 }
 
 PredicateState::Ptr OneForOne::PPM(PhiBranch key) {
@@ -244,7 +255,7 @@ PredicateState::Ptr OneForOne::PPM(PhiBranch key) {
         }
     }
 
-    return res << key.second;
+    return res << SLT->getLocFor(key.second);
 }
 
 PredicateState::Ptr OneForOne::TPM(TerminatorBranch key) {
@@ -259,7 +270,7 @@ PredicateState::Ptr OneForOne::TPM(TerminatorBranch key) {
         }
     }
 
-    return res << key.first;
+    return res << SLT->getLocFor(key.first);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

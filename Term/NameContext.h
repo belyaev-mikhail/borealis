@@ -8,7 +8,7 @@
 #ifndef NAMECONTEXT_H_
 #define NAMECONTEXT_H_
 
-#include <llvm/Function.h>
+#include <llvm/IR/Function.h>
 
 #include "Util/locations.h"
 
@@ -22,7 +22,7 @@ struct NameContext {
 
 template<class Streamer>
 Streamer& operator<<(Streamer& str, const NameContext& nc) {
-    switch(nc.placement) {
+    switch (nc.placement) {
     case NameContext::Placement::InnerScope:
         str << "in function " << nc.func->getName() << ": " << nc.loc;
         break;

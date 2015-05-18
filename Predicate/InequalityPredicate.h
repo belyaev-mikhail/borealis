@@ -20,7 +20,7 @@ package borealis.proto;
 
 message InequalityPredicate {
     extend borealis.proto.Predicate {
-        optional InequalityPredicate ext = 20;
+        optional InequalityPredicate ext = $COUNTER_PRED;
     }
 
     optional Term lhv = 1;
@@ -30,32 +30,30 @@ message InequalityPredicate {
 **/
 class InequalityPredicate: public borealis::Predicate {
 
-    Term::Ptr lhv;
-    Term::Ptr rhv;
-
     InequalityPredicate(
             Term::Ptr lhv,
             Term::Ptr rhv,
+            const Locus& loc,
             PredicateType type = PredicateType::STATE);
 
 public:
 
     MK_COMMON_PREDICATE_IMPL(InequalityPredicate);
 
-    Term::Ptr getLhv() const { return lhv; }
-    Term::Ptr getRhv() const { return rhv; }
+    Term::Ptr getLhv() const;
+    Term::Ptr getRhv() const;
 
     template<class SubClass>
-    const Self* accept(Transformer<SubClass>* t) const {
-        return new Self{
-            t->transform(lhv),
-            t->transform(rhv),
-            type
-        };
+    Predicate::Ptr accept(Transformer<SubClass>* t) const {
+        auto&& _lhv = t->transform(getLhv());
+        auto&& _rhv = t->transform(getRhv());
+        auto&& _loc = getLocation();
+        auto&& _type = getType();
+        PREDICATE_ON_CHANGED(
+            getLhv() != _lhv || getRhv() != _rhv,
+            new Self( _lhv, _rhv, _loc, _type )
+        );
     }
-
-    virtual bool equals(const Predicate* other) const override;
-    virtual size_t hashCode() const override;
 
 };
 

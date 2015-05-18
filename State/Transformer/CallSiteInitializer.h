@@ -8,10 +8,10 @@
 #ifndef CALLSITEINITIALIZER_H_
 #define CALLSITEINITIALIZER_H_
 
-#include <llvm/Argument.h>
-#include <llvm/Instruction.h>
-#include <llvm/Instructions.h>
-#include <llvm/Value.h>
+#include <llvm/IR/Argument.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Value.h>
 
 #include <unordered_map>
 
@@ -23,74 +23,23 @@ namespace borealis {
 
 class CallSiteInitializer : public borealis::Transformer<CallSiteInitializer> {
 
-    typedef borealis::Transformer<CallSiteInitializer> Base;
+    using Base = borealis::Transformer<CallSiteInitializer>;
 
 public:
 
-    CallSiteInitializer(
-            llvm::CallInst& CI,
-            FactoryNest FN) : Base(FN) {
+    CallSiteInitializer(const llvm::CallInst& CI, FactoryNest FN);
 
-        using borealis::util::toString;
+    Predicate::Ptr transformPredicate(Predicate::Ptr p);
 
-        returnValue = &CI;
-
-        if (auto* calledFunc = CI.getCalledFunction()) {
-            int argNum = calledFunc->arg_size();
-            for (int argIdx = 0; argIdx < argNum; ++argIdx) {
-                callSiteArguments[argIdx] = CI.getArgOperand(argIdx);
-            }
-        }
-
-        auto* callerFunc = CI.getParent()->getParent();
-        auto* callerInst = &CI;
-
-        auto callerFuncName = callerFunc && callerFunc->hasName()
-                              ? callerFunc->getName().str()
-                              : toString(callerFunc);
-        auto callerInstName = callerInst && callerInst->hasName()
-                              ? callerInst->getName().str()
-                              : toString(callerInst);
-
-        prefix = callerFuncName + "." + callerInstName + ".";
-    }
-
-    Predicate::Ptr transformPredicate(Predicate::Ptr p) {
-        switch(p->getType()) {
-        case PredicateType::ENSURES:
-            return Predicate::Ptr(
-                p->clone()->setType(PredicateType::STATE)
-            );
-        default:
-            return p;
-        }
-    }
-
-    Term::Ptr transformArgumentTerm(ArgumentTermPtr t) {
-        auto argIdx = t->getIdx();
-
-        ASSERT(callSiteArguments.count(argIdx) > 0,
-               "Cannot find an actual function argument at call site");
-
-        auto* actual = callSiteArguments.at(argIdx);
-
-        return FN.Term->getValueTerm(actual);
-    }
-
-    Term::Ptr transformReturnValueTerm(ReturnValueTermPtr) {
-        return FN.Term->getValueTerm(returnValue);
-    }
-
-    Term::Ptr transformValueTerm(ValueTermPtr t) {
-        auto renamed = prefix + t->getName();
-        return t->withNewName(renamed);
-    }
+    Term::Ptr transformArgumentTerm(ArgumentTermPtr t);
+    Term::Ptr transformReturnValueTerm(ReturnValueTermPtr);
+    Term::Ptr transformValueTerm(ValueTermPtr t);
 
 private:
 
-    typedef std::unordered_map<unsigned int, llvm::Value*> CallSiteArguments;
+    using CallSiteArguments = std::unordered_map<unsigned int, const llvm::Value*>;
 
-    llvm::Value* returnValue;
+    const llvm::Value* returnValue;
     CallSiteArguments callSiteArguments;
     std::string prefix;
 

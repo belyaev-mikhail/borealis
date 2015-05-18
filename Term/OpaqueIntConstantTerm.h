@@ -19,7 +19,7 @@ package borealis.proto;
 
 message OpaqueIntConstantTerm {
     extend borealis.proto.Term {
-        optional OpaqueIntConstantTerm ext = 25;
+        optional OpaqueIntConstantTerm ext = $COUNTER_TERM;
     }
 
     optional sint64 value = 1;
@@ -30,22 +30,17 @@ class OpaqueIntConstantTerm: public borealis::Term {
 
     long long value;
 
-    OpaqueIntConstantTerm(Type::Ptr type, long long value):
-        Term(
-            class_tag(*this),
-            type,
-            util::toString(value)
-        ), value(value) {};
+    OpaqueIntConstantTerm(Type::Ptr type, long long value);
 
 public:
 
     MK_COMMON_TERM_IMPL(OpaqueIntConstantTerm);
 
-    long long getValue() const { return value; }
+    long long getValue() const;
 
     template<class Sub>
-    auto accept(Transformer<Sub>*) const -> const Self* {
-        return new Self( *this );
+    auto accept(Transformer<Sub>*) const -> Term::Ptr {
+        return this->shared_from_this();
     }
 
 };
@@ -56,6 +51,7 @@ struct SMTImpl<Impl, OpaqueIntConstantTerm> {
             const OpaqueIntConstantTerm* t,
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>*) {
+        TRACE_FUNC;
         return ef.getIntConst(t->getValue());
     }
 };

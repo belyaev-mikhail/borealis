@@ -21,24 +21,26 @@ class Solver;
 
 struct Z3 {
 
-    typedef z3_::ExprFactory ExprFactory;
-    typedef z3_::ExecutionContext ExecutionContext;
-    typedef z3_::Solver Solver;
+    using ExprFactory = z3_::ExprFactory;
+    using ExecutionContext = z3_::ExecutionContext;
+    using Solver = z3_::Solver;
 
     // logic type to represent boolean expressions
-    typedef z3_::logic::Bool Bool;
+    using Bool = z3_::logic::Bool;
     // logic type to represent pointers
-    typedef z3_::logic::BitVector<32> Pointer;
+    using Pointer = z3_::logic::BitVector<32>;
     // logic type to represent memory units
-    typedef z3_::logic::BitVector<Pointer::bitsize> Byte;
+    using Byte = z3_::logic::BitVector<Pointer::bitsize>;
     // logic type to represent integers
-    typedef z3_::logic::BitVector<Pointer::bitsize> Integer;
+    using Integer = z3_::logic::BitVector<Pointer::bitsize>;
     // logic type to represent reals
-    typedef z3_::logic::BitVector<Pointer::bitsize> Real;
+    using Real = z3_::logic::BitVector<Pointer::bitsize>;
     // dynamic bit vector
-    typedef z3_::logic::DynBitVectorExpr DynBV;
+    using DynBV = z3_::logic::DynBitVectorExpr;
+    // unsigned comparable type
+    using UComparable = z3_::logic::UComparableExpr;
     // dynamic logic type
-    typedef z3_::logic::SomeExpr Dynamic;
+    using Dynamic = z3_::logic::SomeExpr;
 
 #if defined USE_FUNC_ARRAY
     template<class Elem, class Index> using ArrayImpl = z3_::logic::FuncArray<Elem, Index>;
@@ -49,10 +51,18 @@ struct Z3 {
 #endif
 
     // memory array
-    typedef z3_::logic::ScatterArray<Pointer, Byte::bitsize, ArrayImpl> MemArray;
-
+    using MemArray = z3_::logic::ScatterArray<Pointer, Byte::bitsize, ArrayImpl>;
+    
 };
 
 } // namespace borealis
+
+namespace z3 {
+
+borealis::logging::logstream& operator<<(borealis::logging::logstream& os, const z3::expr_vector& z3ev);
+borealis::logging::logstream& operator<<(borealis::logging::logstream& os, const z3::func_entry& z3fe);
+borealis::logging::logstream& operator<<(borealis::logging::logstream& os, const z3::func_interp& z3fi);
+
+} // namespace z3
 
 #endif /* BOREALIS_Z3_H_ */

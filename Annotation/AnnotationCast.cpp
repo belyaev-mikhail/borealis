@@ -17,6 +17,8 @@ using namespace borealis;
 
 namespace {
 
+using namespace borealis::anno;
+
 bool isCompare(bin_opcode op) {
     switch(op) {
     case bin_opcode::OPCODE_EQ:
@@ -76,6 +78,8 @@ llvm::ArithType convertAT(bin_opcode op) {
         return llvm::ArithType::SHL;
     case bin_opcode::OPCODE_RSH:
         return llvm::ArithType::ASHR;
+    case bin_opcode::OPCODE_IMPLIES:
+        return llvm::ArithType::IMPLIES;
     default:
         BYE_BYE(llvm::ArithType, "Called with non-arithmetic operation");
     }
@@ -134,6 +138,39 @@ public:
 
         if (isCompare(op)) {
             term = tf->getCmpTerm(convertCT(op), lhvtc.term, rhvtc.term );
+        } else if( op == bin_opcode::OPCODE_INDEX)  {
+            term = tf->getOpaqueIndexingTerm(lhvtc.term, rhvtc.term);
+        } else if( op == bin_opcode::OPCODE_CALL) {
+            std::vector<Term::Ptr> args;
+            struct list_expander: empty_visitor {
+                std::list<prod_t> ret;
+                virtual void onList(const std::list<prod_t>& elems) override {
+                    ret = elems;
+                }
+            };
+            list_expander list_expander;
+            rhv->accept(list_expander);
+            if(list_expander.ret.empty()) list_expander.ret = { rhv };
+
+            args.reserve(list_expander.ret.size());
+
+            for(const auto& prod: list_expander.ret) {
+                TermConstructor prodtc(tf);
+                prod->accept(prodtc);
+                args.push_back(prodtc.term);
+            }
+
+            term = tf->getOpaqueCallTerm(lhvtc.term, args);
+        } else if( op == bin_opcode::OPCODE_PROPERTY) {
+            ASSERTC(llvm::isa<OpaqueVarTerm>(rhvtc.term));
+
+            auto prop = llvm::dyn_cast<OpaqueVarTerm>(rhvtc.term);
+            term = tf->getOpaqueMemberAccessTerm(lhvtc.term, prop->getVName());
+        } else if( op == bin_opcode::OPCODE_INDIR_PROPERTY) {
+            ASSERTC(llvm::isa<OpaqueVarTerm>(rhvtc.term));
+
+            auto prop = llvm::dyn_cast<OpaqueVarTerm>(rhvtc.term);
+            term = tf->getOpaqueMemberAccessTerm(lhvtc.term, prop->getVName(), true);
         } else {
             term = tf->getBinaryTerm(convertAT(op), lhvtc.term, rhvtc.term );
         }
@@ -155,7 +192,7 @@ public:
     Term::Ptr getTerm() { return term; }
 };
 
-} // namespace
+} /* namespace */
 
 Annotation::Ptr borealis::fromParseResult(
         const Locus& locus, const anno::command& cmd, TermFactory::Ptr tf) {
@@ -169,7 +206,7 @@ Annotation::Ptr borealis::fromParseResult(
         terms.push_back(tc.getTerm());
     }
 
-#define HANDLE_ANNOTATION(CMD, CLASS) \
+#define HANDLE_ANNOTATION(CMD, IGNORE, CLASS) \
     if (cmd.name_ == CMD) { \
         return CLASS::fromTerms(locus, terms); \
     }
@@ -178,4 +215,13 @@ Annotation::Ptr borealis::fromParseResult(
     BYE_BYE(Annotation::Ptr, "Unknown annotation type: \"@" + cmd.name_ + "\"");
 }
 
+Annotation::Ptr borealis::fromString(const Locus& locus, const std::string& text, TermFactory::Ptr TF) {
+    auto commands = anno::parse("// " + text);
+    if(commands.empty()) return nullptr;
+    ASSERTC(commands.size() == 1);
+    return fromParseResult(locus, commands.front(), TF);
+}
+
 #include "Util/unmacros.h"
+
+

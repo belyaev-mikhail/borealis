@@ -5,7 +5,8 @@
  *      Author: ice-phoenix
  */
 
-#include <llvm/Support/InstVisitor.h>
+#include <llvm/IR/InstVisitor.h>
+#include <State/Transformer/AnnotationSubstitutor.h>
 
 #include "Annotation/Annotation.def"
 #include "Codegen/intrinsics_manager.h"
@@ -31,15 +32,31 @@ public:
         auto& im = IntrinsicsManager::getInstance();
         if (im.getIntrinsicType(CI) == function_type::INTRINSIC_ANNOTATION) {
             Annotation::Ptr anno =
-                    materialize(Annotation::fromIntrinsic(CI), pass->FN, pass->MI);
+                    substituteAnnotationCall(pass->FN, llvm::CallSite(&CI));
             if (llvm::isa<AssumeAnnotation>(anno)) {
-                LogicAnnotation* LA = llvm::cast<LogicAnnotation>(anno);
+                const LogicAnnotation* LA = llvm::cast<LogicAnnotation>(anno);
                 pass->PM[&CI] =
                     pass->FN.Predicate->getEqualityPredicate(
                         LA->getTerm(),
                         pass->FN.Term->getTrueTerm(),
+                        pass->SLT->getLocFor(&CI),
                         predicateType(LA)
                     );
+            }
+
+            if (llvm::isa<AssignsAnnotation>(anno)) {
+                const LogicAnnotation* LA = llvm::cast<LogicAnnotation>(anno);
+                auto trm = LA->getTerm();
+                static int seed = 0;
+                if (llvm::isa<ReadPropertyTerm>(trm)) {
+                    auto rpt = llvm::cast<ReadPropertyTerm>(trm);
+                    pass->PM[&CI] =
+                        pass->FN.Predicate->getWritePropertyPredicate(
+                            rpt->getPropertyName(),
+                            rpt->getRhv(),
+                            pass->FN.Term->getValueTerm(pass->FN.Type->getInteger(32), "borealis.fresh.var." + util::toString(seed))
+                        );
+                }
             }
         }
     }
@@ -61,14 +78,16 @@ AnnotationPredicateAnalysis::AnnotationPredicateAnalysis(llvm::Pass* pass) :
 void AnnotationPredicateAnalysis::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
 
-    AUX<MetaInfoTracker>::addRequiredTransitive(AU);
+    AUX<VariableInfoTracker>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
+    AUX<SourceLocationTracker>::addRequiredTransitive(AU);
 }
 
 bool AnnotationPredicateAnalysis::runOnFunction(llvm::Function& F) {
     init();
 
-    MI = &GetAnalysis<MetaInfoTracker>::doit(this, F);
+    MI = &GetAnalysis<VariableInfoTracker>::doit(this, F);
+    SLT = &GetAnalysis<SourceLocationTracker>::doit(this, F);
 
     auto* st = GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(F);
     FN = FactoryNest(st);

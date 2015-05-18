@@ -14,7 +14,9 @@
 #include <vector>
 
 #include "Util/util.h"
-// FIXME: move to borealis::anno from default namespace?
+
+namespace borealis {
+namespace anno {
 
 class productionVisitor;
 
@@ -54,7 +56,10 @@ enum class bin_opcode {
     OPCODE_LSH,
     OPCODE_RSH,
     OPCODE_CALL, // operator()
-    OPCODE_INDEX // operator[]
+    OPCODE_INDEX, // operator[]
+    OPCODE_PROPERTY, // a.b
+    OPCODE_INDIR_PROPERTY, // a->b
+    OPCODE_IMPLIES
 };
 
 enum class un_opcode {
@@ -215,6 +220,9 @@ std::ostream& operator<<(std::ostream& ost, const production& prod);
 
 prod_t index(const prod_t&, const prod_t&);
 prod_t call(const prod_t&, const prod_t&);
+prod_t property_access(const prod_t&, const prod_t&);
+prod_t property_indirect_access(const prod_t&, const prod_t&);
+prod_t imply(const prod_t&, const prod_t&);
 prod_t operator+ (const prod_t&, const prod_t&);
 prod_t operator- (const prod_t&, const prod_t&);
 prod_t operator* (const prod_t&, const prod_t&);
@@ -237,5 +245,9 @@ prod_t deref     (const prod_t&);
 prod_t operator! (const prod_t&);
 prod_t operator- (const prod_t&);
 prod_t operator~ (const prod_t&);
+
+
+} // namespace anno
+} // namespace borealis
 
 #endif // PRODUCTION_H_

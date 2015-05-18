@@ -8,6 +8,8 @@
 #ifndef PREDICATESTATECHOICE_H_
 #define PREDICATESTATECHOICE_H_
 
+#include <vector>
+
 #include "State/PredicateState.h"
 
 namespace borealis {
@@ -29,48 +31,43 @@ message PredicateStateChoice {
 class PredicateStateChoice :
         public PredicateState {
 
+    using Choices = std::vector<PredicateState::Ptr>;
+
 public:
 
     MK_COMMON_STATE_IMPL(PredicateStateChoice);
 
-    const std::vector<PredicateState::Ptr> getChoices() const { return choices; }
+    const Choices& getChoices() const;
 
     virtual PredicateState::Ptr addPredicate(Predicate::Ptr pred) const override;
 
-    virtual PredicateState::Ptr addVisited(const llvm::Value* loc) const override;
-    virtual bool hasVisited(std::initializer_list<const llvm::Value*> locs) const override;
-    virtual bool hasVisitedFrom(Locs& visited) const override;
+    virtual PredicateState::Ptr addVisited(const Locus& locus) const override;
+    virtual bool hasVisited(std::initializer_list<Locus> loci) const override;
+    virtual bool hasVisitedFrom(Loci& visited) const override;
 
-    virtual Locs getVisited() const override;
+    virtual Loci getVisited() const override;
 
     virtual PredicateState::Ptr fmap(FMapper f) const override;
 
-    virtual std::pair<PredicateState::Ptr, PredicateState::Ptr> splitByTypes(std::initializer_list<PredicateType> types) const override;
-    virtual PredicateState::Ptr sliceOn(PredicateState::Ptr base) const override;;
+    virtual std::pair<PredicateState::Ptr, PredicateState::Ptr> splitByTypes(
+            std::initializer_list<PredicateType> types) const override;
+    virtual PredicateState::Ptr sliceOn(PredicateState::Ptr on) const override;;
     virtual PredicateState::Ptr simplify() const override;;
 
     virtual bool isEmpty() const override;;
+    virtual unsigned int size() const override;
 
-    virtual bool equals(const PredicateState* other) const override {
-        if (auto* o = llvm::dyn_cast_or_null<Self>(other)) {
-            return PredicateState::equals(other) &&
-                    std::equal(choices.begin(), choices.end(), o->choices.begin(),
-                        [](PredicateState::Ptr a, PredicateState::Ptr b) {
-                            return *a == *b;
-                        }
-                    );
-        } else return false;
-    }
+    virtual bool equals(const PredicateState* other) const override;
 
     virtual std::string toString() const override;
     virtual borealis::logging::logstream& dump(borealis::logging::logstream& s) const override;
 
 private:
 
-    std::vector<PredicateState::Ptr> choices;
+    Choices choices;
 
-    PredicateStateChoice(const std::vector<PredicateState::Ptr>& choices);
-    PredicateStateChoice(std::vector<PredicateState::Ptr>&& choices);
+    PredicateStateChoice(const Choices& choices);
+    PredicateStateChoice(Choices&& choices);
 
     SelfPtr fmap_(FMapper f) const;
 
@@ -86,16 +83,16 @@ struct SMTImpl<Impl, PredicateStateChoice> {
 
         USING_SMT_IMPL(Impl);
 
-        auto res = ef.getFalse();
+        auto&& res = ef.getFalse();
         std::vector<std::pair<Bool, ExecutionContext>> memories;
         memories.reserve(s->getChoices().size());
 
-        for (const auto& choice : s->getChoices()) {
+        for (auto&& choice : s->getChoices()) {
             ExecutionContext choiceCtx(*ctx);
 
-            auto path = choice->filterByTypes({PredicateType::PATH});
-            auto z3state = SMT<Impl>::doit(choice, ef, &choiceCtx);
-            auto z3path = SMT<Impl>::doit(path, ef, &choiceCtx);
+            auto&& path = choice->filterByTypes({PredicateType::PATH});
+            auto&& z3state = SMT<Impl>::doit(choice, ef, &choiceCtx);
+            auto&& z3path = SMT<Impl>::doit(path, ef, &choiceCtx);
 
             res = res || z3state;
             memories.push_back({z3path, choiceCtx});

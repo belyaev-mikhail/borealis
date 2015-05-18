@@ -147,6 +147,9 @@ public:
     Decl function(const std::string& name, const std::vector<Sort>& params, const Sort& ret);
     Decl fresh_function(const std::string& name, const std::vector<Sort>& params, const Sort& ret);
 
+    void add_branch_var(const Expr& var);
+    void clear_branch_vars();
+
     static Env share(const Env& that, const Config& cfg);
 };
 
@@ -326,12 +329,11 @@ public:
     friend Expr ror(const Expr& a, unsigned b);
     friend Expr distinct(const std::vector<Expr>& exprs);
 
-    template<class Streamer>
-    friend Streamer& operator<<(Streamer& out, const Expr& e) {
+    friend std::ostream& operator<<(std::ostream& out, const Expr& e) {
         auto smtlib = util::uniq(msat_to_smtlib2_ext(e.env_, e.term_, nullptr, 0));
         out << smtlib.get();
         // this is generally fucked up
-        return static_cast<Streamer&>(out);
+        return out;
     }
 
     static Expr from_string(Env& env, const std::string& data);
@@ -369,13 +371,20 @@ Expr ror(const Expr& a, unsigned b);
 Expr distinct(const std::vector<Expr>& exprs);
 
 ////////////////////////////////////////////////////////////////////////////////
-// ModelIterator == z3::model
+// Model + ModelIterator == z3::model
 ////////////////////////////////////////////////////////////////////////////////
 
 struct ModelElem {
     Expr term;
     Expr value;
 };
+
+template<class Streamer>
+Streamer& operator<<(Streamer& s, const ModelElem& e) {
+    s << e.term << " is " << e.value;
+    // This is generally fucked up
+    return static_cast<Streamer&>(s);
+}
 
 class ModelIterator {
 private:
@@ -389,9 +398,9 @@ public:
 
     typedef std::input_iterator_tag iterator_category;
     typedef ModelElem value_type;
-    typedef ModelElem& reference;
-    typedef ModelElem* pointer;
-    typedef ptrdiff_t difference_type;
+    typedef const value_type& reference;
+    typedef const value_type* pointer;
+    typedef std::ptrdiff_t difference_type;
 
     explicit ModelIterator(const Env& env, bool isEnd = false) :
             env_(env),
@@ -421,8 +430,8 @@ public:
         return this->it_ != that.it_;
     }
 
-    reference operator *() { return *curr_; }
-    pointer operator ->() { return &*curr_; }
+    reference operator *() const { return *curr_; }
+    pointer operator ->() const { return &*curr_; }
 
     self operator ++(int) {
         self old(*this);
@@ -446,6 +455,22 @@ public:
 
         return *this;
     }
+};
+
+class Model {
+
+    Env env_;
+
+public:
+
+    explicit Model(const Env& env) : env_(env) {};
+
+    Env& env() { return env_; }
+
+    ModelIterator begin() { return ModelIterator(env_); }
+    ModelIterator end()   { return ModelIterator(env_, true); }
+
+    Expr eval(const Expr& term);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -480,11 +505,10 @@ public:
     msat_result check() { return msat_solve(env_); }
     msat_result check(const std::vector<Expr>& assumptions);
 
+    Model get_model() { return Model(env_); }
+
     std::vector<Expr> unsat_core();
     std::vector<Expr> unsat_assumptions();
-
-    ModelIterator model_begin() { return ModelIterator(env_); }
-    ModelIterator model_end()   { return ModelIterator(env_, true); }
 };
 
 class ISolver : public Solver {
@@ -514,6 +538,12 @@ public:
         Solver(env, Env::share(env, Config::Diversification())) {};
 
     std::vector<Expr> diversify(const std::vector<Expr>& diversifiers);
+    std::vector<Expr> diversify_unsafe(const std::vector<Expr>& diversifiers, unsigned int limit);
+    std::vector<Expr> diversify(const std::vector<Expr>& diversifiers,
+                                const std::vector<Expr>& collectibles);
+    std::vector<Expr> diversify_unsafe(const std::vector<Expr>& diversifiers,
+                                       const std::vector<Expr>& collectibles,
+                                       unsigned int limit);
 };
 
 ////////////////////////////////////////////////////////////////////////////////

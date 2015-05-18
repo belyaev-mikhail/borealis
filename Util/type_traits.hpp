@@ -34,23 +34,40 @@ template<class T>
 using remove_cv_t = typename std::remove_cv<T>::type;
 
 template<class T>
+using remove_pointer_t = typename std::remove_pointer<T>::type;
+
+template<class T>
+using remove_cvptr_t = remove_cv_t< remove_pointer_t < remove_cv_t<T> > >;
+
+template<class T>
 using remove_const_reference_t = remove_cv_t<remove_reference_t<T>>;
 
-// FIXME: Should be applicable only to pointers
-template<class T>
-using make_const_ptr_t = typename std::add_pointer<
-    typename std::add_const<
-        typename std::remove_pointer<T>::type
-    >::type
->::type;
+template<class T> struct make_const_ptr;
+template<class T> struct make_const_ptr<T*>       { using type = const T*; };
+template<class T> struct make_const_ptr<const T*> { using type = const T*; };
 
-// FIXME: Should be applicable only to pointers
 template<class T>
-using unmake_const_ptr_t = typename std::add_pointer<
-    typename std::remove_const<
-        typename std::remove_pointer<T>::type
-    >::type
->::type;
+using make_const_ptr_t = typename make_const_ptr<T>::type;
+
+template<class T> struct unmake_const_ptr;
+template<class T> struct unmake_const_ptr<T*>       { using type = T*; };
+template<class T> struct unmake_const_ptr<const T*> { using type = T*; };
+
+template<class T>
+using unmake_const_ptr_t = typename unmake_const_ptr<T>::type;
+
+template<class U, class T> struct pointers_to_same {
+    enum{ value = std::is_pointer<U>::value &&
+                  std::is_pointer<T>::value &&
+                  std::is_same< remove_cvptr_t<U>, remove_cvptr_t<T> >::value };
+};
+
+template<class ...Args>
+using common_type_t = typename std::common_type<Args...>::type;
+
+template<typename T> struct is_shared_ptr;
+template<typename T> struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
+template<typename T> struct is_shared_ptr : std::false_type {};
 
 } // namespace util
 } // namespace borealis

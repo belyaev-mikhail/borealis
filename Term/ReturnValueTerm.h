@@ -19,33 +19,28 @@ package borealis.proto;
 
 message ReturnValueTerm {
     extend borealis.proto.Term {
-        optional ReturnValueTerm ext = 30;
+        optional ReturnValueTerm ext = $COUNTER_TERM;
     }
 
-    optional string functionName = 1;
+    optional string funcName = 1;
 }
 
 **/
 class ReturnValueTerm: public borealis::Term {
 
-    std::string functionName;
+    std::string funcName;
 
-    ReturnValueTerm(Type::Ptr type, const std::string& functionName) :
-        Term(
-            class_tag(*this),
-            type,
-            "\\result_" + functionName
-        ), functionName(functionName) {};
+    ReturnValueTerm(Type::Ptr type, const std::string& funcName);
 
 public:
 
     MK_COMMON_TERM_IMPL(ReturnValueTerm);
 
-    const std::string& getFunctionName() const { return functionName; }
+    const std::string& getFunctionName() const;
 
     template<class Sub>
-    auto accept(Transformer<Sub>*) const -> const Self* {
-        return new Self( *this );
+    auto accept(Transformer<Sub>*) const -> Term::Ptr {
+        return this->shared_from_this();
     }
 
 };
@@ -56,6 +51,7 @@ struct SMTImpl<Impl, ReturnValueTerm> {
             const ReturnValueTerm* t,
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>*) {
+        TRACE_FUNC;
         return ef.getVarByTypeAndName(t->getType(), t->getName());
     }
 };

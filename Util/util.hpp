@@ -23,6 +23,29 @@
 namespace borealis {
 namespace util {
 
+template<class ...T>
+inline void use(T&&...) noexcept {}
+
+template<class ...Args>
+std::vector<typename std::common_type<Args...>::type> make_vector(Args&& ...args) {
+    return std::vector<typename std::common_type<Args...>::type>{ std::forward<Args>(args)... };
+}
+
+template<class T>
+std::shared_ptr<T> copy_or_share(const T& value) {
+    return std::make_shared<T>(value);
+}
+
+template<class T>
+std::shared_ptr<T> copy_or_share(std::enable_shared_from_this<T>& value) {
+    return value.shared_from_this();
+}
+
+template<class T>
+std::shared_ptr<const T> copy_or_share(const std::enable_shared_from_this<T>& value) {
+    return value.shared_from_this();
+}
+
 // java-style reference
 template<class T>
 class ref {
@@ -35,16 +58,15 @@ public:
     explicit ref(T& v) : ptr(&v) {};
 
     ref& operator=(const ref& that) = default;
-    ref& operator=(T& v) {
+    ref& operator=(T& v) noexcept {
         ptr = &v;
         return *this;
     }
 
     const T& get() const { return *ptr; }
     T& get() { return *ptr; }
-    const T* getPtr() const { return ptr; }
-    T* getPtr() { return ptr; }
-
+    const T* getPtr() const noexcept { return ptr; }
+    T* getPtr() noexcept { return ptr; }
 
     operator T&() { return get(); }
 
@@ -75,17 +97,6 @@ public:
 
 
 
-namespace impl {
-template<class Tuple, class Callable, size_t ...N>
-auto apply_packed_step_1(const Tuple& tp, Callable c, util::indexer<N...>)
-QUICK_RETURN(c(std::get<N>(tp)...))
-} // namespace impl
-
-// apply a function taking N parameters to an N-tuple
-template<class Callable, class ...Args>
-auto apply_packed(Callable c, const std::tuple<Args...>& tp)
-QUICK_RETURN(impl::apply_packed_step_1(tp, c, typename util::make_indexer<Args...>::type()))
-
 
 
 namespace impl {
@@ -113,6 +124,12 @@ std::unique_ptr<T> uniq(T* val) {
 template<class T, class D>
 std::unique_ptr<T, D> uniq(T* val, D deleter) {
     return std::unique_ptr<T, D>(val, deleter);
+}
+
+// FIXME: This or std::make_unique(...) ???
+template<class T, class ...Args>
+std::unique_ptr<T> make_unique(Args&&... args) {
+    return std::unique_ptr<T>{ new T{ std::forward<Args>(args)... } };
 }
 
 namespace impl {
@@ -146,13 +163,19 @@ namespace llvm {
 template<class To>
 struct dyn_caster {
     template<class From>
-    auto operator()(const From& from) QUICK_CONST_RETURN(dyn_cast<To>(from));
+    auto operator()(From&& from) QUICK_CONST_RETURN(dyn_cast<To>(std::forward<From>(from)));
+};
+
+template<class To>
+struct caster {
+    template<class From>
+    auto operator()(From&& from) QUICK_CONST_RETURN(cast<To>(std::forward<From>(from)));
 };
 
 template<class To>
 struct isaer {
     template<class From>
-    auto operator()(const From& from) QUICK_CONST_RETURN(isa<To>(from));
+    auto operator()(From&& from) QUICK_CONST_RETURN(isa<To>(std::forward<From>(from)));
 };
 
 template<class T> struct simplify_type< std::shared_ptr<T> > {

@@ -11,24 +11,28 @@ namespace borealis {
 
 MallocPredicate::MallocPredicate(
         Term::Ptr lhv,
-        Term::Ptr numElements,
+        Term::Ptr numElems,
+        Term::Ptr origNumElems,
+        const Locus& loc,
         PredicateType type) :
-            Predicate(class_tag(*this), type),
-            lhv(lhv),
-            numElements(numElements) {
-    asString = lhv->getName() + "=malloc(" + numElements->getName() + ")";
+            Predicate(class_tag(*this), type, loc) {
+    asString = lhv->getName() + "=malloc(" +
+        numElems->getName() + "," +
+        origNumElems->getName() +
+    ")";
+    ops = { lhv, numElems, origNumElems };
 }
 
-bool MallocPredicate::equals(const Predicate* other) const {
-    if (const Self* o = llvm::dyn_cast_or_null<Self>(other)) {
-        return Predicate::equals(other) &&
-                *lhv == *o->lhv &&
-                *numElements == *o->numElements;
-    } else return false;
+Term::Ptr MallocPredicate::getLhv() const {
+    return ops[0];
 }
 
-size_t MallocPredicate::hashCode() const {
-    return util::hash::defaultHasher()(Predicate::hashCode(), lhv, numElements);
+Term::Ptr MallocPredicate::getNumElems() const {
+    return ops[1];
+}
+
+Term::Ptr MallocPredicate::getOrigNumElems() const {
+    return ops[2];
 }
 
 } /* namespace borealis */

@@ -21,42 +21,44 @@ package borealis.proto;
 
 message MallocPredicate {
     extend borealis.proto.Predicate {
-        optional MallocPredicate ext = 21;
+        optional MallocPredicate ext = $COUNTER_PRED;
     }
 
     optional Term lhv = 1;
     optional Term numElements = 2;
+    optional Term origNumElements = 3;
 }
 
 **/
 class MallocPredicate: public borealis::Predicate {
 
-    Term::Ptr lhv;
-    Term::Ptr numElements;
-
     MallocPredicate(
             Term::Ptr lhv,
-            Term::Ptr numElements,
+            Term::Ptr numElems,
+            Term::Ptr origNumElems,
+            const Locus& loc,
             PredicateType type = PredicateType::STATE);
 
 public:
 
     MK_COMMON_PREDICATE_IMPL(MallocPredicate);
 
-    Term::Ptr getLhv() const { return lhv; }
-    Term::Ptr getNumElems() const { return numElements; }
+    Term::Ptr getLhv() const;
+    Term::Ptr getNumElems() const;
+    Term::Ptr getOrigNumElems() const;
 
     template<class SubClass>
-    const Self* accept(Transformer<SubClass>* t) const {
-        return new Self{
-            t->transform(lhv),
-            t->transform(numElements),
-            type
-        };
+    Predicate::Ptr accept(Transformer<SubClass>* t) const {
+        auto&& _lhv = t->transform(getLhv());
+        auto&& _numElems = t->transform(getNumElems());
+        auto&& _origNumElems = t->transform(getOrigNumElems());
+        auto&& _loc = getLocation();
+        auto&& _type = getType();
+        PREDICATE_ON_CHANGED(
+            getLhv() != _lhv || getNumElems() != _numElems || getOrigNumElems() != _origNumElems,
+            new Self( _lhv, _numElems, _origNumElems, _loc, _type )
+        );
     }
-
-    virtual bool equals(const Predicate* other) const override;
-    virtual size_t hashCode() const override;
 
 };
 
@@ -73,22 +75,26 @@ struct SMTImpl<Impl, MallocPredicate> {
 
         ASSERTC(ctx != nullptr);
 
-        auto lhve = SMT<Impl>::doit(p->getLhv(), ef, ctx).template to<Pointer>();
-        ASSERT(!lhve.empty(), "Malloc produces a non-pointer");
-        auto lhvp = lhve.getUnsafe();
+        auto&& lhve = SMT<Impl>::doit(p->getLhv(), ef, ctx).template to<Pointer>();
+        ASSERT(not lhve.empty(), "Malloc produces a non-pointer");
+        auto&& lhvp = lhve.getUnsafe();
 
-        unsigned long long elems = 1;
+        auto&& elems = 1ULL;
         if (auto* cnst = llvm::dyn_cast<OpaqueIntConstantTerm>(p->getNumElems())) {
             elems = cnst->getValue();
         } else {
             BYE_BYE(Bool, "Encountered malloc with non-integer element number");
         }
 
+        auto&& origSize = SMT<Impl>::doit(p->getOrigNumElems(), ef, ctx).template to<Integer>();
+        ASSERT(not origSize.empty(), "Malloc with non-integer original size");
+        auto&& origSizeInt = origSize.getUnsafe();
+
         static config::ConfigEntry<bool> NullableMallocs("analysis", "nullable-mallocs");
-        if(NullableMallocs.get(true)) {
-            return lhvp == ef.getNullPtr() || lhvp == ctx->getLocalPtr(elems);
+        if (NullableMallocs.get(true)) {
+            return lhvp == ef.getNullPtr() || lhvp == ctx->getLocalPtr(elems, origSizeInt);
         } else {
-            return lhvp == ctx->getLocalPtr(elems);
+            return lhvp == ctx->getLocalPtr(elems, origSizeInt);
         }
     }
 };

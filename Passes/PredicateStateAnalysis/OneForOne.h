@@ -20,6 +20,7 @@
 #include "Passes/Manager/FunctionManager.h"
 #include "Passes/PredicateAnalysis/AbstractPredicateAnalysis.h"
 #include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
+#include "Passes/Tracker/SourceLocationTracker.h"
 #include "Passes/Util/ProxyFunctionPass.h"
 #include "Util/passes.hpp"
 
@@ -62,7 +63,7 @@ private:
     std::list<AbstractPredicateAnalysis*> PA;
 
     FunctionManager* FM;
-    llvm::LoopInfo* LI;
+    SourceLocationTracker* SLT;
 
     FactoryNest FN;
 

@@ -20,7 +20,7 @@ package borealis.proto;
 
 message WritePropertyPredicate {
     extend borealis.proto.Predicate {
-        optional WritePropertyPredicate ext = 23;
+        optional WritePropertyPredicate ext = $COUNTER_PRED;
     }
 
     optional Term propName = 1;
@@ -31,36 +31,33 @@ message WritePropertyPredicate {
 **/
 class WritePropertyPredicate: public borealis::Predicate {
 
-    Term::Ptr propName;
-    Term::Ptr lhv;
-    Term::Ptr rhv;
-
     WritePropertyPredicate(
             Term::Ptr propName,
             Term::Ptr lhv,
             Term::Ptr rhv,
+            const Locus& loc,
             PredicateType type = PredicateType::STATE);
 
 public:
 
     MK_COMMON_PREDICATE_IMPL(WritePropertyPredicate);
 
-    Term::Ptr getPropertyName() const { return propName; }
-    Term::Ptr getLhv() const { return lhv; }
-    Term::Ptr getRhv() const { return rhv; }
+    Term::Ptr getLhv() const;
+    Term::Ptr getRhv() const;
+    Term::Ptr getPropertyName() const;
 
     template<class SubClass>
-    const Self* accept(Transformer<SubClass>* t) const {
-        return new Self{
-            t->transform(propName),
-            t->transform(lhv),
-            t->transform(rhv),
-            type
-        };
+    Predicate::Ptr accept(Transformer<SubClass>* t) const {
+        auto&& _lhv = t->transform(getLhv());
+        auto&& _rhv = t->transform(getRhv());
+        auto&& _propName = t->transform(getPropertyName());
+        auto&& _loc = getLocation();
+        auto&& _type = getType();
+        PREDICATE_ON_CHANGED(
+            getLhv() != _lhv || getRhv() != _rhv || getPropertyName() != _propName,
+            new Self( _propName, _lhv, _rhv, _loc, _type )
+        );
     }
-
-    virtual bool equals(const Predicate* other) const override;
-    virtual size_t hashCode() const override;
 
 };
 
@@ -77,20 +74,18 @@ struct SMTImpl<Impl, WritePropertyPredicate> {
 
         ASSERTC(ctx != nullptr);
 
-        ASSERT(llvm::isa<GepTerm>(p->getPropertyName()),
+        ASSERT(llvm::isa<OpaqueStringConstantTerm>(p->getPropertyName()),
                "Property write with non-string property name");
-        auto* gepPropName = llvm::cast<GepTerm>(p->getPropertyName());
-        auto strPropName = gepPropName->getAsString();
-        ASSERT(!strPropName.empty(),
-               "Property write with unknown property name");
+        auto* propName = llvm::cast<OpaqueStringConstantTerm>(p->getPropertyName());
+        auto&& strPropName = propName->getValue();
 
-        auto l = SMT<Impl>::doit(p->getLhv(), ef, ctx).template to<Pointer>();
-        ASSERT(!l.empty(), "Property write with a non-pointer value");
-        auto lp = l.getUnsafe();
+        auto&& l = SMT<Impl>::doit(p->getLhv(), ef, ctx).template to<Pointer>();
+        ASSERT(not l.empty(), "Property write with a non-pointer value");
+        auto&& lp = l.getUnsafe();
 
-        auto r = SMT<Impl>::doit(p->getRhv(), ef, ctx);
+        auto&& r = SMT<Impl>::doit(p->getRhv(), ef, ctx);
 
-        ctx->writeProperty(strPropName.getUnsafe(), lp, r);
+        ctx->writeProperty(strPropName, lp, r);
 
         return ef.getTrue();
     }

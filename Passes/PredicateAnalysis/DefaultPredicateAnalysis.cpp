@@ -5,7 +5,7 @@
  *      Author: ice-phoenix
  */
 
-#include <llvm/Support/InstVisitor.h>
+#include <llvm/IR/InstVisitor.h>
 
 #include <vector>
 
@@ -42,7 +42,8 @@ public:
             pass->FN.Term->getValueTerm(lhv),
             pass->FN.Term->getLoadTerm(
                 pass->FN.Term->getValueTerm(rhv)
-            )
+            ),
+            pass->SLT->getLocFor(&I)
         );
     }
 
@@ -54,7 +55,8 @@ public:
 
         pass->PM[&I] = pass->FN.Predicate->getStorePredicate(
             pass->FN.Term->getValueTerm(lhv),
-            pass->FN.Term->getValueTerm(rhv)
+            pass->FN.Term->getValueTerm(rhv),
+            pass->SLT->getLocFor(&I)
         );
     }
 
@@ -73,7 +75,8 @@ public:
                 cond,
                 pass->FN.Term->getValueTerm(op1),
                 pass->FN.Term->getValueTerm(op2)
-            )
+            ),
+            pass->SLT->getLocFor(&I)
         );
     }
 
@@ -89,12 +92,14 @@ public:
         pass->TPM[{&I, trueSucc}] =
             pass->FN.Predicate->getBooleanPredicate(
                 condTerm,
-                pass->FN.Term->getTrueTerm()
+                pass->FN.Term->getTrueTerm(),
+                pass->SLT->getLocFor(&I)
             );
         pass->TPM[{&I, falseSucc}] =
             pass->FN.Predicate->getBooleanPredicate(
                 condTerm,
-                pass->FN.Term->getFalseTerm()
+                pass->FN.Term->getFalseTerm(),
+                pass->SLT->getLocFor(&I)
             );
     }
 
@@ -114,6 +119,7 @@ public:
                 pass->FN.Predicate->getEqualityPredicate(
                     condTerm,
                     caseTerm,
+                    pass->SLT->getLocFor(&I),
                     PredicateType::PATH
                 );
 
@@ -124,7 +130,8 @@ public:
         pass->TPM[{&I, defaultSucc}] =
             pass->FN.Predicate->getDefaultSwitchCasePredicate(
                 condTerm,
-                cases
+                cases,
+                pass->SLT->getLocFor(&I)
             );
     }
 
@@ -142,28 +149,8 @@ public:
                 pass->FN.Term->getValueTerm(cnd),
                 pass->FN.Term->getValueTerm(tru),
                 pass->FN.Term->getValueTerm(fls)
-            )
-        );
-    }
-
-    void visitAllocaInst(llvm::AllocaInst& I) {
-        using namespace llvm;
-        using llvm::Type;
-
-        Value* lhv = &I;
-        Value* arraySize = I.getArraySize();
-        Type* allocatedType = I.getAllocatedType();
-
-        ASSERTC(isa<ConstantInt>(arraySize));
-
-        unsigned long long numElems = cast<ConstantInt>(arraySize)->getZExtValue();
-        numElems = numElems * getTypeSizeInElems(allocatedType);
-
-        ASSERTC(numElems > 0);
-
-        pass->PM[&I] = pass->FN.Predicate->getAllocaPredicate(
-            pass->FN.Term->getValueTerm(lhv),
-            pass->FN.Term->getIntTerm(numElems)
+            ),
+            pass->SLT->getLocFor(&I)
         );
     }
 
@@ -181,7 +168,8 @@ public:
 
         pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
             pass->FN.Term->getValueTerm(lhv),
-            pass->FN.Term->getGepTerm(rhv, idxs)
+            pass->FN.Term->getGepTerm(rhv, idxs, isTriviallyInboundsGEP(&I)),
+            pass->SLT->getLocFor(&I)
         );
     }
 
@@ -210,7 +198,8 @@ public:
 
         pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
             lhvt,
-            rhvt
+            rhvt,
+            pass->SLT->getLocFor(&I)
         );
     }
 
@@ -223,7 +212,8 @@ public:
 
             pass->PPM[{from, &I}] = pass->FN.Predicate->getEqualityPredicate(
                 pass->FN.Term->getValueTerm(&I),
-                pass->FN.Term->getValueTerm(v)
+                pass->FN.Term->getValueTerm(v),
+                pass->SLT->getLocFor(&I)
             );
         }
     }
@@ -244,7 +234,8 @@ public:
                 type,
                 pass->FN.Term->getValueTerm(op1),
                 pass->FN.Term->getValueTerm(op2)
-            )
+            ),
+            pass->SLT->getLocFor(&I)
         );
     }
 
@@ -256,7 +247,8 @@ public:
 
         pass->PM[&I] = pass->FN.Predicate->getEqualityPredicate(
             pass->FN.Term->getReturnValueTerm(I.getParent()->getParent()),
-            pass->FN.Term->getValueTerm(rv)
+            pass->FN.Term->getValueTerm(rv),
+            pass->SLT->getLocFor(&I)
         );
     }
 
@@ -278,7 +270,8 @@ void DefaultPredicateAnalysis::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
 
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
-    AUX<llvm::TargetData>::addRequiredTransitive(AU);
+    AUX<SourceLocationTracker>::addRequiredTransitive(AU);
+    AUX<llvm::DataLayoutPass>::addRequiredTransitive(AU);
 }
 
 bool DefaultPredicateAnalysis::runOnFunction(llvm::Function& F) {
@@ -287,7 +280,8 @@ bool DefaultPredicateAnalysis::runOnFunction(llvm::Function& F) {
     auto* st = GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(F);
     FN = FactoryNest(st);
 
-    TD = &GetAnalysis<llvm::TargetData>::doit(this, F);
+    SLT = &GetAnalysis<SourceLocationTracker>::doit(this, F);
+    TD = &GetAnalysis<llvm::DataLayoutPass>::doit(this, F).getDataLayout();
 
     DPAInstVisitor visitor(this);
     visitor.visit(F);

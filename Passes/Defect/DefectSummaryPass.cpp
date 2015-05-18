@@ -7,11 +7,11 @@
 
 #include <clang/Basic/FileManager.h>
 #include <clang/Basic/SourceManager.h>
-#include <llvm/Support/CommandLine.h>
 
 #include <fstream>
 
 #include "Codegen/llvm.h"
+#include "Config/config.h"
 #include "Passes/Checker/Defines.def"
 #include "Passes/Defect/DefectSummaryPass.h"
 #include "Passes/Util/DataProvider.hpp"
@@ -21,24 +21,13 @@
 
 namespace borealis {
 
-typedef DataProvider<clang::FileManager> DPFileManager;
-
-static std::string DumpOutputDefault = "";
-static std::string DumpOutputFileDefault = "%s.report";
-
-static llvm::cl::opt<std::string>
-DumpOutput("dump-output", llvm::cl::init(DumpOutputDefault), llvm::cl::NotHidden,
-  llvm::cl::desc("Dump analysis results to JSON/XML"));
-
-static llvm::cl::opt<std::string>
-DumpOutputFile("dump-output-file", llvm::cl::init(DumpOutputFileDefault), llvm::cl::NotHidden,
-  llvm::cl::desc("Output file for analysis results"));
+const std::string DumpOutputDefault = "";
+const std::string DumpOutputFileDefault = "%s.report";
 
 void DefectSummaryPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
 
     AUX<DefectManager>::addRequiredTransitive(AU);
-    AUX<DPFileManager>::addRequiredTransitive(AU);
 
 #define HANDLE_CHECKER(Checker) \
     AUX<Checker>::addRequiredTransitive(AU);
@@ -46,10 +35,8 @@ void DefectSummaryPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 }
 
 bool DefectSummaryPass::runOnModule(llvm::Module& M) {
-    using clang::SourceManager;
 
     auto& dm = GetAnalysis<DefectManager>::doit(this);
-    auto& sm = GetAnalysis<DPFileManager>::doit(this).provide();
 
     auto* mainFileEntry = M.getModuleIdentifier().c_str();
 
@@ -59,7 +46,8 @@ bool DefectSummaryPass::runOnModule(llvm::Module& M) {
         if (!origin) {
             infos() << defect.type
                     << " (cannot trace location)"
-                    << endl;
+                    << endl
+                    << (dm.getAdditionalInfo(defect).runResult == AdditionalDefectInfo::RunResult::Disproven ? "Disproven by tassadar\n" : "");
             continue;
         }
 
@@ -72,24 +60,33 @@ bool DefectSummaryPass::runOnModule(llvm::Module& M) {
         LocusRange line   { prev, next };
         LocusRange after  { next, end  };
 
-        llvm::StringRef ln = getRawSource(sm, line);
-        std::string pt = ln.str();
+        auto ln = getRawSource(line);
+        auto pt = ln;
 
         for (auto i = ln.find_first_not_of("\t\n "); i < ln.size(); ++i) {
             pt[i] = '~';
         }
 
-        pt[origin.loc.col-1] = '^';
+        if(origin.loc.col) pt[origin.loc.col-1] = '^';
 
         infos() << defect.type
                 << " at " << origin << endl
-                << getRawSource(sm, before)
+                << getRawSource(before)
                 << ln
                 << pt << endl
-                << getRawSource(sm, after) << endl;
+                << getRawSource(after) << endl
+                << (dm.getAdditionalInfo(defect).runResult == AdditionalDefectInfo::RunResult::Disproven ? "Disproven by tassadar\n" : "")
+                ;
     }
 
-    if (DumpOutput != DumpOutputDefault || DumpOutputFile != DumpOutputFileDefault) {
+    static config::StringConfigEntry DumpOutputOpt("output", "dump-output");
+    static config::StringConfigEntry DumpOutputFileOpt("output", "dump-output-file");
+
+    auto DumpOutput = DumpOutputOpt.get(DumpOutputDefault);
+    auto DumpOutputFile = DumpOutputFileOpt.get(DumpOutputFileDefault);
+
+    if (DumpOutput != DumpOutputDefault ||
+        DumpOutputFile != DumpOutputFileDefault) {
 
         util::replace("%s", mainFileEntry, DumpOutputFile);
 

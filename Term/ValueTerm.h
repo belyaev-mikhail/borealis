@@ -19,36 +19,33 @@ package borealis.proto;
 
 message ValueTerm {
     extend borealis.proto.Term {
-        optional ValueTerm ext = 33;
+        optional ValueTerm ext = $COUNTER_TERM;
     }
+
+    optional bool global = 1;
 }
 
 **/
 class ValueTerm: public borealis::Term {
 
-    typedef std::unique_ptr<ValueTerm> SelfPtr;
+    std::string vname;
+    bool global;
 
-    ValueTerm(Type::Ptr type, const std::string& name) :
-        Term(
-            class_tag(*this),
-            type,
-            name
-        ) {};
+    ValueTerm(Type::Ptr type, const std::string& vname, bool global = false);
 
 public:
 
     MK_COMMON_TERM_IMPL(ValueTerm);
 
+    const std::string& getVName() const;
+    bool isGlobal() const;
+
     template<class Sub>
-    auto accept(Transformer<Sub>*) const -> const Self* {
-        return new Self( *this );
+    auto accept(Transformer<Sub>*) const -> Term::Ptr {
+        return this->shared_from_this();
     }
 
-    Term::Ptr withNewName(const std::string& name) const {
-        auto res = SelfPtr{ new Self{ *this } };
-        res->name = name;
-        return Term::Ptr{ res.release() };
-    }
+    Term::Ptr withNewName(const std::string& vname) const;
 
 };
 
@@ -58,6 +55,7 @@ struct SMTImpl<Impl, ValueTerm> {
             const ValueTerm* t,
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>*) {
+        TRACE_FUNC;
         return ef.getVarByTypeAndName(t->getType(), t->getName());
     }
 };

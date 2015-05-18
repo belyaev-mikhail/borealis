@@ -20,7 +20,7 @@ package borealis.proto;
 
 message StorePredicate {
     extend borealis.proto.Predicate {
-        optional StorePredicate ext = 22;
+        optional StorePredicate ext = $COUNTER_PRED;
     }
 
     optional Term lhv = 1;
@@ -30,32 +30,30 @@ message StorePredicate {
 **/
 class StorePredicate: public borealis::Predicate {
 
-    Term::Ptr lhv;
-    Term::Ptr rhv;
-
     StorePredicate(
             Term::Ptr lhv,
             Term::Ptr rhv,
+            const Locus& loc,
             PredicateType type = PredicateType::STATE);
 
 public:
 
     MK_COMMON_PREDICATE_IMPL(StorePredicate);
 
-    Term::Ptr getLhv() const { return lhv; }
-    Term::Ptr getRhv() const { return rhv; }
+    Term::Ptr getLhv() const;
+    Term::Ptr getRhv() const;
 
     template<class SubClass>
-    const Self* accept(Transformer<SubClass>* t) const {
-        return new Self{
-            t->transform(lhv),
-            t->transform(rhv),
-            type
-        };
+    Predicate::Ptr accept(Transformer<SubClass>* t) const {
+        auto&& _lhv = t->transform(getLhv());
+        auto&& _rhv = t->transform(getRhv());
+        auto&& _loc = getLocation();
+        auto&& _type = getType();
+        PREDICATE_ON_CHANGED(
+            getLhv() != _lhv || getRhv() != _rhv,
+            new Self( _lhv, _rhv, _loc, _type )
+        );
     }
-
-    virtual bool equals(const Predicate* other) const override;
-    virtual size_t hashCode() const override;
 
 };
 
@@ -72,11 +70,11 @@ struct SMTImpl<Impl, StorePredicate> {
 
         ASSERTC(ctx != nullptr);
 
-        auto l = SMT<Impl>::doit(p->getLhv(), ef, ctx).template to<Pointer>();
-        ASSERT(!l.empty(), "Store dealing with a non-pointer value");
-        auto lp = l.getUnsafe();
+        auto&& l = SMT<Impl>::doit(p->getLhv(), ef, ctx).template to<Pointer>();
+        ASSERT(not l.empty(), "Store dealing with a non-pointer value");
+        auto&& lp = l.getUnsafe();
 
-        auto r = SMT<Impl>::doit(p->getRhv(), ef, ctx);
+        auto&& r = SMT<Impl>::doit(p->getRhv(), ef, ctx);
 
         ctx->writeExprToMemory(lp, r);
 

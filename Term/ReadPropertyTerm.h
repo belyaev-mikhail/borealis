@@ -8,7 +8,7 @@
 #ifndef READPROPERTYTERM_H_
 #define READPROPERTYTERM_H_
 
-#include "Term/GepTerm.h"
+#include "Term/OpaqueStringConstantTerm.h"
 #include "Term/Term.h"
 
 namespace borealis {
@@ -20,7 +20,7 @@ package borealis.proto;
 
 message ReadPropertyTerm {
     extend borealis.proto.Term {
-        optional ReadPropertyTerm ext = 29;
+        optional ReadPropertyTerm ext = $COUNTER_TERM;
     }
 
     optional Term propName = 1;
@@ -30,41 +30,24 @@ message ReadPropertyTerm {
 **/
 class ReadPropertyTerm: public borealis::Term {
 
-    Term::Ptr propName;
-    Term::Ptr rhv;
-
-    ReadPropertyTerm(Type::Ptr type, Term::Ptr propName, Term::Ptr rhv):
-        Term(
-            class_tag(*this),
-            type,
-            "read(" + propName->getName() + "," + rhv->getName() + ")"
-        ), propName(propName), rhv(rhv) {};
+    ReadPropertyTerm(Type::Ptr type, Term::Ptr propName, Term::Ptr rhv);
 
 public:
 
     MK_COMMON_TERM_IMPL(ReadPropertyTerm);
 
-    Term::Ptr getPropertyName() const { return propName; }
-    Term::Ptr getRhv() const { return rhv; }
+    Term::Ptr getRhv() const;
+    Term::Ptr getPropertyName() const;
 
     template<class Sub>
-    auto accept(Transformer<Sub>* tr) const -> const Self* {
-        auto _propName = tr->transform(propName);
-        auto _rhv = tr->transform(rhv);
-        auto _type = type;
-        return new Self{ _type, _propName, _rhv };
-    }
-
-    virtual bool equals(const Term* other) const override {
-        if (const Self* that = llvm::dyn_cast_or_null<Self>(other)) {
-            return Term::equals(other) &&
-                    *that->propName == *propName &&
-                    *that->rhv == *rhv;
-        } else return false;
-    }
-
-    virtual size_t hashCode() const override {
-        return util::hash::defaultHasher()(Term::hashCode(), propName, rhv);
+    auto accept(Transformer<Sub>* tr) const -> Term::Ptr {
+        auto&& _rhv = tr->transform(getRhv());
+        auto&& _propName = tr->transform(getPropertyName());
+        auto&& _type = type;
+        TERM_ON_CHANGED(
+            getRhv() != _rhv || getPropertyName() != _propName,
+            new Self( _type, _propName, _rhv )
+        );
     }
 
 };
@@ -77,22 +60,21 @@ struct SMTImpl<Impl, ReadPropertyTerm> {
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>* ctx) {
 
+        TRACE_FUNC;
         USING_SMT_IMPL(Impl);
 
         ASSERTC(ctx != nullptr);
 
-        ASSERT(llvm::isa<GepTerm>(t->getPropertyName()),
+        ASSERT(llvm::isa<OpaqueStringConstantTerm>(t->getPropertyName()),
                "Property read with non-string property name");
-        auto* gepPropName = llvm::cast<GepTerm>(t->getPropertyName());
-        auto strPropName = gepPropName->getAsString();
-        ASSERT(!strPropName.empty(),
-               "Property read with unknown property name");
+        auto* propName = llvm::cast<OpaqueStringConstantTerm>(t->getPropertyName());
+        auto&& strPropName = propName->getValue();
 
-        auto r = SMT<Impl>::doit(t->getRhv(), ef, ctx).template to<Pointer>();
-        ASSERT(!r.empty(), "Property read with non-pointer right side");
-        auto rp = r.getUnsafe();
+        auto&& r = SMT<Impl>::doit(t->getRhv(), ef, ctx).template to<Pointer>();
+        ASSERT(not r.empty(), "Property read with non-pointer right side");
+        auto&& rp = r.getUnsafe();
 
-        return ctx->readProperty(strPropName.getUnsafe(), rp, ExprFactory::sizeForType(t->getType()));
+        return ctx->readProperty(strPropName, rp, ExprFactory::sizeForType(t->getType()));
     }
 };
 #include "Util/unmacros.h"

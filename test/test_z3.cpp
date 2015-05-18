@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 #include <z3/z3++.h>
 
+#include "SMT/Z3/Divers.h"
 #include "SMT/Z3/Solver.h"
 #include "Util/util.h"
 
@@ -20,6 +21,38 @@ using namespace borealis::util::streams;
 
 static stream_t infos() {
     return infosFor("test");
+}
+
+TEST(Z3, diversify) {
+    USING_SMT_IMPL(borealis::Z3);
+
+    using borealis::z3_::logic::z3impl::asAxiom;
+    using borealis::z3_::logic::z3impl::getExpr;
+
+    ExprFactory ef;
+
+    auto a = ef.getIntVar("a");
+    auto b = ef.getIntVar("b");
+    auto c = ef.getIntVar("c");
+
+    auto zero = ef.getIntConst(0);
+    auto one =  ef.getIntConst(1);
+    auto two =  ef.getIntConst(2);
+
+    auto query = c != zero;
+    auto state = c == ef.if_(a > b)
+                        .then_(zero)
+                        .else_(one);
+
+    z3::solver s(ef.unwrap());
+    s.add(asAxiom(query));
+    s.add(asAxiom(state));
+
+    auto res = s.check();
+    ASSERT_EQ(z3::sat, res);
+
+    auto models = z3::diversify(s, {getExpr(a), getExpr(b)}, {getExpr(a), getExpr(b)});
+    ASSERT_EQ(32, models.size());
 }
 
 TEST(Z3ExprFactory, memoryArray) {
@@ -38,10 +71,10 @@ TEST(Z3ExprFactory, memoryArray) {
             return solver.check() == z3::unsat;
         };
 
-        EXPECT_NO_THROW(factory.getNoMemoryArray());
-        EXPECT_NO_FATAL_FAILURE(factory.getNoMemoryArray());
+        EXPECT_NO_THROW(factory.getNoMemoryArray("mem"));
+        EXPECT_NO_FATAL_FAILURE(factory.getNoMemoryArray("mem"));
 
-        auto arr = factory.getNoMemoryArray();
+        auto arr = factory.getNoMemoryArray("mem");
         // empty mem is filled with 0xFFs
         for (int i = 0; i < 153; i++) {
             EXPECT_TRUE(check_expr(arr[i] == mkbyte(0xFF)));
@@ -57,9 +90,9 @@ TEST(ExecutionContext, mergeMemory) {
 
         ExprFactory factory;
 
-        ExecutionContext default_memory(factory, (1 << 16) + 1);
-        ExecutionContext memory_with_a(factory,  (1 << 16) + 1);
-        ExecutionContext memory_with_b(factory,  (1 << 16) + 1);
+        ExecutionContext default_memory(factory, (1 << 16) + 1, (2 << 16) + 1);
+        ExecutionContext memory_with_a(factory,  (1 << 16) + 1, (2 << 16) + 1);
+        ExecutionContext memory_with_b(factory,  (1 << 16) + 1, (2 << 16) + 1);
 
         Pointer ptr = factory.getPtrVar("ptr");
         Integer a = factory.getIntConst(0xdeadbeef);

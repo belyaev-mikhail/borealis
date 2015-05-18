@@ -20,7 +20,7 @@ package borealis.proto;
 
 message GlobalsPredicate {
     extend borealis.proto.Predicate {
-        optional GlobalsPredicate ext = 19;
+        optional GlobalsPredicate ext = $COUNTER_PRED;
     }
 
     repeated Term globals = 1;
@@ -29,37 +29,29 @@ message GlobalsPredicate {
 **/
 class GlobalsPredicate: public borealis::Predicate {
 
-    typedef std::vector<Term::Ptr> Globals;
-
-    const Globals globals;
-
     GlobalsPredicate(
-            const Globals& globals,
+            const std::vector<Term::Ptr>& globals,
+            const Locus& loc,
             PredicateType type = PredicateType::STATE);
 
 public:
 
     MK_COMMON_PREDICATE_IMPL(GlobalsPredicate);
 
-    const Globals& getGlobals() const { return globals; }
+    auto getGlobals() const -> decltype(util::viewContainer(ops));
 
     template<class SubClass>
-    const Self* accept(Transformer<SubClass>* t) const {
-        Globals transformedGlobals;
-        transformedGlobals.reserve(globals.size());
-        std::transform(globals.begin(), globals.end(), std::back_inserter(transformedGlobals),
-            [&t](const Term::Ptr& e) { return t->transform(e); }
+    Predicate::Ptr accept(Transformer<SubClass>* t) const {
+        auto&& _globals = getGlobals().map(
+            [&](auto&& e) { return t->transform(e); }
         );
-
-        // XXX: Should be `Self{...}`, but clang++ crashes on that...
-        return new Self(
-            transformedGlobals,
-            type
+        auto&& _loc = getLocation();
+        auto&& _type = getType();
+        PREDICATE_ON_CHANGED(
+            not util::equal(getGlobals(), _globals, ops::equals_to),
+            new Self( _globals.toVector(), _loc, _type )
         );
     }
-
-    virtual bool equals(const Predicate* other) const override;
-    virtual size_t hashCode() const override;
 
 };
 
@@ -76,11 +68,11 @@ struct SMTImpl<Impl, GlobalsPredicate> {
 
         ASSERTC(ctx != nullptr);
 
-        auto res = ef.getTrue();
-        for (const auto& g : p->getGlobals()) {
-            auto ge = SMT<Impl>::doit(g, ef, ctx).template to<Pointer>();
-            ASSERT(!ge.empty(), "Encountered non-Pointer global value: " + g->getName());
-            auto gp = ge.getUnsafe();
+        auto&& res = ef.getTrue();
+        for (auto&& g : p->getGlobals()) {
+            auto&& ge = SMT<Impl>::doit(g, ef, ctx).template to<Pointer>();
+            ASSERT(not ge.empty(), "Encountered non-Pointer global value: " + g->getName());
+            auto&& gp = ge.getUnsafe();
             res = res && gp == ctx->getGlobalPtr();
         }
         return res;

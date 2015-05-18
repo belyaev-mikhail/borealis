@@ -19,7 +19,7 @@ package borealis.proto;
 
 message SignTerm {
     extend borealis.proto.Term {
-        optional SignTerm ext = 34;
+        optional SignTerm ext = $COUNTER_TERM;
     }
 
     optional Term rhv = 1;
@@ -28,48 +28,32 @@ message SignTerm {
 **/
 class SignTerm: public borealis::Term {
 
-    Term::Ptr rhv;
-
-    SignTerm(Type::Ptr type, Term::Ptr rhv):
-        Term(
-            class_tag(*this),
-            type,
-            "sign(" + rhv->getName() + ")"
-        ), rhv(rhv) {};
+    SignTerm(Type::Ptr type, Term::Ptr rhv);
 
 public:
 
     MK_COMMON_TERM_IMPL(SignTerm);
 
-    Term::Ptr getRhv() const { return rhv; }
+    Term::Ptr getRhv() const;
 
     template<class Sub>
-    auto accept(Transformer<Sub>* tr) const -> const Self* {
-        auto _rhv = tr->transform(rhv);
-        auto _type = getTermType(tr->FN.Type, _rhv);
-        return new Self{ _type, _rhv };
-    }
-
-    virtual bool equals(const Term* other) const override {
-        if (const Self* that = llvm::dyn_cast_or_null<Self>(other)) {
-            return Term::equals(other) &&
-                    *that->rhv == *rhv;
-        } else return false;
-    }
-
-    virtual size_t hashCode() const override {
-        return util::hash::defaultHasher()(Term::hashCode(), rhv);
+    auto accept(Transformer<Sub>* tr) const -> Term::Ptr {
+        auto&& _rhv = tr->transform(getRhv());
+        TERM_ON_CHANGED(
+            getRhv() != _rhv,
+            new Self( getTermType(tr->FN.Type, _rhv), _rhv )
+        );
     }
 
     static Type::Ptr getTermType(TypeFactory::Ptr TyF, Term::Ptr rhv) {
-        auto type = rhv->getType();
+        auto&& type = rhv->getType();
 
-        if (!TyF->isValid(type) || TyF->isUnknown(type)) return type;
+        if (TypeUtils::isInvalid(type)) return type;
 
         if (llvm::isa<type::Integer>(type) || llvm::isa<type::Float>(type)) {
             return TyF->getInteger();
         } else {
-            return TyF->getTypeError("Sign for non-numerical: " + TyF->toString(*type));
+            return TyF->getTypeError("Sign for non-numerical: " + util::toString(*type));
         }
     }
 
@@ -83,15 +67,16 @@ struct SMTImpl<Impl, SignTerm> {
             ExprFactory<Impl>& ef,
             ExecutionContext<Impl>* ctx) {
 
+        TRACE_FUNC;
         USING_SMT_IMPL(Impl);
 
-        auto rhvsmt = SMT<Impl>::doit(t->getRhv(), ef, ctx);
+        auto&& rhvsmt = SMT<Impl>::doit(t->getRhv(), ef, ctx);
 
-        auto rhvbv = rhvsmt.template to<DynBV>();
-        ASSERT(!rhvbv.empty(), "Sign for non bit-vector");
+        auto&& rhvbv = rhvsmt.template to<DynBV>();
+        ASSERT(not rhvbv.empty(), "Sign for non bit-vector");
 
-        auto rhv = rhvbv.getUnsafe();
-        auto size = rhv.getBitSize();
+        auto&& rhv = rhvbv.getUnsafe();
+        auto&& size = rhv.getBitSize();
 
         return rhv.extract(size-1, size-1).zgrowTo(Integer::bitsize);
     }

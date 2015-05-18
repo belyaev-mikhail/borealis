@@ -27,19 +27,32 @@ public:
 
     typedef std::shared_ptr<TermFactory> Ptr;
 
-    Term::Ptr getArgumentTerm(llvm::Argument* arg) {
+    Term::Ptr getArgumentTerm(const llvm::Argument* arg, llvm::Signedness sign = llvm::Signedness::Unknown) {
         ASSERT(st, "Missing SlotTracker");
 
         return Term::Ptr{
             new ArgumentTerm(
-                TyF->cast(arg->getType()),
+                TyF->cast(arg->getType(), sign),
                 arg->getArgNo(),
                 st->getLocalName(arg)
             )
         };
     }
 
-    Term::Ptr getConstTerm(llvm::Constant* c) {
+    Term::Ptr getStringArgumentTerm(const llvm::Argument* arg, llvm::Signedness sign = llvm::Signedness::Unknown) {
+        ASSERT(st, "Missing SlotTracker");
+
+        return Term::Ptr{
+            new ArgumentTerm(
+                TyF->cast(arg->getType(), sign),
+                arg->getArgNo(),
+                st->getLocalName(arg),
+                ArgumentKind::STRING
+            )
+        };
+    }
+
+    Term::Ptr getConstTerm(const llvm::Constant* c, llvm::Signedness sign = llvm::Signedness::Unknown) {
         ASSERT(st, "Missing SlotTracker");
 
         using namespace llvm;
@@ -58,7 +71,7 @@ public:
                 for (auto& i : tail(view(cE->op_begin(), cE->op_end()))) {
                     idxs.push_back(i);
                 }
-                return getGepTerm(base, idxs);
+                return getGepTerm(base, idxs, isTriviallyInboundsGEP(cE));
             }
 
         } else if (auto* null = dyn_cast<ConstantPointerNull>(c)) {
@@ -69,7 +82,7 @@ public:
                 if (cInt->isOne()) return getTrueTerm();
                 else if (cInt->isZero()) return getFalseTerm();
             } else {
-                return getIntTerm(cInt->getValue().getZExtValue());
+                return getIntTerm(cInt->getValue().getSExtValue(), sign);
             }
 
         } else if (auto* cFP = dyn_cast<ConstantFP>(c)) {
@@ -85,6 +98,16 @@ public:
 
         } else if (auto* undef = dyn_cast<UndefValue>(c)) {
             return getUndefTerm(undef);
+
+        } else if (auto* gv = dyn_cast<GlobalVariable>(c)) {
+            // These guys should be processed separately by SeqDataPredicate
+            // XXX: Keep in sync with FactoryNest
+            return Term::Ptr{
+                new ValueTerm(
+                    TyF->cast(gv->getType()),
+                    st->getLocalName(gv)
+                )
+            };
 
         }
 
@@ -102,15 +125,21 @@ public:
         };
     }
 
-    Term::Ptr getNullPtrTerm(llvm::ConstantPointerNull* n) {
+    Term::Ptr getNullPtrTerm(const llvm::ConstantPointerNull* n) {
         return Term::Ptr{
             new OpaqueNullPtrTerm(TyF->cast(n->getType()))
         };
     }
 
-    Term::Ptr getUndefTerm(llvm::UndefValue* u) {
+    Term::Ptr getUndefTerm(const llvm::UndefValue* u) {
         return Term::Ptr{
             new OpaqueUndefTerm(TyF->cast(u->getType()))
+        };
+    }
+
+    Term::Ptr getInvalidPtrTerm() {
+        return Term::Ptr{
+            new OpaqueInvalidPtrTerm(TyF->getUnknownType())
         };
     }
 
@@ -130,10 +159,10 @@ public:
         return getBooleanTerm(false);
     }
 
-    Term::Ptr getIntTerm(long long i) {
+    Term::Ptr getIntTerm(long long i, llvm::Signedness sign = llvm::Signedness::Unknown) {
         return Term::Ptr{
             new OpaqueIntConstantTerm(
-                TyF->getInteger(), i
+                TyF->getInteger(32, sign), i // XXX: 32 -> ???
             )
         };
     }
@@ -146,37 +175,51 @@ public:
         };
     }
 
-    Term::Ptr getReturnValueTerm(llvm::Function* F) {
+    Term::Ptr getReturnValueTerm(const llvm::Function* F, llvm::Signedness sign = llvm::Signedness::Unknown) {
         ASSERT(st, "Missing SlotTracker");
 
         return Term::Ptr{
             new ReturnValueTerm(
-                TyF->cast(F->getFunctionType()->getReturnType()),
+                TyF->cast(F->getFunctionType()->getReturnType(), sign),
                 F->getName().str()
             )
         };
     }
 
-    Term::Ptr getValueTerm(llvm::Value* v) {
+    Term::Ptr getValueTerm(const llvm::Value* v, llvm::Signedness sign = llvm::Signedness::Unknown) {
         ASSERT(st, "Missing SlotTracker");
         using namespace llvm;
 
-        if (auto* c = dyn_cast<Constant>(v))
-            return getConstTerm(c);
+        if (auto* gv = dyn_cast<GlobalValue>(v))
+            return getGlobalValueTerm(gv, sign);
+        else if (auto* c = dyn_cast<Constant>(v))
+            return getConstTerm(c, sign);
         else if (auto* arg = dyn_cast<Argument>(v))
-            return getArgumentTerm(arg);
+            return getArgumentTerm(arg, sign);
+        else
+            return getLocalValueTerm(v, sign);
+    }
 
+    Term::Ptr getValueTerm(Type::Ptr type, const std::string& name) {
+        return Term::Ptr{ new ValueTerm(type, name) };
+    }
+
+    Term::Ptr getGlobalValueTerm(const llvm::GlobalValue* gv, llvm::Signedness sign = llvm::Signedness::Unknown) {
         return Term::Ptr{
             new ValueTerm(
-                TyF->cast(v->getType()),
-                st->getLocalName(v)
+                TyF->cast(gv->getType(), sign),
+                st->getLocalName(gv),
+                /* global = */true
             )
         };
     }
 
-    Term::Ptr getValueTerm(Type::Ptr type, const std::string& name) {
+    Term::Ptr getLocalValueTerm(const llvm::Value* v, llvm::Signedness sign = llvm::Signedness::Unknown) {
         return Term::Ptr{
-            new ValueTerm(type, name)
+            new ValueTerm(
+                TyF->cast(v->getType(), sign),
+                st->getLocalName(v)
+            )
         };
     }
 
@@ -207,6 +250,16 @@ public:
         };
     }
 
+    Term::Ptr getUnlogicLoadTerm(Term::Ptr rhv) {
+        return Term::Ptr{
+            new LoadTerm(
+                TyF->getInteger(),
+                rhv,
+                /* retypable = */false
+            )
+        };
+    }
+
     Term::Ptr getLoadTerm(Term::Ptr rhv) {
         return Term::Ptr{
             new LoadTerm(
@@ -222,68 +275,38 @@ public:
         };
     }
 
-    Term::Ptr getGepTerm(llvm::Value* base, const ValueVector& idxs) {
+    Term::Ptr getGepTerm(Term::Ptr base, const std::vector<Term::Ptr>& shifts, bool isTriviallyInbounds = false) {
+
+        Type::Ptr tp = GepTerm::getGepChild(base->getType(), shifts);
+
+        return Term::Ptr{
+            new GepTerm{
+                TyF->getPointer(tp),
+                base,
+                shifts,
+                isTriviallyInbounds
+            }
+        };
+    }
+
+    Term::Ptr getGepTerm(llvm::Value* base, const ValueVector& idxs, bool isTriviallyInbounds = false) {
         ASSERT(st, "Missing SlotTracker");
 
         using namespace llvm;
         using borealis::util::take;
         using borealis::util::view;
 
-        llvm::Type* baseType = base->getType();
-
-        llvm::Type* type = baseType;
-        ValueVector typeIdxs;
-        typeIdxs.reserve(idxs.size());
-
-        std::vector< std::pair<Term::Ptr, Term::Ptr> > shifts;
-        shifts.reserve(idxs.size());
-
-        for (auto* idx : idxs) {
-            ASSERT(type, "Incorrect GEP type indices");
-
-            if (auto* structType = dyn_cast<llvm::StructType>(type)) {
-                if (auto* cInt = dyn_cast<ConstantInt>(idx)) {
-                    auto cIdx = cInt->getLimitedValue();
-
-                    auto res = 0ULL;
-                    for (auto* structElem :
-                            take(cIdx, view(structType->element_begin(), structType->element_end()))) {
-                        res += getTypeSizeInElems(structElem);
-                    }
-
-                    Term::Ptr by = getIntTerm(res);
-                    Term::Ptr size = getIntTerm(1);
-                    shifts.push_back({by, size});
-
-                } else {
-                    BYE_BYE(Term::Ptr, "Non-constant index in struct GEP");
-                }
-
-            } else if (auto* arrayType = dyn_cast<llvm::ArrayType>(type)) {
-                Term::Ptr by = getValueTerm(idx);
-                Term::Ptr size = getIntTerm(getTypeSizeInElems(arrayType->getArrayElementType()));
-                shifts.push_back({by, size});
-
-            } else {
-                Term::Ptr by = getValueTerm(idx);
-                Term::Ptr size = getIntTerm(getTypeSizeInElems(type));
-                shifts.push_back({by, size});
-            }
-
-            typeIdxs.push_back(idx);
-            type = GetElementPtrInst::getIndexedType(baseType, typeIdxs);
-        }
-
-        type = GetElementPtrInst::getGEPReturnType(base, idxs);
-
-        auto asString = getAsCompileTimeString(base);
+        auto type = GetElementPtrInst::getGEPReturnType(base, idxs);
+        ASSERT(!!type, "getGepTerm: type after GEP is funked up");
 
         return Term::Ptr{
             new GepTerm(
                 TyF->cast(type),
                 getValueTerm(base),
-                shifts,
-                asString
+                util::viewContainer(idxs)
+                   .map([this](llvm::Value* idx){ return getValueTerm(idx); })
+                   .toVector(),
+                isTriviallyInbounds
             )
         };
     }
@@ -327,6 +350,53 @@ public:
         };
     }
 
+    Term::Ptr getOpaqueConstantTerm(const char* v) {
+        return Term::Ptr{
+            new OpaqueStringConstantTerm(
+                TyF->getUnknownType(), std::string{v}
+            )
+        };
+    }
+
+    Term::Ptr getOpaqueConstantTerm(const std::string& v) {
+        return Term::Ptr{
+            new OpaqueStringConstantTerm(
+                TyF->getUnknownType(), v
+            )
+        };
+    }
+
+    Term::Ptr getOpaqueIndexingTerm(Term::Ptr lhv, Term::Ptr rhv) {
+        return Term::Ptr{
+            new OpaqueIndexingTerm(
+                TyF->getUnknownType(),
+                lhv,
+                rhv
+            )
+        };
+    }
+
+    Term::Ptr getOpaqueMemberAccessTerm(Term::Ptr lhv, const std::string& property, bool indirect = false) {
+        return Term::Ptr{
+            new OpaqueMemberAccessTerm(
+                TyF->getUnknownType(),
+                lhv,
+                property,
+                indirect
+            )
+        };
+    }
+
+    Term::Ptr getOpaqueCallTerm(Term::Ptr lhv, const std::vector<Term::Ptr>& rhv) {
+        return Term::Ptr{
+            new OpaqueCallTerm(
+                TyF->getUnknownType(),
+                lhv,
+                rhv
+            )
+        };
+    }
+
     Term::Ptr getSignTerm(Term::Ptr rhv) {
         return Term::Ptr{
             new SignTerm(
@@ -342,6 +412,15 @@ public:
                 AxiomTerm::getTermType(TyF, lhv, rhv),
                 lhv, rhv
             )
+        };
+    }
+
+    Term::Ptr getBoundTerm(Term::Ptr rhv) {
+        return Term::Ptr{
+            new BoundTerm{
+                TyF->getInteger(32, llvm::Signedness::Unsigned), // XXX: 32 -> ???
+                rhv
+            }
         };
     }
 

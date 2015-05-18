@@ -9,10 +9,11 @@
 #define VARINFO_H_
 
 #include <clang/AST/DeclBase.h>
-#include <llvm/Analysis/DebugInfo.h>
+#include <llvm/IR/DebugInfo.h>
 
 #include <string>
 
+#include "Codegen/llvm.h"
 #include "Logging/logger.hpp"
 #include "Util/util.h"
 
@@ -30,14 +31,17 @@ enum class DiscoveryPolicy {
     PreviousFunction,
     NextArgument,
     PreviousArgument,
-    Loop
+    Loop,
+    Global // TODO: Use this!
 };
 
 struct VarInfo {
     borealis::util::option<std::string> originalName;
     borealis::util::option<borealis::Locus> originalLocus;
-    enum { Allocated, Plain } treatment;
+    enum { Plain, Allocated } treatment;
+    DIType type;
     clang::Decl* ast;
+
 
     const VarInfo& overwriteBy(const VarInfo& vi) {
 
@@ -50,15 +54,34 @@ struct VarInfo {
         if (vi.ast) {
             ast = vi.ast;
         }
-        if (vi.treatment) {
-            treatment = vi.treatment;
-        }
+
+        treatment = vi.treatment;
+        if(vi.type) type = vi.type;
 
         return *this;
     }
+
+    friend std::ostream& operator<<(std::ostream& ost, const VarInfo& vi) {
+        ost << vi.originalName.getOrElse("<unknown-variable>")
+            << " defined at ";
+
+        if (vi.originalLocus.empty()) ost << "<unknown-location>";
+        else ost << vi.originalLocus.getUnsafe();
+
+        if (vi.treatment == VarInfo::Allocated) ost << " (alloca)";
+
+        switch (vi.type.getSignedness()) {
+        case llvm::Signedness::Signed:   ost << " (signed)";   break;
+        case llvm::Signedness::Unsigned: ost << " (unsigned)"; break;
+        case llvm::Signedness::Unknown:  ost << " (unknown)";  break;
+        }
+
+        if (vi.ast) ost << " : " << *vi.ast;
+        return ost;
+    }
 };
 
-inline VarInfo meta2vi(const llvm::DIVariable& dd, clang::Decl* ast = nullptr) {
+inline VarInfo meta2vi(const llvm::DIVariable& dd, const llvm::DITypeIdentifierMap& context, clang::Decl* ast = nullptr) {
     using borealis::util::just;
     using borealis::Locus;
 
@@ -71,22 +94,9 @@ inline VarInfo meta2vi(const llvm::DIVariable& dd, clang::Decl* ast = nullptr) {
             }
         ),
         VarInfo::Plain,
+        DIType{ dd.getType().resolve(context) },
         ast
     };
-}
-
-template<class Streamer>
-Streamer& operator<<(Streamer& ost, const VarInfo& vi) {
-    ost << vi.originalName.getOrElse("<unknown-variable>")
-        << " defined at ";
-
-    if (vi.originalLocus.empty()) ost << "<unknown-location>";
-    else ost << vi.originalLocus.getUnsafe();
-
-    if (vi.treatment == VarInfo::Allocated) ost << " (alloca)";
-
-    if (vi.ast) ost << " : " << *vi.ast;
-    return ost;
 }
 
 } /* namespace borealis */

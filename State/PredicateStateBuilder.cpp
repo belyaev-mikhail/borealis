@@ -20,18 +20,23 @@ PredicateStateBuilder::PredicateStateBuilder(
         PSF(PSF), State(PSF->Basic() + pred) {};
 
 PredicateState::Ptr PredicateStateBuilder::operator()() const {
-    return State->simplify();
+    return State;
 }
 
 PredicateStateBuilder& PredicateStateBuilder::operator+=(PredicateState::Ptr s) {
-    if (!s->isEmpty()) {
-        this->State = this->PSF->Chain(this->State, s);
+    if (not s->isEmpty()) {
+        State = PSF->Chain(State, s);
     }
     return *this;
 }
 
 PredicateStateBuilder& PredicateStateBuilder::operator+=(Predicate::Ptr p) {
-    this->State = this->PSF->Chain(this->State, p);
+    State = PSF->Chain(State, p);
+    return *this;
+}
+
+PredicateStateBuilder& PredicateStateBuilder::operator<<=(const Locus& locus) {
+    State = State << locus;
     return *this;
 }
 
@@ -45,27 +50,19 @@ PredicateStateBuilder operator*(PredicateStateFactory::Ptr PSF, Predicate::Ptr p
 
 PredicateStateBuilder operator+(PredicateStateBuilder PSB, PredicateState::Ptr s) {
     PredicateStateBuilder res{PSB};
-    if (!s->isEmpty()) {
-        res.State = res.PSF->Chain(res.State, s);
-    }
+    res += s;
     return res;
 }
 
 PredicateStateBuilder operator+(PredicateStateBuilder PSB, Predicate::Ptr p) {
     PredicateStateBuilder res{PSB};
-    res.State = res.PSF->Chain(res.State, p);
+    res += p;
     return res;
 }
 
-PredicateStateBuilder operator<<(PredicateStateBuilder PSB, const llvm::Value* loc) {
+PredicateStateBuilder operator<<(PredicateStateBuilder PSB, const Locus& locus) {
     PredicateStateBuilder res{PSB};
-    res.State = res.State << loc;
-    return res;
-}
-
-PredicateStateBuilder operator<<(PredicateStateBuilder PSB, const llvm::Value& loc) {
-    PredicateStateBuilder res{PSB};
-    res.State = res.State << loc;
+    res <<= locus;
     return res;
 }
 

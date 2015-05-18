@@ -5,13 +5,16 @@ int check(int* x) {
    return 10;
 }
 
-// @requires a != 0
-// @requires b != 0
+// @requires \is_valid_ptr(a)
+// @requires \is_valid_ptr(b)
 int copy(int* a, int* b) {
    *a = *b;
    return 2;
 }
 
+// @requires n >= 0
+// @requires \is_valid_ptr(a) && \bound(a) > n || a == \nullptr
+// @requires \is_valid_ptr(b) && \bound(b) > n || b == \nullptr
 int foo(int* a, int* b, int n) {
    int i;
 

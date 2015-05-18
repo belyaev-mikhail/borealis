@@ -7,14 +7,13 @@
 
 #include <clang/Basic/FileManager.h>
 #include <clang/Basic/SourceManager.h>
-#include <llvm/Support/CommandLine.h>
 #include <yaml-cpp/yaml.h>
 
 #include <fstream>
 
+#include "Config/config.h"
 #include "Passes/Location/LocationManager.h"
 #include "Passes/Location/LocationSummaryPass.h"
-#include "Passes/Tracker/SourceLocationTracker.h"
 #include "Passes/Util/DataProvider.hpp"
 
 #include "Util/passes.hpp"
@@ -23,31 +22,28 @@ namespace borealis {
 
 typedef DataProvider<clang::FileManager> DPFileManager;
 
-static std::string DumpCoverageFileDefault = "%s.coverage";
-
-static llvm::cl::opt<bool>
-DumpCoverage("dump-coverage", llvm::cl::init(false), llvm::cl::NotHidden,
-  llvm::cl::desc("Dump analysis coverage"));
-
-static llvm::cl::opt<std::string>
-DumpCoverageFile("dump-coverage-file", llvm::cl::init(DumpCoverageFileDefault), llvm::cl::NotHidden,
-  llvm::cl::desc("Output file for analysis coverage"));
+const std::string DumpCoverageFileDefault = "%s.coverage";
 
 LocationSummaryPass::LocationSummaryPass(): ModulePass(ID) {}
 
 void LocationSummaryPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
-    AUX<SourceLocationTracker>::addRequiredTransitive(AU);
     AUX<LocationManager>::addRequiredTransitive(AU);
-    AUX<DPFileManager>::addRequiredTransitive(AU);
+    // XXX: Maybe we'll need this in the future...
+    // AUX<DPFileManager>::addRequiredTransitive(AU);
 }
 
 bool LocationSummaryPass::runOnModule(llvm::Module& M) {
-    auto& slt = GetAnalysis<SourceLocationTracker>::doit(this);
     auto& lm = GetAnalysis<LocationManager>::doit(this);
 
     // XXX: Maybe we'll need this in the future...
     // auto& fm = GetAnalysis<DPFileManager>::doit(this).provide();
+
+    static config::BoolConfigEntry DumpCoverageOpt("output", "dump-coverage");
+    static config::StringConfigEntry DumpCoverageFileOpt("output", "dump-coverage-file");
+
+    auto DumpCoverage = DumpCoverageOpt.get(false);
+    auto DumpCoverageFile = DumpCoverageFileOpt.get(DumpCoverageFileDefault);
 
     auto* mainFileEntry = M.getModuleIdentifier().c_str();
 
@@ -60,8 +56,7 @@ bool LocationSummaryPass::runOnModule(llvm::Module& M) {
         std::map<std::string, std::list<Locus>> locMap;
 
         auto& normalLocs = locMap["normal"];
-        for (const auto& v : llvmLocs) {
-            auto loc = slt.getLocFor(v);
+        for (const auto& loc : llvmLocs) {
             if (loc.isUnknown()) continue;
             normalLocs.push_back(loc);
         }

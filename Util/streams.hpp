@@ -9,12 +9,14 @@
 #define STREAMS_HPP_
 
 #include <clang/AST/Decl.h>
-#include <llvm/Module.h>
+#include <llvm/Analysis/AliasSetTracker.h>
+#include <llvm/Analysis/ScalarEvolution.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
 #include <llvm/Pass.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/Type.h>
-#include <llvm/Value.h>
 
 #include <iostream>
 #include <set>
@@ -25,6 +27,7 @@
 #include "Util/collections.hpp"
 #include "Util/option.hpp"
 #include "Util/sayonara.hpp"
+#include "Util/type_traits.hpp"
 
 #include "Util/macros.h"
 
@@ -53,7 +56,11 @@ struct is_using_llvm_output {
             std::is_base_of<llvm::SmallVectorBase, T>::value ||
             std::is_base_of<llvm::Twine, T>::value ||
             std::is_base_of<llvm::Module, T>::value ||
-            std::is_base_of<llvm::Pass, T>::value
+            std::is_base_of<llvm::Pass, T>::value ||
+            std::is_base_of<llvm::APInt, T>::value ||
+            std::is_base_of<llvm::SCEV, T>::value ||
+            std::is_base_of<llvm::AliasSetTracker, T>::value ||
+            std::is_base_of<llvm::AliasSet, T>::value
     };
 };
 
@@ -166,6 +173,13 @@ inline option<T> fromString(const std::string& str) {
     return Destringifier<T>::fromString(str);
 }
 
+template<class T, class V>
+inline option<T> stringCast(V&& obj) {
+    return Destringifier<T>::fromString(
+        util::toString(std::forward<V>(obj))
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // borealis::util::streams
@@ -182,7 +196,7 @@ struct error_printer {
 
 template<class T>
 std::ostream& operator<<(std::ostream& s, const error_printer<T>& v) {
-    return s << "!" << v.val << "!";
+    return s << v.val;
 }
 
 // prints values in red:
@@ -217,7 +231,6 @@ template<class Streamer>
 class llvm_stream_wrapper : public llvm::raw_ostream {
     Streamer* str;
 public:
-    llvm_stream_wrapper() = default;
     llvm_stream_wrapper(Streamer& str): str(&str) {};
 
     virtual void write_impl(const char* Ptr, size_t Size) {
@@ -232,6 +245,37 @@ public:
         return static_cast<uint64_t>(-1);
     }
 };
+
+template<class Container>
+struct separated_printer {
+    const Container& con;
+    std::string sep;
+};
+
+template<class Con>
+separated_printer<Con> delimited(const Con& con, const std::string& sep) {
+    return separated_printer<Con>{ con, sep };
+}
+
+template<class Con>
+separated_printer<Con> delimited(const Con& con) {
+    return delimited(con, ", ");
+}
+
+template<typename Con, typename Streamer>
+Streamer& operator<<(Streamer& s, const separated_printer<Con>& pp) {
+    using borealis::util::head;
+    using borealis::util::tail;
+
+    if (std::begin(pp.con) != std::end(pp.con)) {
+        s << head(pp.con);
+        for (const auto& e : tail(pp.con)) {
+            s << pp.sep << e;
+        }
+    }
+
+    return s;
+}
 
 } // namespace streams
 } // namespace util
@@ -259,8 +303,9 @@ const auto NULL_REPR = "<NULL>";
 
 
 
-template<typename T, typename U, typename Streamer>
-Streamer& operator<<(Streamer& s, const std::pair<T, U>& pp) {
+
+template<typename T, typename U>
+std::ostream& operator<<(std::ostream& s, const std::pair<T, U>& pp) {
     using namespace std::impl_;
 
     s << TUPLE_LEFT_BRACE
@@ -275,9 +320,15 @@ Streamer& operator<<(Streamer& s, const std::pair<T, U>& pp) {
 
 
 template<typename Elem, typename SFINAE = void>
-struct elemPrettyPrinter;
+struct elemPrettyPrinter {
+    template<class Streamer>
+    static Streamer& doit(Streamer& s, const Elem& e) {
+        // this is generally fucked up...
+        return static_cast<Streamer&>(s << e);
+    }
+};
 
-template< typename Elem >
+template<typename Elem>
 struct elemPrettyPrinter<Elem, GUARD(std::is_pointer<Elem>::value)> {
     template<class Streamer>
     static Streamer& doit(Streamer& s, const Elem& e) {
@@ -286,12 +337,12 @@ struct elemPrettyPrinter<Elem, GUARD(std::is_pointer<Elem>::value)> {
     }
 };
 
-template< typename Elem >
-struct elemPrettyPrinter<Elem, GUARD(!std::is_pointer<Elem>::value)> {
+template<typename Elem>
+struct elemPrettyPrinter<Elem, GUARD(borealis::util::is_shared_ptr<Elem>::value)> {
     template<class Streamer>
     static Streamer& doit(Streamer& s, const Elem& e) {
         // this is generally fucked up...
-        return static_cast<Streamer&>(s << e);
+        return static_cast<Streamer&>(e == nullptr ? s << impl_::NULL_REPR : s << e);
     }
 };
 
@@ -332,27 +383,33 @@ struct containerPrettyPrinter {
     }
 };
 
-template<typename T, typename Streamer>
-Streamer& operator<<(Streamer& s, const std::vector<T>& vec) {
-    typedef std::vector<T> Container;
+template<typename T, typename A, typename CharT, typename Traits>
+std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& s, const std::vector<T, A>& vec) {
+    typedef std::vector<T, A> Container;
     return containerPrettyPrinter< Container >::template doit<impl_::VECTOR_LEFT_BRACE, impl_::VECTOR_RIGHT_BRACE>(s, vec);
 }
 
-template<typename T, typename Streamer>
-Streamer& operator<<(Streamer& s, const std::set<T>& set) {
-    typedef std::set<T> Container;
+template<typename T, typename Compare, typename A, typename CharT, typename Traits>
+std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& s, const std::set<T, Compare, A>& set) {
+    typedef std::set<T, Compare, A> Container;
     return containerPrettyPrinter< Container >::template doit<impl_::SET_LEFT_BRACE, impl_::SET_RIGHT_BRACE>(s, set);
 }
 
-template<typename T, typename Streamer>
-Streamer& operator<<(Streamer& s, const std::unordered_set<T>& set) {
-    typedef std::unordered_set<T> Container;
+template<typename T, typename Hash, typename Pred, typename A, typename CharT, typename Traits>
+std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& s, const std::unordered_set<T, Hash, Pred, A>& set) {
+    typedef std::unordered_set<T, Hash, Pred, A> Container;
     return containerPrettyPrinter< Container >::template doit<impl_::SET_LEFT_BRACE, impl_::SET_RIGHT_BRACE>(s, set);
 }
 
-template<typename K, typename V, typename Streamer>
-Streamer& operator<<(Streamer& s, const std::unordered_map<K, V>& map) {
-    typedef std::unordered_map<K, V> Container;
+template<typename K, typename V, typename Compare, typename A, typename CharT, typename Traits>
+std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& s, const std::map<K, V, Compare, A>& map) {
+    typedef std::map<K, V, Compare, A> Container;
+    return containerPrettyPrinter< Container >::template doit<impl_::SET_LEFT_BRACE, impl_::SET_RIGHT_BRACE>(s, map);
+}
+
+template<typename K, typename V, typename Hash, typename Pred, typename A, typename CharT, typename Traits>
+std::basic_ostream<CharT, Traits>&  operator<<(std::basic_ostream<CharT, Traits>& s, const std::unordered_map<K, V, Hash, Pred, A>& map) {
+    typedef std::unordered_map<K, V, Hash, Pred, A> Container;
     return containerPrettyPrinter< Container >::template doit<impl_::SET_LEFT_BRACE, impl_::SET_RIGHT_BRACE>(s, map);
 }
 
