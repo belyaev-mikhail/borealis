@@ -20,6 +20,8 @@ public:
     virtual ~ContractExtractorPass() = default;
 
     virtual bool runOnFunction(llvm::Function& F) override;
+
+    virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override;
 };
 
 } /* namespace borealis */

@@ -5,21 +5,21 @@
  *      Author: kivi
  */
 
-#ifndef STATE_TRANSFORMER_CALLCONTRACTEXTRACTOR_H_
-#define STATE_TRANSFORMER_CALLCONTRACTEXTRACTOR_H_
+#ifndef STATE_TRANSFORMER_CONTRACTEXTRACTORTRANSFORM_H_
+#define STATE_TRANSFORMER_CONTRACTEXTRACTORTRANSFORM_H_
 
 #include "State/Transformer/Transformer.hpp"
 #include "llvm/IR/Function.h"
 
 namespace borealis {
 
-class CallContractExtractor: public borealis::Transformer<CallContractExtractor> {
+class ContractExtractorTransform: public borealis::Transformer<ContractExtractorTransform> {
 
-	typedef borealis::Transformer<CallContractExtractor> Base;
+	typedef borealis::Transformer<ContractExtractorTransform> Base;
 
 public:
 
-	CallContractExtractor(PredicateState::Ptr s, llvm::Function* f) :
+	ContractExtractorTransform(PredicateState::Ptr s, llvm::Function* f) :
 		Base(FactoryNest()),
 		state(s),
 		func(f) {}
@@ -37,4 +37,4 @@ private:
 
 }  /* namespace borealis */
 
-#endif /* STATE_TRANSFORMER_CALLCONTRACTEXTRACTOR_H_ */
+#endif /* STATE_TRANSFORMER_CONTRACTEXTRACTORTRANSFORM_H_ */
