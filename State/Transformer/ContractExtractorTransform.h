@@ -19,9 +19,8 @@ class ContractExtractorTransform: public borealis::Transformer<ContractExtractor
 
 public:
 
-	ContractExtractorTransform(PredicateState::Ptr s, llvm::Function* f) :
+	ContractExtractorTransform(llvm::Function* f) :
 		Base(FactoryNest()),
-		state(s),
 		func(f) {}
 
 	Predicate::Ptr trasformBase(Predicate::Ptr p) {
@@ -30,7 +29,6 @@ public:
 
 private:
 
-	PredicateState::Ptr state;
 	llvm::Function* func;
 
 };
