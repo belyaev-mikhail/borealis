@@ -9,6 +9,7 @@
 
 #include "State/Transformer/ContractExtractorTransform.h"
 #include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
+#include "Passes/Tracker/SlotTrackerPass.h"
 #include "Logging/logger.hpp"
 
 namespace borealis {
@@ -16,20 +17,29 @@ namespace borealis {
 ContractExtractorPass::ContractExtractorPass() : ProxyFunctionPass(ID) {}
 
 bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
+	auto&& st = GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(&F);
+	FN = FactoryNest(st);
 	for(auto it = F.begin(), ite = F.end(); it != ite; ++it) {
 		for(auto i_it = it->begin(), i_ite = it->end(); i_it != i_ite; ++i_it) {
-			if(llvm::isa<llvm::CallInst>(i_it)) {
-				GetAnalysis<PredicateStateAnalysis>::doit(this, F).getInstructionState(i_it);
+			if(auto&& I = llvm::dyn_cast<llvm::CallInst>(i_it)) {
+				auto&& s = GetAnalysis<PredicateStateAnalysis>::doit(this, F).getInstructionState(i_it);
+				processCallInstruction(*I, s);
 			}
 		}
 	}
 	return false;
 }
 
+void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, borealis::PredicateState::Ptr S) {
+	auto&& transformedState = ContractExtractorTransform(FN, I.getCalledFunction()).transform(S);
+	return;
+}
+
 void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
 	Info.setPreservesAll();
 
 	AUX<PredicateStateAnalysis>::addRequiredTransitive(Info);
+	AUX<SlotTrackerPass>::addRequiredTransitive(Info);
 }
 
 char ContractExtractorPass::ID = 0;

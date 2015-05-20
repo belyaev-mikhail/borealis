@@ -12,10 +12,16 @@
 
 #include "Passes/Util/ProxyFunctionPass.h"
 #include "Util/passes.hpp"
+#include "State/PredicateState.h"
+#include "Factory/Nest.h"
 
 namespace borealis {
 
 class ContractExtractorPass : public ProxyFunctionPass, public ShouldBeModularized {
+private:
+
+	void processCallInstruction(llvm::CallInst& I, borealis::PredicateState::Ptr S);
+
 public:
     static char ID;
 
@@ -25,6 +31,9 @@ public:
     virtual bool runOnFunction(llvm::Function& F) override;
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override;
+
+private:
+    FactoryNest FN;
 };
 
 } /* namespace borealis */
