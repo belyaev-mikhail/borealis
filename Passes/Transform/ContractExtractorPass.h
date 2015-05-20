@@ -10,9 +10,12 @@
 
 #include "llvm/Pass.h"
 
+#include "Passes/Util/ProxyFunctionPass.h"
+#include "Util/passes.hpp"
+
 namespace borealis {
 
-class ContractExtractorPass : public llvm::FunctionPass {
+class ContractExtractorPass : public ProxyFunctionPass, public ShouldBeModularized {
 public:
     static char ID;
 
