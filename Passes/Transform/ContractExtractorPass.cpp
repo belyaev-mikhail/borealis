@@ -6,7 +6,8 @@
  */
 
 #include "Passes/Transform/ContractExtractorPass.h"
-#include "State/Transformer/CallContractExtractor.h"
+
+#include "../../State/Transformer/ContractExtractorTransform.h"
 
 namespace borealis {
 
@@ -14,6 +15,10 @@ ContractExtractorPass::ContractExtractorPass() : llvm::FunctionPass(ID) {}
 
 bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
 	return false;
+}
+
+void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
+	Info.setPreservesAll();
 }
 
 char ContractExtractorPass::ID = 0;
