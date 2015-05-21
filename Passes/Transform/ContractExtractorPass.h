@@ -23,6 +23,7 @@ private:
 	void processCallInstruction(llvm::CallInst& I, borealis::PredicateState::Ptr S);
 
 public:
+
     static char ID;
 
     ContractExtractorPass();
