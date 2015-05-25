@@ -8,32 +8,32 @@
 
 namespace borealis {
 
-	ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I) :
-		Transformer(fn),
-		FN(fn) {
-		for(auto&& it : I.arg_operands()) {
-			args.insert(FN.Term->getValueTerm(&*it));
-		}
-	}
+ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I) :
+    Transformer(fn),
+    FN(fn) {
+    for(auto&& it : I.arg_operands()) {
+        args.insert(FN.Term->getValueTerm(&*it));
+    }
+}
 
-	PredicateState::Ptr ContractExtractorTransformer::transform(PredicateState::Ptr ps) {
-		return Base::transform(ps)
-			->filter([](auto&& p) { return !!p; })
-			->simplify();
-	}
+PredicateState::Ptr ContractExtractorTransformer::transform(PredicateState::Ptr ps) {
+    return Base::transform(ps)
+        ->filter([](auto&& p) { return !!p; })
+        ->simplify();
+}
 
-	Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr pred) {
-		if(pred->getType() == PredicateType::PATH) {
-			for(auto&& i : pred->getOperands()) {
-				for(auto&& it : Term::getFullTermSet(i)) {
-					if(util::contains(args, it)) {
-						return pred;
-					}
-				}
-			}
-		}
-		return nullptr;
-	}
+Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr pred) {
+    if(pred->getType() == PredicateType::PATH) {
+        for(auto&& i : pred->getOperands()) {
+            for(auto&& it : Term::getFullTermSet(i)) {
+                if(util::contains(args, it)) {
+                    return pred;
+                }
+            }
+        }
+    }
+    return nullptr;
+}
 
 }  /* namespace borealis */
 

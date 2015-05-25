@@ -17,12 +17,11 @@
 namespace borealis {
 
 class ContractManager : public llvm::ModulePass {
-
-    using Manager = std::unordered_map<llvm::Function*, std::vector<PredicateState::Ptr>>;
-
 public:
+    using ContractData = std::unordered_map<llvm::Function*, std::vector<PredicateState::Ptr>>;
 
     static char ID;
+    static ContractData data;
 
     ContractManager();
     virtual ~ContractManager() = default;
@@ -32,9 +31,6 @@ public:
     void addContract(llvm::Function* F, PredicateState::Ptr S);
     virtual void print(llvm::raw_ostream& st, const llvm::Module* M) const;
 
-private:
-
-    Manager manager;
 };
 
 } /* namespace borealis */
