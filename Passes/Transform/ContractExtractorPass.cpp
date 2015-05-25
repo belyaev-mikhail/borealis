@@ -7,6 +7,7 @@
 
 #include "Passes/Transform/ContractExtractorPass.h"
 
+#include "State/Transformer/EqualityMapper.h"
 #include "State/Transformer/ContractExtractorTransformer.h"
 #include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
 #include "Passes/Tracker/SlotTrackerPass.h"
