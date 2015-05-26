@@ -14,7 +14,8 @@ EqualityMapper::EqualityMapper() : Base(FactoryNest()) {}
 
 Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr pred) {
     if(auto&& optRef = util::at(mapping, pred->getRhv())) {
-        mapping[pred->getLhv()] = optRef.get();
+    	auto&& re=optRef.get();
+        mapping[pred->getLhv()] = *re;
     } else mapping[pred->getLhv()] = pred->getRhv();
     return pred;
 }

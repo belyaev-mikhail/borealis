@@ -53,4 +53,3 @@ X("contract-extractor", "contract extractor pass", false, false);
 
 } /* namespace borealis */
 
-
