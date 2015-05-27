@@ -6,6 +6,7 @@
  */
 
 #include "Passes/Manager/ContractManager.h"
+#include <algorithm>
 
 namespace borealis {
 
@@ -16,15 +17,24 @@ bool ContractManager::runOnModule(llvm::Module& M) {
     return false;
 }
 
-void ContractManager::addContract(llvm::Function* F, PredicateState::Ptr S) {
-    if(!S->isEmpty()) data[F].push_back(S);
+void ContractManager::addContract(llvm::Function* F, PredicateState::Ptr S, ArgsToTerm& mapping) {
+    if(!S->isEmpty()) {
+            data[F].push_back({S, mapping});
+    }
 }
 
 void ContractManager::print(llvm::raw_ostream& st, const llvm::Module* M) const {
     for(auto&& it : data) {
         errs()<<"Function "<<it.first->getName()<<endl;
         for(auto&& s_it : it.second) {
-        	errs()<<s_it<<endl;
+            for(auto&& args : s_it.mapping) {
+                errs()<<args.first<<": ";
+                for(auto&& ait : args.second) {
+                    errs()<<ait<<", ";
+                }
+                errs()<<endl;
+            }
+        	errs()<<s_it.state<<endl;
         }
     }
 }
