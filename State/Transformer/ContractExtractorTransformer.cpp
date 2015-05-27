@@ -11,14 +11,20 @@ namespace borealis {
 ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, Mapper& m) :
     Transformer(fn),
     FN(fn),
-    mapping(m) {
+    mapping(m),
+    mapToInt(),
+    mapToTerms() {
+    int num = 0;
     for(auto&& it : I.arg_operands()) {
         auto&& term = FN.Term->getValueTerm(&*it);
         args.insert(term);
+        mapToInt[term] = num;
         if(auto&& optRef = util::at(mapping, term)) {
             auto&& res = optRef.get();
             args.insert(*res);
+            mapToInt[*res] = num;
         }
+        ++num;
     }
 }
 
@@ -44,16 +50,23 @@ Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr p
 bool ContractExtractorTransformer::checkTerm(Term::Ptr term) {
     for(auto&& it : Term::getFullTermSet(term)) {
         if(util::contains(args, it)) {
+            mapToTerms[mapToInt[it]].insert(it);
             return true;
         }
         if(auto&& optRef = util::at(mapping, it)) {
             auto&& res = optRef.get();
             if(util::contains(args, *res)) {
+                //mapToTerms[mapToInt[*res]].push_back(*res);
+                mapToTerms[mapToInt[*res]].insert(it);
                 return true;
             }
         }
     }
     return false;
+}
+
+ContractExtractorTransformer::ArgsToTerm ContractExtractorTransformer::getMappingToTerms() const {
+    return mapToTerms;
 }
 
 }  /* namespace borealis */

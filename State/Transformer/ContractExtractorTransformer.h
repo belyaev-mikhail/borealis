@@ -19,6 +19,8 @@ class ContractExtractorTransformer: public borealis::Transformer<ContractExtract
 	using Base = borealis::Transformer<ContractExtractorTransformer>;
 	using Args = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
 	using Mapper = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
+	using TermToInt = std::unordered_map<Term::Ptr, int, TermHash, TermEquals>;
+	using ArgsToTerm = std::unordered_map<int, Args>;
 
 public:
 
@@ -26,6 +28,8 @@ public:
 
 	PredicateState::Ptr transform(PredicateState::Ptr ps);
 	Predicate::Ptr transformPredicate(Predicate::Ptr pred);
+
+	ArgsToTerm getMappingToTerms() const;
 
 private:
 
@@ -36,6 +40,8 @@ private:
 	Args args;
 	FactoryNest FN;
 	Mapper mapping;
+	TermToInt mapToInt;
+	ArgsToTerm mapToTerms;
 
 };
 

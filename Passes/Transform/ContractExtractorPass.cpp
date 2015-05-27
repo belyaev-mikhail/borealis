@@ -36,9 +36,11 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
 void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, borealis::PredicateState::Ptr S) {
     auto&& mapper = EqualityMapper();
     auto&& mappedState = mapper.transform(S);
-    auto&& map = mapper.getMappedValues();
-    auto&& transformedState = ContractExtractorTransformer(FN, I, map).transform(mappedState);
-    GetAnalysis<ContractManager>::doit(this, *I.getParent()->getParent()).addContract(I.getCalledFunction(), transformedState);
+    auto&& mapping = mapper.getMappedValues();
+    auto&& extractor = ContractExtractorTransformer(FN, I, mapping);
+    auto&& transformedState = extractor.transform(mappedState);
+    auto&& argsToTerm = extractor.getMappingToTerms();
+    GetAnalysis<ContractManager>::doit(this, *I.getParent()->getParent()).addContract(I.getCalledFunction(), transformedState, argsToTerm);
 }
 
 void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {

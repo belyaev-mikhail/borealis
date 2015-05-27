@@ -17,8 +17,18 @@
 namespace borealis {
 
 class ContractManager : public llvm::ModulePass {
+
+    using Args = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
+    using ArgsToTerm = std::unordered_map<int, Args>;
+
+    struct StateInfo {
+        PredicateState::Ptr state;
+        ArgsToTerm mapping;
+    };
+
+    using ContractData = std::unordered_map<llvm::Function*, std::vector<StateInfo>>;
+
 public:
-    using ContractData = std::unordered_map<llvm::Function*, std::vector<PredicateState::Ptr>>;
 
     static char ID;
     static ContractData data;
@@ -28,7 +38,7 @@ public:
 
     virtual bool runOnModule(llvm::Module& M) override;
 
-    void addContract(llvm::Function* F, PredicateState::Ptr S);
+    void addContract(llvm::Function* F, PredicateState::Ptr S, ArgsToTerm& mapping);
     virtual void print(llvm::raw_ostream& st, const llvm::Module* M) const;
 
 };
