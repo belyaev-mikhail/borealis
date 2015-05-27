@@ -22,10 +22,11 @@ public:
     EqualityMapper();
 
     Predicate::Ptr transformEqualityPredicate(EqualityPredicatePtr pred);
+    std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals> getMappedValues() const;
 
 
 private:
-    std::unordered_map<Term::Ptr, Term::Ptr> mapping;
+    std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals> mapping;
 };
 
 }  /* namespace borealis */
