@@ -9,11 +9,7 @@
 namespace borealis {
 
 ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, Mapper& m) :
-    Transformer(fn),
-    FN(fn),
-    mapping(m),
-    mapToInt(),
-    mapToTerms() {
+    Transformer(fn), args(), predicates(), FN(fn), mapping(m), mapToInt(), mapToTerms() {
     int num = 0;
     for(auto&& it : I.arg_operands()) {
         auto&& term = FN.Term->getValueTerm(&*it);
@@ -37,10 +33,16 @@ PredicateState::Ptr ContractExtractorTransformer::transform(PredicateState::Ptr 
 Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr pred) {
     if(pred->getType() == PredicateType::PATH) {
         for(auto&& i : pred->getOperands()) {
-            if(checkTerm(i)) return pred;
+            if(checkTerm(i)) {
+                predicates[pred->getOperands()[0]] = pred->getOperands()[pred->getNumOperands() - 1];
+                return pred;
+            }
             if(auto&& optRef = util::at(mapping, i)) {
                 auto&& res = optRef.get();
-                if(checkTerm(*res)) return FN.Predicate->getEqualityPredicate(i, *res, Locus(), PredicateType::PATH);
+                if(checkTerm(*res)) {
+                    predicates[*res] = pred->getOperands()[pred->getNumOperands() - 1];
+                    return FN.Predicate->getEqualityPredicate(*res, pred->getOperands()[pred->getNumOperands() - 1], Locus(), PredicateType::PATH);
+                }
             }
         }
     }
@@ -56,17 +58,12 @@ bool ContractExtractorTransformer::checkTerm(Term::Ptr term) {
         if(auto&& optRef = util::at(mapping, it)) {
             auto&& res = optRef.get();
             if(util::contains(args, *res)) {
-                //mapToTerms[mapToInt[*res]].push_back(*res);
                 mapToTerms[mapToInt[*res]].insert(it);
                 return true;
             }
         }
     }
     return false;
-}
-
-ContractExtractorTransformer::ArgsToTerm ContractExtractorTransformer::getMappingToTerms() const {
-    return mapToTerms;
 }
 
 }  /* namespace borealis */
