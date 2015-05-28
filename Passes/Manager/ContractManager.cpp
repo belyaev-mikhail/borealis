@@ -19,13 +19,13 @@ bool ContractManager::runOnModule(llvm::Module& M) {
 
 void ContractManager::addContract(llvm::Function* F, PredicateState::Ptr S, ArgsToTerm& mapping) {
     if(!S->isEmpty()) {
-            data[F].push_back({S, mapping});
+        data[F].insert({S, mapping});
     }
 }
 
 void ContractManager::print(llvm::raw_ostream& st, const llvm::Module* M) const {
     for(auto&& it : data) {
-        errs()<<"Function "<<it.first->getName()<<endl;
+        errs()<<endl<<"---"<<"Function "<<it.first->getName()<<"---"<<endl;
         for(auto&& s_it : it.second) {
             for(auto&& args : s_it.mapping) {
                 errs()<<args.first<<": ";
@@ -36,6 +36,7 @@ void ContractManager::print(llvm::raw_ostream& st, const llvm::Module* M) const 
             }
         	errs()<<s_it.state<<endl;
         }
+        errs()<<endl;
     }
 }
 
