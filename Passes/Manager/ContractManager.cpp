@@ -27,6 +27,7 @@ void ContractManager::print(llvm::raw_ostream& st, const llvm::Module* M) const 
     for(auto&& it : data) {
         errs()<<endl<<"---"<<"Function "<<it.first->getName()<<"---"<<endl;
         for(auto&& s_it : it.second) {
+            errs()<<"Arguments:"<<endl;
             for(auto&& args : s_it.mapping) {
                 errs()<<args.first<<": ";
                 for(auto&& ait : args.second) {
@@ -34,6 +35,7 @@ void ContractManager::print(llvm::raw_ostream& st, const llvm::Module* M) const 
                 }
                 errs()<<endl;
             }
+            errs()<<"State:"<<endl;
         	errs()<<s_it.state<<endl;
         }
         errs()<<endl;

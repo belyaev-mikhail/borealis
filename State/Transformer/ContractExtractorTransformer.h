@@ -29,7 +29,12 @@ public:
 	PredicateState::Ptr transform(PredicateState::Ptr ps);
 	Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
-	ArgsToTerm getMappingToTerms() const;
+	ArgsToTerm getTermToArgMapping() const {
+	    return mapToTerms;
+	}
+	Mapper getPredicates() const {
+	    return predicates;
+	}
 
 private:
 
@@ -38,6 +43,7 @@ private:
 private:
 
 	Args args;
+    Mapper predicates;
 	FactoryNest FN;
 	Mapper mapping;
 	TermToInt mapToInt;

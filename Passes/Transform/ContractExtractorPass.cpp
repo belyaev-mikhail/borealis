@@ -39,7 +39,7 @@ void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, borealis::
     auto&& mapping = mapper.getMappedValues();
     auto&& extractor = ContractExtractorTransformer(FN, I, mapping);
     auto&& transformedState = extractor.transform(mappedState);
-    auto&& argsToTerm = extractor.getMappingToTerms();
+    auto&& argsToTerm = extractor.getTermToArgMapping();
     GetAnalysis<ContractManager>::doit(this, *I.getParent()->getParent()).addContract(I.getCalledFunction(), transformedState, argsToTerm);
 }
 
