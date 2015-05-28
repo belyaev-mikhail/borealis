@@ -26,7 +26,19 @@ class ContractManager : public llvm::ModulePass {
         ArgsToTerm mapping;
     };
 
-    using ContractData = std::unordered_map<llvm::Function*, std::vector<StateInfo>>;
+    struct StateInfoHash {
+        size_t operator()(StateInfo si) const noexcept {
+            return util::hash::defaultHasher()(si.state);
+        }
+    };
+
+    struct StateInfoEquals {
+        bool operator()(StateInfo lhv, StateInfo rhv) const noexcept {
+            return lhv.state->equals(rhv.state.get());
+        }
+    };
+
+    using ContractData = std::unordered_map<llvm::Function*, std::unordered_set<StateInfo, StateInfoHash, StateInfoEquals>>;
 
 public:
 
