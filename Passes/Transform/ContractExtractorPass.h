@@ -13,6 +13,8 @@
 #include "Passes/Util/ProxyFunctionPass.h"
 #include "Util/passes.hpp"
 #include "State/PredicateState.h"
+#include "State/PredicateStateChoice.h"
+#include "State/PredicateStateChain.h"
 #include "Factory/Nest.h"
 
 namespace borealis {

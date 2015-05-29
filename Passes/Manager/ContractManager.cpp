@@ -26,9 +26,9 @@ void ContractManager::addContract(llvm::Function* F, PredicateState::Ptr S, Args
 void ContractManager::print(llvm::raw_ostream& st, const llvm::Module* M) const {
     for(auto&& it : data) {
         errs()<<endl<<"---"<<"Function "<<it.first->getName()<<"---"<<endl;
-        for(auto&& s_it : it.second) {
+        for(auto&& stateInfo : it.second) {
             errs()<<"Arguments:"<<endl;
-            for(auto&& args : s_it.mapping) {
+            for(auto&& args : stateInfo.mapping) {
                 errs()<<args.first<<": ";
                 for(auto&& ait : args.second) {
                     errs()<<ait<<", ";
@@ -36,7 +36,7 @@ void ContractManager::print(llvm::raw_ostream& st, const llvm::Module* M) const 
                 errs()<<endl;
             }
             errs()<<"State:"<<endl;
-        	errs()<<s_it.state<<endl;
+        	errs()<<stateInfo.state<<endl;
         }
         errs()<<endl;
     }

@@ -16,38 +16,34 @@ namespace borealis {
 
 class ContractExtractorTransformer: public borealis::Transformer<ContractExtractorTransformer> {
 
-	using Base = borealis::Transformer<ContractExtractorTransformer>;
-	using Args = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
-	using Mapper = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
-	using TermToInt = std::unordered_map<Term::Ptr, int, TermHash, TermEquals>;
-	using ArgsToTerm = std::unordered_map<int, Args>;
+    using Base = borealis::Transformer<ContractExtractorTransformer>;
+    using Args = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
+    using Mapper = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
+    using TermToInt = std::unordered_map<Term::Ptr, int, TermHash, TermEquals>;
+    using ArgsToTerm = std::unordered_map<int, Args>;
 
 public:
 
-	ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, Mapper& m);
+    ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, Mapper& m);
 
-	PredicateState::Ptr transform(PredicateState::Ptr ps);
-	Predicate::Ptr transformPredicate(Predicate::Ptr pred);
+    PredicateState::Ptr transform(PredicateState::Ptr ps);
+    Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
-	ArgsToTerm getTermToArgMapping() const {
-	    return mapToTerms;
-	}
-	Mapper getPredicates() const {
-	    return predicates;
-	}
+    ArgsToTerm getTermToArgMapping() const {
+        return mapToTerms;
+    }
 
 private:
 
-	bool checkTerm(Term::Ptr term);
+    bool checkTerm(Term::Ptr term);
 
 private:
 
-	Args args;
-    Mapper predicates;
-	FactoryNest FN;
-	Mapper mapping;
-	TermToInt mapToInt;
-	ArgsToTerm mapToTerms;
+    Args args;
+    FactoryNest FN;
+    Mapper mapping;
+    TermToInt mapToInt;
+    ArgsToTerm mapToTerms;
 
 };
 
