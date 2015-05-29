@@ -9,10 +9,12 @@
 namespace borealis {
 
 ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, Mapper& m) :
-    Transformer(fn), args(), predicates(), FN(fn), mapping(m), mapToInt(), mapToTerms() {
+    Transformer(fn), args(), FN(fn), mapping(m), mapToInt(), mapToTerms() {
     int num = 0;
     for(auto&& it : I.arg_operands()) {
         auto&& term = FN.Term->getValueTerm(&*it);
+        if(llvm::isa<OpaqueBoolConstantTerm>(term) || llvm::isa<OpaqueIntConstantTerm>(term)
+                || llvm::isa<OpaqueFloatingConstantTerm>(term) || llvm::isa<OpaqueNullPtrTerm>(term)) continue;
         args.insert(term);
         mapToInt[term] = num;
         if(auto&& optRef = util::at(mapping, term)) {
@@ -34,13 +36,11 @@ Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr p
     if(pred->getType() == PredicateType::PATH) {
         for(auto&& i : pred->getOperands()) {
             if(checkTerm(i)) {
-                predicates[pred->getOperands()[0]] = pred->getOperands()[pred->getNumOperands() - 1];
                 return pred;
             }
             if(auto&& optRef = util::at(mapping, i)) {
                 auto&& res = optRef.get();
                 if(checkTerm(*res)) {
-                    predicates[*res] = pred->getOperands()[pred->getNumOperands() - 1];
                     return FN.Predicate->getEqualityPredicate(*res, pred->getOperands()[pred->getNumOperands() - 1], Locus(), PredicateType::PATH);
                 }
             }
