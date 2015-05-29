@@ -1,0 +1,104 @@
+/*
+ * VarInfo.h
+ *
+ *  Created on: Jan 11, 2013
+ *      Author: belyaev
+ */
+
+#ifndef VARINFO_H_
+#define VARINFO_H_
+
+#include <clang/AST/DeclBase.h>
+#include <llvm/IR/DebugInfo.h>
+
+#include <string>
+
+#include "Codegen/llvm.h"
+#include "Logging/logger.hpp"
+#include "Util/util.h"
+
+namespace borealis {
+
+enum class DiscoveryDirection {
+    Next,
+    Previous
+};
+
+enum class DiscoveryPolicy {
+    NextVal,
+    PreviousVal,
+    NextFunction,
+    PreviousFunction,
+    NextArgument,
+    PreviousArgument,
+    Loop,
+    Global // TODO: Use this!
+};
+
+struct VarInfo {
+    borealis::util::option<std::string> originalName;
+    borealis::util::option<borealis::Locus> originalLocus;
+    enum { Plain, Allocated } treatment;
+    DIType type;
+    clang::Decl* ast;
+
+
+    const VarInfo& overwriteBy(const VarInfo& vi) {
+
+        if (!vi.originalName.empty()) {
+            originalName = vi.originalName;
+        }
+        if (!vi.originalLocus.empty()) {
+            originalLocus = vi.originalLocus;
+        }
+        if (vi.ast) {
+            ast = vi.ast;
+        }
+
+        treatment = vi.treatment;
+        if(vi.type) type = vi.type;
+
+        return *this;
+    }
+
+    friend std::ostream& operator<<(std::ostream& ost, const VarInfo& vi) {
+        ost << vi.originalName.getOrElse("<unknown-variable>")
+            << " defined at ";
+
+        if (vi.originalLocus.empty()) ost << "<unknown-location>";
+        else ost << vi.originalLocus.getUnsafe();
+
+        if (vi.treatment == VarInfo::Allocated) ost << " (alloca)";
+
+        switch (vi.type.getSignedness()) {
+        case llvm::Signedness::Signed:   ost << " (signed)";   break;
+        case llvm::Signedness::Unsigned: ost << " (unsigned)"; break;
+        case llvm::Signedness::Unknown:  ost << " (unknown)";  break;
+        }
+
+        if (vi.ast) ost << " : " << *vi.ast;
+        return ost;
+    }
+};
+
+inline VarInfo meta2vi(const llvm::DIVariable& dd, const llvm::DITypeIdentifierMap& context, clang::Decl* ast = nullptr) {
+    using borealis::util::just;
+    using borealis::Locus;
+
+    return VarInfo{
+        just(dd.getName().str()),
+        just(
+            Locus{
+                dd.getContext().getFilename(),
+                LocalLocus{ dd.getLineNumber(), 0U }
+            }
+        ),
+        VarInfo::Plain,
+        DIType{ dd.getType().resolve(context) },
+        ast
+    };
+}
+
+} /* namespace borealis */
+
+#endif /* VARINFO_H_ */

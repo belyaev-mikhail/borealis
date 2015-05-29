@@ -1,0 +1,16 @@
+
+[
+	
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/decompose/file.c",
+			"loc" : 
+			{
+				"col" : 16,
+				"line" : 9
+			}
+		},
+		"type" : "RES-02"
+	}
+]

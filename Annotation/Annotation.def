@@ -1,0 +1,48 @@
+// lets put in some macro magic!!!
+
+#if !defined(HANDLE_ANNOTATION) && !defined(HANDLE_ANNOTATION_WITH_BASE)
+#define INCLUDE_MODE
+#elif !defined(HANDLE_ANNOTATION) && defined(HANDLE_ANNOTATION_WITH_BASE)
+#define HANDLE_ANNOTATION(CMD, NAME, CLASS) HANDLE_ANNOTATION_WITH_BASE(CMD, Annotation, NAME, CLASS)
+#elif defined(HANDLE_ANNOTATION) && !defined(HANDLE_ANNOTATION_WITH_BASE)
+#define HANDLE_ANNOTATION_WITH_BASE(CMD, BASE, NAME, CLASS) HANDLE_ANNOTATION(CMD, NAME, CLASS)
+#endif
+
+#ifdef INCLUDE_MODE
+#undef INCLUDE_MODE
+
+#include "Annotation/AssertAnnotation.h"
+#include "Annotation/AssignsAnnotation.h"
+#include "Annotation/AssumeAnnotation.h"
+#include "Annotation/EnsuresAnnotation.h"
+#include "Annotation/RequiresAnnotation.h"
+
+#include "Annotation/EndMaskAnnotation.h"
+#include "Annotation/IgnoreAnnotation.h"
+#include "Annotation/InlineAnnotation.h"
+#include "Annotation/MaskAnnotation.h"
+#include "Annotation/SkipAnnotation.h"
+#include "Annotation/StackDepthAnnotation.h"
+#include "Annotation/UnrollAnnotation.h"
+
+#define HANDLE_ANNOTATION(CMD, NAME, CLASS)
+#define HANDLE_ANNOTATION_WITH_BASE(CMD, BASE, NAME, CLASS)
+
+#endif // INCLUDE_MODE
+
+HANDLE_ANNOTATION_WITH_BASE("assert", LogicAnnotation, Assert, AssertAnnotation)
+HANDLE_ANNOTATION_WITH_BASE("assigns", LogicAnnotation, Assigns, AssignsAnnotation)
+HANDLE_ANNOTATION_WITH_BASE("assume", LogicAnnotation, Assume, AssumeAnnotation)
+HANDLE_ANNOTATION_WITH_BASE("ensures", LogicAnnotation, Ensures, EnsuresAnnotation)
+HANDLE_ANNOTATION_WITH_BASE("requires", LogicAnnotation, Requires, RequiresAnnotation)
+
+HANDLE_ANNOTATION("endmask", EndMask, EndMaskAnnotation)
+HANDLE_ANNOTATION("ignore", Ignore, IgnoreAnnotation)
+HANDLE_ANNOTATION("inline", Inline, InlineAnnotation)
+HANDLE_ANNOTATION("skip", Skip, SkipAnnotation)
+HANDLE_ANNOTATION("stack-depth", StackDepth, StackDepthAnnotation)
+HANDLE_ANNOTATION("mask", Mask, MaskAnnotation)
+HANDLE_ANNOTATION("unroll", Unroll, UnrollAnnotation)
+
+#undef HANDLE_ANNOTATION
+#undef HANDLE_ANNOTATION_WITH_BASE

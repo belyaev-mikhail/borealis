@@ -1,0 +1,27 @@
+
+[
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/aegis/ini03_04.c",
+			"loc" : 
+			{
+				"col" : 9,
+				"line" : 8
+			}
+		},
+		"type" : "INI-03"
+	},
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/aegis/ini03_04.c",
+			"loc" : 
+			{
+				"col" : 5,
+				"line" : 12
+			}
+		},
+		"type" : "INI-03"
+	}
+]
