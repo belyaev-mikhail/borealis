@@ -14,11 +14,15 @@
 
 #include "Util/util.h"
 
+#include "Config/config.h"
+
 #include "Util/macros.h"
 
 namespace borealis {
 namespace z3_ {
 namespace logic {
+
+static borealis::config::BoolConfigEntry useProactiveSimplify("z3", "aggressive-simplify");
 
 class Expr {};
 
