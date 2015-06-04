@@ -127,6 +127,8 @@ public:
     explicit option(T&& val) : holder{ new T(val) } {}
     option(const self&) = default;
     option(self&&) = default;
+    template<class It>
+    option(It&& begin_, It&& end_) : holder{ (begin_ == end_) ? nullptr : new T(*begin_) } {}
 
     bool empty() const { return holder == nullptr; }
 
@@ -172,11 +174,8 @@ public:
         return empty();
     }
 
-    typedef struct unspec_{}* unspecified_pointer_type;
-    operator unspecified_pointer_type() {
-        static unspec_ unspec;
-        if( empty() ) return nullptr;
-        else return &unspec;
+    explicit operator bool() const {
+        return not empty();
     }
 
     friend std::ostream& operator<<(std::ostream& ost, const self& x) {
@@ -192,19 +191,16 @@ public:
         return holder.get();
     }
 
-    const T& getOrElse(const T& def) const {
-        auto* ptr = holder.get();
-        return ptr ? *ptr : def;
+    template<class U>
+    auto getOrElse(U&& def) -> common_type_t<U, T&> {
+        auto* ptr = this->get();
+        return ptr ? *ptr : std::forward<U>(def);
     }
 
-    T getOrElse(T&& def) const {
-        auto* ptr = holder.get();
-        return ptr ? *ptr : def;
-    }
-
-    T& getOrElse(T& def) {
-        auto* ptr = holder.get();
-        return ptr ? *ptr : def;
+    template<class U>
+    auto getOrElse(U&& def) const -> common_type_t<U, const T&> {
+        auto* ptr = this->get();
+        return ptr ? *ptr : std::forward<U>(def);
     }
 
     const T& getUnsafe() const {
@@ -267,6 +263,9 @@ public:
     option_ref(nothing_t) : holder(nullptr) {}
     explicit option_ref(T& val) : holder(&val) {}
     option_ref(const self& that): holder(that.holder) {}
+    template<class It>
+    option_ref(It&& begin_, It&& end_) : holder{ (begin_ == end_) ? nullptr : &*begin_ } {}
+
 
     bool empty() const { return holder == nullptr; }
 
@@ -333,19 +332,16 @@ public:
         return holder;
     }
 
-    const T& getOrElse(const T& def) const {
+    template<class U>
+    auto getOrElse(U&& def) -> common_type_t<U, T&> {
         auto* ptr = this->get();
-        return ptr ? *ptr : def;
+        return ptr ? *ptr : std::forward<U>(def);
     }
 
-    T getOrElse(T&& def) const {
+    template<class U>
+    auto getOrElse(U&& def) const -> common_type_t<U, const T&> {
         auto* ptr = this->get();
-        return ptr ? *ptr : def;
-    }
-
-    T& getOrElse(T& def) {
-        auto* ptr = this->get();
-        return ptr ? *ptr : def;
+        return ptr ? *ptr : std::forward<U>(def);
     }
 
     const T& getUnsafe() const {

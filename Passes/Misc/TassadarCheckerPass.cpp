@@ -4,8 +4,6 @@
  *  Created on: Feb 6, 2015
  *      Author: belyaev
  */
-
-#include <Executor/ExecutionEngine.h>
 #include <iostream>
 #include <fstream>
 
@@ -17,6 +15,7 @@
 
 #include "Passes/Checker/Defines.def"
 #include "Config/config.h"
+#include "Executor/ExecutionEngine.h"
 #include "Executor/SmtDrivenArbiter.h"
 #include "Util/passes.hpp"
 #include "Util/collections.hpp"
@@ -66,7 +65,7 @@ public:
         for(auto&& defect: DM.getData()) if(auto&& model = DM.getAdditionalInfo(defect).satModel) {
             ASSERT(model.getUnsafe().valid(), "Cannot run tassadar checker without collected data. Did you forget to enable model collection?");
 
-            llvm::Function* func = DM.getAdditionalInfo(defect).where;
+            llvm::Function* func = DM.getAdditionalInfo(defect).atFunc;
             auto st = getAnalysis<SlotTrackerPass>().getSlotTracker(func);
 
             auto judicator = std::make_shared<SmtDrivenArbiter>(st, model.getUnsafe());
