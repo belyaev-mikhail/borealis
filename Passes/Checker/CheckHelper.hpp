@@ -12,7 +12,7 @@
 #include "Passes/Defect/DefectManager/DefectInfo.h"
 #include "SMT/MathSAT/Solver.h"
 #include "SMT/Z3/Solver.h"
-#include <State/Transformer/StateSlicer.h>
+#include "State/Transformer/StateSlicer.h"
 
 namespace borealis {
 
@@ -72,7 +72,8 @@ public:
         if (auto satRes = solverResult.getSatPtr()) {
             pass->DM->addDefect(di);
             pass->DM->getAdditionalInfo(di).satModel = util::just(*satRes);
-            pass->DM->getAdditionalInfo(di).where = I->getParent()->getParent();
+            pass->DM->getAdditionalInfo(di).atFunc = I->getParent()->getParent();
+            pass->DM->getAdditionalInfo(di).atInst = I;
             return true;
         } else {
             return false;
