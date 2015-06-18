@@ -9,16 +9,15 @@
 namespace borealis {
 
 ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, Mapper& m) :
-    Transformer(fn), args(), FN(fn), mapping(m), mapToInt(), mapToTerms() {
+    Transformer(fn), args(), visited(), FN(fn), mapping(m), mapToInt(), mapToTerms() {
     int num = 0;
     for(auto&& it : I.arg_operands()) {
         auto&& term = FN.Term->getValueTerm(&*it);
-        if(llvm::isa<OpaqueBoolConstantTerm>(term) || llvm::isa<OpaqueIntConstantTerm>(term)
-                || llvm::isa<OpaqueFloatingConstantTerm>(term) || llvm::isa<OpaqueNullPtrTerm>(term)) continue;
-        args.insert(term);
+        if(isOpaqueTerm(term)) continue;
         mapToInt[term] = num;
         if(auto&& optRef = util::at(mapping, term)) {
             auto&& res = optRef.get();
+            if(isOpaqueTerm(*res)) continue;
             args.insert(*res);
             mapToInt[*res] = num;
         }
@@ -34,14 +33,17 @@ PredicateState::Ptr ContractExtractorTransformer::transform(PredicateState::Ptr 
 
 Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr pred) {
     if(pred->getType() == PredicateType::PATH) {
-        for(auto&& i : pred->getOperands()) {
-            if(checkTerm(i)) {
-                return pred;
-            }
-            if(auto&& optRef = util::at(mapping, i)) {
-                auto&& res = optRef.get();
-                if(checkTerm(*res)) {
-                    return FN.Predicate->getEqualityPredicate(*res, pred->getOperands()[pred->getNumOperands() - 1], Locus(), PredicateType::PATH);
+        if(std::find(visited.begin(), visited.end(), pred->getOperands()[0])==visited.end()) {
+            visited.insert(pred->getOperands()[0]);
+            for(auto&& i : pred->getOperands()) {
+                if(checkTerm(i)) {
+                    return pred;
+                }
+                if(auto&& optRef = util::at(mapping, i)) {
+                    auto&& res = optRef.get();
+                    if(checkTerm(*res)) {
+                        return FN.Predicate->getEqualityPredicate(*res, pred->getOperands()[pred->getNumOperands() - 1], Locus(), PredicateType::PATH);
+                    }
                 }
             }
         }
@@ -63,6 +65,12 @@ bool ContractExtractorTransformer::checkTerm(Term::Ptr term) {
             }
         }
     }
+    return false;
+}
+
+bool ContractExtractorTransformer::isOpaqueTerm(Term::Ptr term) {
+    if(llvm::isa<OpaqueBoolConstantTerm>(term) || llvm::isa<OpaqueIntConstantTerm>(term)
+                    || llvm::isa<OpaqueFloatingConstantTerm>(term) || llvm::isa<OpaqueNullPtrTerm>(term)) return true;
     return false;
 }
 
