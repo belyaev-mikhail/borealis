@@ -34,9 +34,6 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
 }
 
 void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, borealis::PredicateState::Ptr S) {
-    if(auto&& chain = llvm::dyn_cast<PredicateStateChain>(S.get())) {
-        S = chain->getCurr();
-    }
     auto&& mapper = EqualityMapper();
     auto&& mappedState = mapper.transform(S);
     auto&& mapping = mapper.getMappedValues();

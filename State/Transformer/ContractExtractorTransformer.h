@@ -17,10 +17,10 @@ namespace borealis {
 class ContractExtractorTransformer: public borealis::Transformer<ContractExtractorTransformer> {
 
     using Base = borealis::Transformer<ContractExtractorTransformer>;
-    using Args = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
+    using Terms = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
     using Mapper = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
     using TermToInt = std::unordered_map<Term::Ptr, int, TermHash, TermEquals>;
-    using ArgsToTerm = std::unordered_map<int, Args>;
+    using ArgsToTerm = std::unordered_map<int, Terms>;
 
 public:
 
@@ -36,10 +36,12 @@ public:
 private:
 
     bool checkTerm(Term::Ptr term);
+    bool isOpaqueTerm(Term::Ptr term);
 
 private:
 
-    Args args;
+    Terms args;
+    Terms visited;
     FactoryNest FN;
     Mapper mapping;
     TermToInt mapToInt;
