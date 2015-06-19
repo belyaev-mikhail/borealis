@@ -40,7 +40,7 @@ PredicateState::Ptr ContractExtractorTransformer::transform(PredicateState::Ptr 
 
 Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr pred) {
     if (pred->getType() == PredicateType::PATH) {
-        std::unordered_map<Term::Ptr, Term::Ptr> m;
+        TermMap m;
         for (auto&& op : pred->getOperands()) {
             if (checkTerm(op)) {
                 m[op] = op;

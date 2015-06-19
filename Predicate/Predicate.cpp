@@ -87,14 +87,18 @@ Predicate* Predicate::clone() const {
     BYE_BYE(Predicate*, "Should not be called!");
 }
 
-Predicate* Predicate::replaceOperands(const std::unordered_map<Term::Ptr, Term::Ptr>& map) const {
+Predicate* Predicate::update() {
+    return this;
+}
+
+Predicate* Predicate::replaceOperands(const std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>& map) const {
     auto* res = this->clone();
     for (auto&& op : res->ops) {
         if (auto&& m = util::at(map, op)) {
             op = m.getUnsafe();
         }
     }
-    return res;
+    return res->update(); // Recalculating res->asString in a nasty/lazy way...
 }
 
 bool operator==(const Predicate& a, const Predicate& b) {

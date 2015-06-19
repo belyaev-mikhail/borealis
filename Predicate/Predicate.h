@@ -107,7 +107,9 @@ public:
 
     virtual Predicate* clone() const;
 
-    virtual Predicate* replaceOperands(const std::unordered_map<Term::Ptr, Term::Ptr>& map) const;
+    virtual Predicate* update();
+
+    virtual Predicate* replaceOperands(const std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>& map) const;
 
 protected:
 
@@ -150,7 +152,8 @@ public: \
     } \
     virtual Predicate* clone() const override { \
         return new Self{ *this }; \
-    }
+    } \
+    virtual Predicate* update() override;
 
 #define PREDICATE_ON_CHANGED(COND, CTOR) \
     if (COND) return Predicate::Ptr{ CTOR }; \

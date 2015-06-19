@@ -19,10 +19,17 @@ SeqDataPredicate::SeqDataPredicate(
                 .map([](auto&& d) { return d->getName(); })
                 .reduce("", [](auto&& acc, auto&& e) { return acc + "," + e; });
 
-    asString = base->getName() + "=(" + a + ")";
-
     ops.insert(ops.end(), base);
     ops.insert(ops.end(), data.begin(), data.end());
+
+    update();
+}
+
+Predicate* SeqDataPredicate::update() {
+    asString = getBase()->getName() + "=(" + getData()
+                        .map([](auto&& d) { return d->getName(); })
+                        .reduce("", [](auto&& acc, auto&& e) { return acc + "," + e; }) + ")";
+    return this;
 }
 
 Term::Ptr SeqDataPredicate::getBase() const {
