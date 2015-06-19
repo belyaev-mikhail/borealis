@@ -8,21 +8,20 @@
 #ifndef PASSES_TRANSFORM_CONTRACTEXTRACTORPASS_H_
 #define PASSES_TRANSFORM_CONTRACTEXTRACTORPASS_H_
 
-#include "llvm/Pass.h"
+#include <llvm/Pass.h>
 
-#include "Passes/Util/ProxyFunctionPass.h"
-#include "Util/passes.hpp"
-#include "State/PredicateState.h"
-#include "State/PredicateStateChoice.h"
-#include "State/PredicateStateChain.h"
 #include "Factory/Nest.h"
+#include "Passes/Util/ProxyFunctionPass.h"
+#include "State/PredicateState.h"
+#include "Util/passes.hpp"
 
 namespace borealis {
 
 class ContractExtractorPass : public ProxyFunctionPass, public ShouldBeModularized {
+
 private:
 
-	void processCallInstruction(llvm::CallInst& I, borealis::PredicateState::Ptr S);
+	void processCallInstruction(llvm::CallInst& I, PredicateState::Ptr S);
 
 public:
 
@@ -32,11 +31,15 @@ public:
     virtual ~ContractExtractorPass() = default;
 
     virtual bool runOnFunction(llvm::Function& F) override;
-
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override;
 
 private:
+
     FactoryNest FN;
+
+    ContractManager* CM;
+    PredicateStateAnalysis* PSA;
+
 };
 
 } /* namespace borealis */

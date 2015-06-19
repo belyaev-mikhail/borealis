@@ -5,56 +5,55 @@
  *      Author: kivi
  */
 
-#include "Passes/Transform/ContractExtractorPass.h"
-
-#include "State/Transformer/EqualityMapper.h"
-#include "State/Transformer/ContractExtractorTransformer.h"
-#include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
-#include "Passes/Tracker/SlotTrackerPass.h"
 #include "Passes/Manager/ContractManager.h"
-#include "Logging/logger.hpp"
+#include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
+#include "Passes/Transform/ContractExtractorPass.h"
+#include "Passes/Tracker/SlotTrackerPass.h"
+#include "State/Transformer/ContractExtractorTransformer.h"
+#include "State/Transformer/EqualityMapper.h"
 
 namespace borealis {
 
 ContractExtractorPass::ContractExtractorPass() : ProxyFunctionPass(ID) {}
 
 bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
-    GetAnalysis<SlotTrackerPass>::doit(this, F).runOnModule(*F.getParent());
-	auto&& st = GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(&F);
-	FN = FactoryNest(st);
-	for(auto it = F.begin(), ite = F.end(); it != ite; ++it) {
-	    for(auto i_it = it->begin(), i_ite = it->end(); i_it != i_ite; ++i_it) {
-		    if(auto&& I = llvm::dyn_cast<llvm::CallInst>(i_it)) {
-			    auto&& s = GetAnalysis<PredicateStateAnalysis>::doit(this, F).getInstructionState(i_it);
-				processCallInstruction(*I, s);
-			}
-		}
+    FN = FactoryNest(GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(&F));
+    CM = &GetAnalysis<ContractManager>::doit(this, F);
+    PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, F);
+
+    for (auto&& I : util::viewContainer(F)
+                    .flatten()
+                    .map(ops::take_pointer)
+                    .map(llvm::dyn_caster<llvm::CallInst>())
+                    .filter()) {
+        processCallInstruction(*I, PSA->getInstructionState(I));
 	}
 	return false;
 }
 
-void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, borealis::PredicateState::Ptr S) {
-    auto&& mapper = EqualityMapper();
+void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateState::Ptr S) {
+    auto&& mapper = EqualityMapper(FN);
     auto&& mappedState = mapper.transform(S);
     auto&& mapping = mapper.getMappedValues();
+
     auto&& extractor = ContractExtractorTransformer(FN, I, mapping);
     auto&& transformedState = extractor.transform(mappedState);
-    auto&& termsToArg = extractor.getTermToArgMapping();
-    GetAnalysis<ContractManager>::doit(this, *I.getParent()->getParent()).addContract(I.getCalledFunction(), transformedState, termsToArg);
+    auto&& argToTerms = extractor.getArgToTermMapping();
+
+    CM->addContract(I.getCalledFunction(), transformedState, argToTerms);
 }
 
 void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
     Info.setPreservesAll();
 
+    AUX<ContractManager>::addRequiredTransitive(Info);
     AUX<PredicateStateAnalysis>::addRequiredTransitive(Info);
     AUX<SlotTrackerPass>::addRequiredTransitive(Info);
-    AUX<ContractManager>::addRequiredTransitive(Info);
 }
 
 char ContractExtractorPass::ID = 0;
 
 static llvm::RegisterPass<ContractExtractorPass>
-X("contract-extractor", "contract extractor pass", false, false);
+X("contract-extractor", "Contract extractor pass", false, false);
 
 } /* namespace borealis */
-
