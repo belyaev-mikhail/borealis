@@ -83,6 +83,8 @@ protected:
 
 public:
 
+    // FIXME akhin Remove raw pointers here - switch to Predicate::Ptr
+
     virtual ~Predicate() = default;
 
     PredicateType getType() const;
@@ -104,6 +106,8 @@ public:
     virtual size_t hashCode() const;
 
     virtual Predicate* clone() const;
+
+    virtual Predicate* replaceOperands(const std::unordered_map<Term::Ptr, Term::Ptr>& map) const;
 
 protected:
 
