@@ -40,42 +40,45 @@ PredicateState::Ptr ContractExtractorTransformer::transform(PredicateState::Ptr 
 
 Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr pred) {
     if (pred->getType() == PredicateType::PATH) {
-        auto&& lhv = pred->getOperands().front();
-
-        if (not util::contains(visited, lhv)) {
-            for (auto&& op : pred->getOperands()) {
-                if (checkTerm(op)) {
-                    visited.insert(lhv);
-                    return pred;
-                }
-                if (auto&& optRef = util::at(mapping, op)) {
-                    auto&& res = optRef.getUnsafe();
-                    if (checkTerm(res)) {
-                        visited.insert(lhv);
-                        return Predicate::Ptr{ pred->replaceOperands({{op, res}}) };
-                    };
-                }
+        std::unordered_map<Term::Ptr, Term::Ptr> m;
+        for (auto&& op : pred->getOperands()) {
+            if (checkTerm(op)) {
+                m[op] = op;
+            }
+            if (auto&& optRef = util::at(mapping, op)) {
+                auto&& res = optRef.getUnsafe();
+                if (checkTerm(res)) {
+                    m[op] = res;
+                };
             }
         }
+
+        if (not m.empty()) {
+            return Predicate::Ptr{ pred->replaceOperands(m) };
+        }
     }
+
     return nullptr;
 }
 
 bool ContractExtractorTransformer::checkTerm(Term::Ptr term) {
+    auto&& flag = false;
+
     for (auto&& t : Term::getFullTermSet(term)) {
         if (util::contains(args, t)) {
             argToTerms[termToArg[t]].insert(t);
-            return true;
+            flag = true;
         }
         if (auto&& optRef = util::at(mapping, t)) {
             auto&& res = optRef.getUnsafe();
             if (util::contains(args, res)) {
                 argToTerms[termToArg[res]].insert(t);
-                return true;
+                flag = true;
             }
         }
     }
-    return false;
+
+    return flag;
 }
 
 bool ContractExtractorTransformer::isOpaqueTerm(Term::Ptr term) {
