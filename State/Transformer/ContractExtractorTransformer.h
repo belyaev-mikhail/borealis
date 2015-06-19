@@ -8,29 +8,30 @@
 #ifndef STATE_TRANSFORMER_CONTRACTEXTRACTORTRANSFORMER_H_
 #define STATE_TRANSFORMER_CONTRACTEXTRACTORTRANSFORMER_H_
 
+#include <unordered_set>
+
 #include "State/Transformer/Transformer.hpp"
-#include <unordered_set>
-#include <unordered_set>
 
 namespace borealis {
 
 class ContractExtractorTransformer: public borealis::Transformer<ContractExtractorTransformer> {
 
     using Base = borealis::Transformer<ContractExtractorTransformer>;
-    using Terms = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
-    using Mapper = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
-    using TermToInt = std::unordered_map<Term::Ptr, int, TermHash, TermEquals>;
-    using ArgsToTerm = std::unordered_map<int, Terms>;
+
+    using TermSet = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
+    using TermMap = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
+    using TermToArg = std::unordered_map<Term::Ptr, int, TermHash, TermEquals>;
+    using ArgToTerms = std::unordered_map<int, TermSet>;
 
 public:
 
-    ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, Mapper& m);
+    ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, const TermMap& m);
 
     PredicateState::Ptr transform(PredicateState::Ptr ps);
     Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
-    ArgsToTerm getTermToArgMapping() const {
-        return mapToTerms;
+    const ArgToTerms& getArgToTermMapping() const {
+        return argToTerms;
     }
 
 private:
@@ -40,12 +41,13 @@ private:
 
 private:
 
-    Terms args;
-    Terms visited;
-    FactoryNest FN;
-    Mapper mapping;
-    TermToInt mapToInt;
-    ArgsToTerm mapToTerms;
+    TermSet visited;
+
+    TermSet args;
+    TermMap mapping;
+
+    TermToArg termToArg;
+    ArgToTerms argToTerms;
 
 };
 

@@ -11,6 +11,7 @@
 #include <llvm/Pass.h>
 
 #include <unordered_map>
+
 #include "Logging/logger.hpp"
 #include "State/PredicateState.h"
 
@@ -19,11 +20,11 @@ namespace borealis {
 class ContractManager : public llvm::ModulePass {
 
     using Args = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
-    using ArgsToTerm = std::unordered_map<int, Args>;
+    using ArgToTerms = std::unordered_map<int, Args>;
 
     struct StateInfo {
         PredicateState::Ptr state;
-        ArgsToTerm mapping;
+        ArgToTerms mapping;
     };
 
     struct StateInfoHash {
@@ -34,7 +35,7 @@ class ContractManager : public llvm::ModulePass {
 
     struct StateInfoEquals {
         bool operator()(StateInfo lhv, StateInfo rhv) const noexcept {
-            return lhv.state->equals(rhv.state.get());
+            return *lhv.state == *rhv.state;
         }
     };
 
@@ -48,10 +49,10 @@ public:
     ContractManager();
     virtual ~ContractManager() = default;
 
-    virtual bool runOnModule(llvm::Module& M) override;
+    virtual bool runOnModule(llvm::Module&) override;
+    virtual void print(llvm::raw_ostream&, const llvm::Module*) const;
 
-    void addContract(llvm::Function* F, PredicateState::Ptr S, ArgsToTerm& mapping);
-    virtual void print(llvm::raw_ostream& st, const llvm::Module* M) const;
+    void addContract(llvm::Function* F, PredicateState::Ptr S, const ArgToTerms& mapping);
 
 };
 

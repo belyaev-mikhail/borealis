@@ -10,21 +10,22 @@
 
 namespace borealis {
 
-EqualityMapper::EqualityMapper() : Base(FactoryNest()) {}
+EqualityMapper::EqualityMapper(FactoryNest FN) : Base(FN) {}
 
 Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr pred) {
-    if(util::at(mapping, pred->getLhv())) return pred;
-    if(auto&& optRef = util::at(mapping, pred->getRhv())) {
-        auto&& re = optRef.get();
-        mapping[pred->getLhv()] = *re;
-    } else mapping[pred->getLhv()] = pred->getRhv();
+    if (util::at(mapping, pred->getLhv())) return pred;
+
+    if (auto&& optRef = util::at(mapping, pred->getRhv())) {
+        mapping[pred->getLhv()] = optRef.getUnsafe();
+    } else {
+        mapping[pred->getLhv()] = pred->getRhv();
+    }
+
     return pred;
 }
 
-std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals> EqualityMapper::getMappedValues() const {
+const EqualityMapper::TermMap& EqualityMapper::getMappedValues() const {
     return mapping;
 }
 
 }  /* namespace borealis */
-
-
