@@ -41,8 +41,6 @@ private:
 
 private:
 
-    TermSet visited;
-
     TermSet args;
     TermMap mapping;
 
