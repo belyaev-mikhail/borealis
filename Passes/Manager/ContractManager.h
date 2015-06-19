@@ -41,6 +41,10 @@ class ContractManager : public llvm::ModulePass {
 
     using ContractData = std::unordered_map<llvm::Function*, std::unordered_set<StateInfo, StateInfoHash, StateInfoEquals>>;
 
+private:
+
+    void merge();
+
 public:
 
     static char ID;
