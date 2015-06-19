@@ -52,7 +52,7 @@ Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr p
                     auto&& res = optRef.getUnsafe();
                     if (checkTerm(res)) {
                         visited.insert(lhv);
-                        return Predicate::Ptr{ pred->replaceOperands({{lhv, res}}) };
+                        return Predicate::Ptr{ pred->replaceOperands({{op, res}}) };
                     };
                 }
             }
