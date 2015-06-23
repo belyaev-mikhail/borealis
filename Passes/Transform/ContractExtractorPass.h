@@ -9,11 +9,14 @@
 #define PASSES_TRANSFORM_CONTRACTEXTRACTORPASS_H_
 
 #include <llvm/Pass.h>
+#include <llvm/IR/Instructions.h>
 
-#include "Factory/Nest.h"
-#include "Passes/Util/ProxyFunctionPass.h"
-#include "State/PredicateState.h"
-#include "Util/passes.hpp"
+#include "../Util/ProxyFunctionPass.h"
+#include "../../Util/passes.hpp"
+#include "../../State/PredicateState.h"
+#include "../Manager/ContractManager.h"
+#include "../PredicateStateAnalysis/PredicateStateAnalysis.h"
+#include "../../Factory/Nest.h"
 
 namespace borealis {
 

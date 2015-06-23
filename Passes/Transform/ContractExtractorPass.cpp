@@ -5,12 +5,12 @@
  *      Author: kivi
  */
 
-#include "Passes/Manager/ContractManager.h"
-#include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
-#include "Passes/Transform/ContractExtractorPass.h"
-#include "Passes/Tracker/SlotTrackerPass.h"
-#include "State/Transformer/ContractExtractorTransformer.h"
-#include "State/Transformer/EqualityMapper.h"
+#include "ContractExtractorPass.h"
+#include "../Tracker/SlotTrackerPass.h"
+#include "../../Util/functional.hpp"
+#include "../../Util/util.hpp"
+#include "../../State/Transformer/EqualityMapper.h"
+#include "../../State/Transformer/ContractExtractorTransformer.h"
 
 namespace borealis {
 
