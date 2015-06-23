@@ -5,8 +5,8 @@
  *      Author: kivi
  */
 
-#include "State/Transformer/EqualityMapper.h"
-#include "Util/option.hpp"
+#include "EqualityMapper.h"
+#include "../../Util/collections.hpp"
 
 namespace borealis {
 

@@ -9,8 +9,14 @@
 #define STATE_TRANSFORMER_CONTRACTEXTRACTORTRANSFORMER_H_
 
 #include <unordered_set>
+#include <unordered_map>
+#include <llvm/IR/Instructions.h>
 
-#include "State/Transformer/Transformer.hpp"
+#include "Transformer.hpp"
+#include "../../Term/Term.h"
+#include "../../Factory/Nest.h"
+#include "../PredicateState.h"
+#include "../../Predicate/Predicate.h"
 
 namespace borealis {
 

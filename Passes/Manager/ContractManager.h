@@ -12,8 +12,9 @@
 
 #include <unordered_map>
 
-#include "Logging/logger.hpp"
-#include "State/PredicateState.h"
+#include "../../Term/Term.h"
+#include "../../State/PredicateState.h"
+#include "../../Factory/Nest.h"
 
 namespace borealis {
 
@@ -22,41 +23,27 @@ class ContractManager : public llvm::ModulePass {
     using Args = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
     using ArgToTerms = std::unordered_map<int, Args>;
 
-    struct StateInfo {
-        PredicateState::Ptr state;
-        ArgToTerms mapping;
-    };
-
-    struct StateInfoHash {
-        size_t operator()(StateInfo si) const noexcept {
-            return util::hash::defaultHasher()(si.state);
-        }
-    };
-
-    struct StateInfoEquals {
-        bool operator()(StateInfo lhv, StateInfo rhv) const noexcept {
-            return *lhv.state == *rhv.state;
-        }
-    };
-
-    using ContractData = std::unordered_map<llvm::Function*, std::unordered_set<StateInfo, StateInfoHash, StateInfoEquals>>;
-
-private:
-
-    void merge();
+    using ContractStates = std::unordered_map<llvm::Function*, std::unordered_set<PredicateState::Ptr>>;
+    using ContractArguments = std::unordered_map<llvm::Function*, ArgToTerms>;
 
 public:
 
     static char ID;
-    static ContractData data;
+    static ContractStates states;
+    static ContractArguments arguments;
 
     ContractManager();
     virtual ~ContractManager() = default;
 
     virtual bool runOnModule(llvm::Module&) override;
-    virtual void print(llvm::raw_ostream&, const llvm::Module*) const;
+    virtual void print(llvm::raw_ostream&, const llvm::Module*) const override;
 
     void addContract(llvm::Function* F, PredicateState::Ptr S, const ArgToTerms& mapping);
+
+
+private:
+
+    void replaseTerms();
 
 };
 
