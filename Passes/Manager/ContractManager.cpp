@@ -16,18 +16,22 @@ namespace borealis {
 ContractManager::ContractManager() : ModulePass(ID) {}
 
 bool ContractManager::runOnModule(llvm::Module&) {
-    replaseTerms();
     return false;
 }
 
-void ContractManager::addContract(llvm::Function* F, PredicateState::Ptr S, const ArgToTerms& mapping) {
+void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
     if (not S->isEmpty()) {
-        states[F].insert(S);
+        TermMap argumentsReplacement;
         for (auto&& it : mapping) {
-            for (auto&& terms : it.second) {
-                arguments[F][it.first].insert(terms);
+            if (not util::containsKey(arguments[F], it.first)) {
+               arguments[F][it.first] = *it.second.begin();
+            }
+            for (auto&& term : it.second) {
+                argumentsReplacement[term] = arguments[F][it.first];
             }
         }
+        auto&& state = replaseTerms(S, FN, argumentsReplacement);
+        states[F].insert(state);
     }
 }
 
@@ -39,6 +43,7 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
 
         dbg << "Arguments:" << endl;
         dbg << arguments[it.first] << endl;
+        dbg << endl;
         for (auto&& state : it.second) {
             dbg << "State:" << endl;
             dbg << state << endl;
@@ -49,37 +54,10 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
     dbg << end;
 }
 
-void ContractManager::replaseTerms() {
-    /*for (auto&& it : states) {
-        std::unordered_map<int, Term::Ptr> argMap;
-        std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals> termMap;
+PredicateState::Ptr ContractManager::replaseTerms(PredicateState::Ptr S, const FactoryNest& FN, const TermMap& argumentsReplacement) {
+    auto&& termReplace = TermReplaceTransformer(FN, argumentsReplacement);
 
-        for (auto&& stateInfo : it.second) {
-            for (auto&& map_it : stateInfo.mapping) {
-                if (not util::containsKey(argMap, map_it.first)) {
-                    argMap[map_it.first] = *map_it.second.begin();
-                }
-
-                for (auto&& term : map_it.second) {
-                    termMap[term] = argMap[map_it.first];
-                }
-            }
-        }
-
-        ArgToTerms args;
-        for(auto&& arg : argMap) {
-            args[arg.first].insert(arg.second);
-        }
-
-        auto&& merger = TermReplaceTransformer(FactoryNest(), termMap);
-        auto stateInfoSet = it.second;
-        it.second.clear();
-
-        for (auto&& stateInfo : stateInfoSet) {
-            auto&& transformedState = merger.transform(stateInfo.state);
-            it.second.insert({transformedState, args});
-        }
-    }*/
+    return termReplace.transform(S);
 }
 
 char ContractManager::ID = 0;
