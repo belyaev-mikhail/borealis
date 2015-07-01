@@ -22,19 +22,19 @@ bool ContractManager::runOnModule(llvm::Module&) {
 
 void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
     if (not S->isEmpty()) {
-        TermMap argumentsReplacement;
-        for (auto&& it : mapping) {
-            if (not util::containsKey(arguments[F], it.first)) {
-               arguments[F][it.first] = *it.second.begin();
+        auto&& choiceKilled = killStateChoice(S, FN);
+        if(not choiceKilled->isEmpty()) {
+            TermMap argumentsReplacement;
+            for (auto&& it : mapping) {
+                if (not util::containsKey(arguments[F], it.first)) {
+                   arguments[F][it.first] = *it.second.begin();
+                }
+                for (auto&& term : it.second) {
+                    argumentsReplacement[term] = arguments[F][it.first];
+                }
             }
-            for (auto&& term : it.second) {
-                argumentsReplacement[term] = arguments[F][it.first];
-            }
-        }
-        auto&& killed = StateChoiceKiller(FN).transform(S);
-        if(not killed->isEmpty()) {
-            auto&& state = replaceTerms(killed, FN, argumentsReplacement);
-            states[F].insert(state);
+            auto&& termReplacedState = replaceTerms(choiceKilled, FN, argumentsReplacement);
+            states[F].insert(termReplacedState);
         }
     }
 }
@@ -64,6 +64,11 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
 PredicateState::Ptr ContractManager::replaceTerms(PredicateState::Ptr S, const FactoryNest& FN, const TermMap& argumentsReplacement) {
     auto&& termReplace = TermReplaceTransformer(FN, argumentsReplacement);
     return termReplace.transform(S);
+}
+
+PredicateState::Ptr ContractManager::killStateChoice(PredicateState::Ptr S, const FactoryNest& FN) {
+    auto&& choiceKiller = StateChoiceKiller(FN);
+    return choiceKiller.transform(S);
 }
 
 char ContractManager::ID = 0;
