@@ -44,7 +44,7 @@ public:
 
 private:
 
-    PredicateState::Ptr replaseTerms(PredicateState::Ptr S, const FactoryNest& FN, const TermMap& argumentsReplacement);
+    PredicateState::Ptr replaceTerms(PredicateState::Ptr S, const FactoryNest& FN, const TermMap& argumentsReplacement);
 };
 
 } /* namespace borealis */

@@ -10,6 +10,7 @@
 #include "../../Util/passes.hpp"
 #include "../../Util/collections.hpp"
 #include "../../State/Transformer/TermReplaceTransformer.h"
+#include "../../State/Transformer/StateChoiceKiller.h"
 
 namespace borealis {
 
@@ -30,13 +31,18 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
                 argumentsReplacement[term] = arguments[F][it.first];
             }
         }
-        auto&& state = replaseTerms(S, FN, argumentsReplacement);
-        states[F].insert(state);
+        auto&& killed = StateChoiceKiller(FN).transform(S);
+        if(not killed->isEmpty()) {
+            auto&& state = replaceTerms(killed, FN, argumentsReplacement);
+            states[F].insert(state);
+        }
     }
 }
 
 void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
     auto&& dbg = dbgs();
+
+    dbg << "Contract extraction results" << endl;
 
     for (auto&& it : states) {
         dbg << "---" << "Function " << it.first->getName() << "---" << endl;
@@ -44,6 +50,7 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
         dbg << "Arguments:" << endl;
         dbg << arguments[it.first] << endl;
         dbg << endl;
+
         for (auto&& state : it.second) {
             dbg << "State:" << endl;
             dbg << state << endl;
@@ -54,9 +61,8 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
     dbg << end;
 }
 
-PredicateState::Ptr ContractManager::replaseTerms(PredicateState::Ptr S, const FactoryNest& FN, const TermMap& argumentsReplacement) {
+PredicateState::Ptr ContractManager::replaceTerms(PredicateState::Ptr S, const FactoryNest& FN, const TermMap& argumentsReplacement) {
     auto&& termReplace = TermReplaceTransformer(FN, argumentsReplacement);
-
     return termReplace.transform(S);
 }
 
