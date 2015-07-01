@@ -20,9 +20,9 @@
 
 namespace borealis {
 
-class ContractExtractorTransformer: public borealis::Transformer<ContractExtractorTransformer> {
+class ContractExtractorTransformer: public Transformer<ContractExtractorTransformer> {
 
-    using Base = borealis::Transformer<ContractExtractorTransformer>;
+    using Base = Transformer<ContractExtractorTransformer>;
 
     using TermSet = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
     using TermMap = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;

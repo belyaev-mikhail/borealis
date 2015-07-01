@@ -26,7 +26,7 @@ DefaultSwitchCasePredicate::DefaultSwitchCasePredicate(
 Predicate* DefaultSwitchCasePredicate::update() {
     asString = getCond()->getName() + "=not(" + getCases()
                         .map([](auto&& c) { return c->getName(); })
-                        .reduce("", [](auto&& acc, auto&& e) { return acc + "|" + e; }); + ")";
+                        .reduce("", [](auto&& acc, auto&& e) { return acc + "|" + e; }) + ")";
     return this;
 }
 
