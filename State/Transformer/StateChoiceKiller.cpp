@@ -7,7 +7,6 @@
 #include "../../Term/Term.h"
 #include "../BasicPredicateState.h"
 #include "../../Util/collections.hpp"
-#include "../../Logging/logger.hpp"
 
 namespace borealis {
 
@@ -35,7 +34,7 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
     std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals> boolInv;
     boolInv[FN.Term->getTrueTerm()] = FN.Term->getFalseTerm();
     boolInv[FN.Term->getFalseTerm()] = FN.Term->getTrueTerm();
-    
+
     for (auto&& it : statesMap) {
         auto&& inverted = Predicate::Ptr{ it.first->replaceOperands(boolInv) };
         if (auto&& optRef = util::at(statesMap, inverted)) {
