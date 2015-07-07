@@ -10,11 +10,7 @@
 
 #include <unordered_map>
 
-#include "State/Transformer/Transformer.hpp"
 #include "Transformer.hpp"
-#include "../../Term/Term.h"
-#include "../../Factory/Nest.h"
-#include "../../Predicate/Predicate.h"
 
 namespace borealis {
 

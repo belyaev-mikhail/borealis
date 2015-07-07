@@ -6,7 +6,6 @@
  */
 
 #include "EqualityMapper.h"
-#include "../../Util/collections.hpp"
 
 namespace borealis {
 

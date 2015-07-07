@@ -4,9 +4,6 @@
 
 #include <unordered_map>
 #include "StateChoiceKiller.h"
-#include "../../Term/Term.h"
-#include "../BasicPredicateState.h"
-#include "../../Util/collections.hpp"
 
 namespace borealis {
 

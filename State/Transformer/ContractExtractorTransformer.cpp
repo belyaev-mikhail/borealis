@@ -10,13 +10,6 @@
 #include <llvm/IR/Instructions.h>
 
 #include "ContractExtractorTransformer.h"
-#include "../../Util/collections.hpp"
-#include "../../Term/OpaqueIntConstantTerm.h"
-#include "../../Term/OpaqueBoolConstantTerm.h"
-#include "../../Term/OpaqueFloatingConstantTerm.h"
-#include "../../Term/OpaqueStringConstantTerm.h"
-#include "../../Term/OpaqueNullPtrTerm.h"
-#include "../../Util/cast.hpp"
 
 namespace borealis {
 
