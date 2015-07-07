@@ -12,9 +12,10 @@
 
 #include <unordered_map>
 
-#include "../../Term/Term.h"
-#include "../../State/PredicateState.h"
-#include "../../Factory/Nest.h"
+#include "Term/Term.h"
+#include "State/PredicateState.h"
+#include "Factory/Nest.h"
+
 
 namespace borealis {
 
@@ -44,8 +45,9 @@ public:
 
 private:
 
-    PredicateState::Ptr replaceTerms(PredicateState::Ptr S, const FactoryNest& FN, const TermMap& argumentsReplacement);
     PredicateState::Ptr killStateChoice(PredicateState::Ptr S, const FactoryNest& FN);
+    PredicateState::Ptr unifyState(PredicateState::Ptr S, const FactoryNest& FN, llvm::Function* F, const TermMap& argumentsReplacement);
+    PredicateState::Ptr mergeState(PredicateState::Ptr S, const FactoryNest& FN);
 };
 
 } /* namespace borealis */

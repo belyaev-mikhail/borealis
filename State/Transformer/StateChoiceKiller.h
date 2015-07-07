@@ -6,9 +6,6 @@
 #define STATE_TRANSFORMER_STATECHOISEKILLER_H
 
 #include "Transformer.hpp"
-#include "../../Factory/Nest.h"
-#include "../PredicateState.h"
-#include "../../Predicate/Predicate.h"
 
 namespace borealis {
 

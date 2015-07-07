@@ -11,12 +11,10 @@
 #include <llvm/Pass.h>
 #include <llvm/IR/Instructions.h>
 
-#include "../Util/ProxyFunctionPass.h"
-#include "../../Util/passes.hpp"
-#include "../../State/PredicateState.h"
-#include "../Manager/ContractManager.h"
-#include "../PredicateStateAnalysis/PredicateStateAnalysis.h"
-#include "../../Factory/Nest.h"
+#include "Passes/Util/ProxyFunctionPass.h"
+#include "Util/passes.hpp"
+#include "Passes/Manager/ContractManager.h"
+#include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
 
 namespace borealis {
 

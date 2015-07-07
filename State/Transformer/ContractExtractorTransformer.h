@@ -13,10 +13,6 @@
 #include <llvm/IR/Instructions.h>
 
 #include "Transformer.hpp"
-#include "../../Term/Term.h"
-#include "../../Factory/Nest.h"
-#include "../PredicateState.h"
-#include "../../Predicate/Predicate.h"
 
 namespace borealis {
 

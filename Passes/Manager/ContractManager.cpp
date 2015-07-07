@@ -5,12 +5,10 @@
  *      Author: kivi
  */
 
+#include <State/Transformer/Unifier.h>
 #include "ContractManager.h"
-#include "../../Logging/logger.hpp"
-#include "../../Util/passes.hpp"
-#include "../../Util/collections.hpp"
-#include "../../State/Transformer/TermReplaceTransformer.h"
-#include "../../State/Transformer/StateChoiceKiller.h"
+#include "State/Transformer/StateChoiceKiller.h"
+#include "State/Transformer/StateMergingTransformer.h"
 
 namespace borealis {
 
@@ -33,8 +31,8 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
                     argumentsReplacement[term] = arguments[F][it.first];
                 }
             }
-            auto&& termReplacedState = replaceTerms(choiceKilled, FN, argumentsReplacement);
-            states[F].insert(termReplacedState);
+            auto&& unifiedState = unifyState(choiceKilled, FN, F, argumentsReplacement);
+            states[F].insert(unifiedState);
         }
     }
 }
@@ -61,14 +59,19 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
     dbg << end;
 }
 
-PredicateState::Ptr ContractManager::replaceTerms(PredicateState::Ptr S, const FactoryNest& FN, const TermMap& argumentsReplacement) {
-    auto&& termReplace = TermReplaceTransformer(FN, argumentsReplacement);
-    return termReplace.transform(S);
-}
-
 PredicateState::Ptr ContractManager::killStateChoice(PredicateState::Ptr S, const FactoryNest& FN) {
     auto&& choiceKiller = StateChoiceKiller(FN);
     return choiceKiller.transform(S);
+}
+
+PredicateState::Ptr ContractManager::unifyState(PredicateState::Ptr S, const FactoryNest& FN, llvm::Function* F, const TermMap& argumentsReplacement) {
+    auto&& unifier = Unifier(FN, arguments[F], argumentsReplacement);
+    return unifier.transform(S);
+}
+
+PredicateState::Ptr ContractManager::mergeState(PredicateState::Ptr S, const FactoryNest& FN) {
+    auto&& merger = StateMergingTransformer(FN);
+    return merger.transform(S);
 }
 
 char ContractManager::ID = 0;
