@@ -19,6 +19,7 @@ bool ContractManager::runOnModule(llvm::Module&) {
 }
 
 void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
+    ++calls[F];
     if (not S->isEmpty()) {
         auto&& choiceKilled = killStateChoice(S, FN);
         if(not choiceKilled->isEmpty()) {
@@ -44,16 +45,29 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
 
     for (auto&& it : states) {
         dbg << "---" << "Function " << it.first->getName() << "---" << endl;
+        dbg << "Called " << calls[it.first] << " times" << endl;
+        dbg << endl;
 
         dbg << "Arguments:" << endl;
         dbg << arguments[it.first] << endl;
         dbg << endl;
 
+        auto&& merger = StateMergingTransformer(FactoryNest());
         for (auto&& state : it.second) {
+            merger.transform(state);
             dbg << "State:" << endl;
             dbg << state << endl;
         }
+
         dbg << endl;
+        /*auto&& predicates = merger.getPredicates();
+
+        dbg << "Predinditions:" << endl;
+        dbg << "(" << endl;
+        for (auto&& it : predicates) {
+            dbg << "  " << it.first << " : " << it.second << endl;
+        }
+        dbg << ")" << endl << endl;*/
     }
 
     dbg << end;
@@ -77,6 +91,7 @@ PredicateState::Ptr ContractManager::mergeState(PredicateState::Ptr S, const Fac
 char ContractManager::ID = 0;
 ContractManager::ContractStates ContractManager::states;
 ContractManager::ContractArguments ContractManager::arguments;
+std::unordered_map<llvm::Function*, int> ContractManager::calls;
 
 static llvm::RegisterPass<ContractManager>
 X("contract-manager", "Contract manager pass", false, false);

@@ -27,6 +27,9 @@ private:
 
     llvm::ConditionType invertCondition(llvm::ConditionType cond);
     Term::Ptr invertBoolean(Term::Ptr term);
+    Term::Ptr revertCmpTerm(CmpTermPtr term);
+    Predicate::Ptr revertEqualityPredicate(EqualityPredicatePtr pred);
+    bool containArgs(Term::Ptr term);
 
     FactoryNest FN;
     bool isInverted;

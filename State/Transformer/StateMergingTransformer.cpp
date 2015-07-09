@@ -15,7 +15,16 @@ PredicateState::Ptr StateMergingTransformer::transform(PredicateState::Ptr ps) {
 }
 
 Predicate::Ptr StateMergingTransformer::transformPredicate(Predicate::Ptr pred) {
+    if (util::at(predicates, pred)) {
+        ++predicates[pred];
+        return nullptr;
+    }
+    predicates[pred] = 1;
     return pred;
+}
+
+const StateMergingTransformer::PredicateNumberMap& StateMergingTransformer::getPredicates() {
+    return predicates;
 }
 
 }   /* namespace borealis */
