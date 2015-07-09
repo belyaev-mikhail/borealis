@@ -13,15 +13,17 @@ Unifier::Unifier(const FactoryNest& fn, const std::unordered_map<int, Term::Ptr>
 }
 
 Predicate::Ptr Unifier::transformEqualityPredicate(EqualityPredicatePtr pred) {
-    if (auto&& cmp = llvm::dyn_cast<CmpTerm>(pred->getLhv())) {
+    auto&& revertedPred = revertEqualityPredicate(pred);
+    auto&& reverted = llvm::dyn_cast<EqualityPredicate>(revertedPred);
+    if (auto&& cmp = llvm::dyn_cast<CmpTerm>(reverted->getLhv())) {
         auto cond = invertCondition(cmp->getOpcode());
         if (isInverted) {
             auto&& term = FN.Term->getCmpTerm(cond, cmp->getLhv(), cmp->getRhv());
-            auto&& boolean = invertBoolean(pred->getRhv());
-            return FN.Predicate->getEqualityPredicate(term, boolean, pred->getLocation(), pred->getType());
+            auto&& boolean = invertBoolean(reverted->getRhv());
+            return FN.Predicate->getEqualityPredicate(term, boolean, reverted->getLocation(), reverted->getType());
         }
     }
-    return pred;
+    return reverted->shared_from_this();
 }
 
 Term::Ptr Unifier::transformTerm(Term::Ptr term) {
@@ -32,15 +34,17 @@ Term::Ptr Unifier::transformTerm(Term::Ptr term) {
 }
 
 Term::Ptr Unifier::transformCmpTerm(CmpTermPtr term) {
-    switch (term->getOpcode()) {
+    auto&& revertedTerm = revertCmpTerm(term);
+    const CmpTerm* reverted = llvm::dyn_cast<CmpTerm>(revertedTerm);
+    switch (reverted->getOpcode()) {
         case llvm::ConditionType::GT:
-            if (auto&& op = llvm::dyn_cast<OpaqueIntConstantTerm>(term->getRhv())) {
-                return FN.Term->getCmpTerm(llvm::ConditionType::GE, term->getLhv(), FN.Term->getOpaqueConstantTerm(op->getValue() + 1));
+            if (auto&& op = llvm::dyn_cast<OpaqueIntConstantTerm>(reverted->getRhv())) {
+                return FN.Term->getCmpTerm(llvm::ConditionType::GE, reverted->getLhv(), FN.Term->getOpaqueConstantTerm(op->getValue() + 1));
             } break;
         default:
             break;
     }
-    return term;
+    return reverted->shared_from_this();
 }
 
 llvm::ConditionType Unifier::invertCondition(llvm::ConditionType cond) {
@@ -70,6 +74,55 @@ Term::Ptr Unifier::invertBoolean(Term::Ptr term) {
     if (term->equals(FN.Term->getTrueTerm().get()))
         return FN.Term->getFalseTerm();
     else return FN.Term->getTrueTerm();
+}
+
+Term::Ptr Unifier::revertCmpTerm(CmpTermPtr term) {
+    auto&& createRevertedCmpTerm = [&] (llvm::ConditionType cond) -> Term::Ptr {
+        return FN.Term->getCmpTerm(cond, term->getRhv(), term->getLhv());
+    };
+    if (util::contains(args, term->getRhv()) && not util::contains(args, term->getLhv())) {
+        switch (term->getOpcode()) {
+            case llvm::ConditionType::GT:
+                return createRevertedCmpTerm(llvm::ConditionType::LT);
+            case llvm::ConditionType::LT:
+                return createRevertedCmpTerm(llvm::ConditionType::GT);
+            case llvm::ConditionType::GE:
+                return createRevertedCmpTerm(llvm::ConditionType::LE);
+            case llvm::ConditionType::LE:
+                return createRevertedCmpTerm(llvm::ConditionType::GT);
+            case llvm::ConditionType::UGT:
+                return createRevertedCmpTerm(llvm::ConditionType::ULT);
+            case llvm::ConditionType::ULT:
+                return createRevertedCmpTerm(llvm::ConditionType::UGT);
+            case llvm::ConditionType::UGE:
+                return createRevertedCmpTerm(llvm::ConditionType::ULE);
+            case llvm::ConditionType::ULE:
+                return createRevertedCmpTerm(llvm::ConditionType::UGT);
+            case llvm::ConditionType::NEQ:
+                return createRevertedCmpTerm(llvm::ConditionType::NEQ);
+            case llvm::ConditionType::EQ:
+                return createRevertedCmpTerm(llvm::ConditionType::EQ);
+            default:
+                return term;
+        }
+    }
+    return term;
+}
+
+Predicate::Ptr Unifier::revertEqualityPredicate(EqualityPredicatePtr pred) {
+    if (containArgs(pred->getRhv()) && not containArgs(pred->getLhv())) {
+        return FN.Predicate->getEqualityPredicate(pred->getRhv(), pred->getLhv(), pred->getLocation(), pred->getType());
+    }
+    return pred;
+}
+
+bool Unifier::containArgs(Term::Ptr term) {
+    for (auto&& subterm : Term::getFullTermSet(term)) {
+        if (util::contains(args, subterm)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 }   /* namespace borealis */

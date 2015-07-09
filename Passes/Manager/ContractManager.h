@@ -33,6 +33,7 @@ public:
     static char ID;
     static ContractStates states;
     static ContractArguments arguments;
+    static std::unordered_map<llvm::Function*, int> calls;
 
     ContractManager();
     virtual ~ContractManager() = default;
