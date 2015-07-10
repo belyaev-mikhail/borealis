@@ -122,6 +122,18 @@ protected:
 
 };
 
+struct PredicateHash {
+    size_t operator()(Predicate::Ptr pred) const noexcept {
+        return pred->hashCode();
+    }
+};
+
+struct PredicateEquals {
+    bool operator()(Predicate::Ptr lhv, Predicate::Ptr rhv) const noexcept {
+        return lhv->equals(rhv.get());
+    }
+};
+
 bool operator==(const Predicate& a, const Predicate& b);
 
 std::ostream& operator<<(std::ostream& s, Predicate::Ptr p);

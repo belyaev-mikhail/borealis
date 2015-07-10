@@ -6,6 +6,7 @@
  */
 
 #include <State/Transformer/Unifier.h>
+#include <State/Transformer/StateOptimizer.h>
 #include "ContractManager.h"
 #include "State/Transformer/StateChoiceKiller.h"
 #include "State/Transformer/StateMergingTransformer.h"
@@ -21,7 +22,8 @@ bool ContractManager::runOnModule(llvm::Module&) {
 void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
     ++calls[F];
     if (not S->isEmpty()) {
-        auto&& choiceKilled = killStateChoice(S, FN);
+        auto&& optimized = optimizeState(S, FN);
+        auto&& choiceKilled = killStateChoice(optimized, FN);
         if(not choiceKilled->isEmpty()) {
             TermMap argumentsReplacement;
             for (auto&& it : mapping) {
@@ -32,8 +34,8 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
                     argumentsReplacement[term] = arguments[F][it.first];
                 }
             }
-            auto&& unifiedState = unifyState(choiceKilled, FN, F, argumentsReplacement);
-            states[F].insert(unifiedState);
+            auto&& unified = unifyState(choiceKilled, FN, F, argumentsReplacement);
+            states[F].insert(unified);
         }
     }
 }
@@ -71,6 +73,11 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
     }
 
     dbg << end;
+}
+
+PredicateState::Ptr ContractManager::optimizeState(PredicateState::Ptr S, const FactoryNest& FN) {
+    auto&& optimizer = StateOptimizer(FN);
+    return optimizer.transform(S);
 }
 
 PredicateState::Ptr ContractManager::killStateChoice(PredicateState::Ptr S, const FactoryNest& FN) {

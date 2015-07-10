@@ -9,19 +9,6 @@
 
 namespace borealis {
 
-struct PredicateHash {
-    size_t operator()(Predicate::Ptr pred) const noexcept {
-        return pred->hashCode();
-    }
-};
-
-struct PredicateEquals {
-    bool operator()(Predicate::Ptr lhv, Predicate::Ptr rhv) const noexcept {
-        return lhv->equals(rhv.get());
-    }
-};
-
-
 class StateChoiceKiller : public Transformer<StateChoiceKiller> {
 
     using Base = Transformer<StateChoiceKiller>;
