@@ -9,7 +9,6 @@
 #include <State/Transformer/StateOptimizer.h>
 #include "ContractManager.h"
 #include "State/Transformer/StateChoiceKiller.h"
-#include "State/Transformer/StateMergingTransformer.h"
 
 namespace borealis {
 
@@ -22,8 +21,15 @@ bool ContractManager::runOnModule(llvm::Module&) {
 void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
     ++calls[F];
     if (not S->isEmpty()) {
-        auto&& optimized = optimizeState(S, FN);
-        auto&& choiceKilled = killStateChoice(optimized, FN);
+        auto&& optimized = StateOptimizer(FN).transform(S);
+        PredicateState::Ptr choiceKilled;
+        while (true) {
+            choiceKilled = StateChoiceKiller(FN).transform(optimized);
+            optimized = StateOptimizer(FN).transform(choiceKilled);
+            if (optimized->equals(choiceKilled.get())) {
+                break;
+            }
+        }
         if(not choiceKilled->isEmpty()) {
             TermMap argumentsReplacement;
             for (auto&& it : mapping) {
@@ -34,7 +40,7 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
                     argumentsReplacement[term] = arguments[F][it.first];
                 }
             }
-            auto&& unified = unifyState(choiceKilled, FN, F, argumentsReplacement);
+            auto&& unified = Unifier(FN, arguments[F], argumentsReplacement).transform(choiceKilled);
             states[F].insert(unified);
         }
     }
@@ -54,45 +60,15 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
         dbg << arguments[it.first] << endl;
         dbg << endl;
 
-        auto&& merger = StateMergingTransformer(FactoryNest());
         for (auto&& state : it.second) {
-            merger.transform(state);
             dbg << "State:" << endl;
             dbg << state << endl;
         }
 
         dbg << endl;
-        /*auto&& predicates = merger.getPredicates();
-
-        dbg << "Predinditions:" << endl;
-        dbg << "(" << endl;
-        for (auto&& it : predicates) {
-            dbg << "  " << it.first << " : " << it.second << endl;
-        }
-        dbg << ")" << endl << endl;*/
     }
 
     dbg << end;
-}
-
-PredicateState::Ptr ContractManager::optimizeState(PredicateState::Ptr S, const FactoryNest& FN) {
-    auto&& optimizer = StateOptimizer(FN);
-    return optimizer.transform(S);
-}
-
-PredicateState::Ptr ContractManager::killStateChoice(PredicateState::Ptr S, const FactoryNest& FN) {
-    auto&& choiceKiller = StateChoiceKiller(FN);
-    return choiceKiller.transform(S);
-}
-
-PredicateState::Ptr ContractManager::unifyState(PredicateState::Ptr S, const FactoryNest& FN, llvm::Function* F, const TermMap& argumentsReplacement) {
-    auto&& unifier = Unifier(FN, arguments[F], argumentsReplacement);
-    return unifier.transform(S);
-}
-
-PredicateState::Ptr ContractManager::mergeState(PredicateState::Ptr S, const FactoryNest& FN) {
-    auto&& merger = StateMergingTransformer(FN);
-    return merger.transform(S);
 }
 
 char ContractManager::ID = 0;

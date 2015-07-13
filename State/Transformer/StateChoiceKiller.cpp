@@ -22,6 +22,7 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
     std::vector<PredicateState::Ptr> newChoice;
     std::vector<BasicPredicateState*> basicStates;
     std::unordered_map<Predicate::Ptr, PredicateState::Ptr, PredicateHash, PredicateEquals> statesMap;
+
     auto minSize = UINT32_MAX;
     for (auto&& it : ps->getChoices()) {
         if (auto&& basicState = llvm::dyn_cast<BasicPredicateState>(it)) {
@@ -36,13 +37,13 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
         }
     }
 
-    auto numEqual = 0U;
+    auto equalPredicates = 0U;
     if (not basicStates.empty()) {
-        for(; numEqual < minSize; ++numEqual) {
+        for(; equalPredicates < minSize; ++equalPredicates) {
             bool isBreak = false;
             for (auto i = 1U; i < basicStates.size(); ++i) {
                 auto&& data = basicStates[i]->getData();
-                if (not data[numEqual]->equals(basicStates[0]->getData()[numEqual].get())) {
+                if (not data[equalPredicates]->equals(basicStates[0]->getData()[equalPredicates].get())) {
                     isBreak = true;
                     break;
                 }
@@ -51,12 +52,12 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
                 break;
             }
         }
-        if (numEqual >= minSize) {
-            numEqual = minSize - 1;
+        if (equalPredicates >= minSize) {
+            equalPredicates = minSize - 1;
         }
 
         for (auto&& it : basicStates) {
-            statesMap[it->getData()[numEqual]] = it->shared_from_this();
+            statesMap[it->getData()[equalPredicates]] = it->shared_from_this();
         }
     }
 
@@ -69,9 +70,8 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
         auto&& inverted = Predicate::Ptr{ it.first->replaceOperands(boolInv) };
         if (auto&& optRef = util::at(statesMap, inverted)) {
             auto&& state = optRef.getUnsafe();
-            auto num = 0U;
-            newChoice.push_back(state->filter([numEqual, &num](auto&&) -> bool {
-                        return (num++ < numEqual) ? true : false; })
+            auto counter = 0U;
+            newChoice.push_back(state->filter([&](auto&&) { return (counter++ < equalPredicates) ? true : false; })
                                         ->simplify());
         } else {
             newChoice.push_back(it.second);
