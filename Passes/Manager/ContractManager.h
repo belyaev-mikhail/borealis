@@ -46,10 +46,6 @@ public:
 
 private:
 
-    PredicateState::Ptr optimizeState(PredicateState::Ptr S, const FactoryNest& FN);
-    PredicateState::Ptr killStateChoice(PredicateState::Ptr S, const FactoryNest& FN);
-    PredicateState::Ptr unifyState(PredicateState::Ptr S, const FactoryNest& FN, llvm::Function* F, const TermMap& argumentsReplacement);
-    PredicateState::Ptr mergeState(PredicateState::Ptr S, const FactoryNest& FN);
 };
 
 } /* namespace borealis */

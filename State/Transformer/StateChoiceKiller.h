@@ -23,6 +23,7 @@ public:
 private:
 
     FactoryNest FN;
+
 };
 
 }  /* namespace borealis */
