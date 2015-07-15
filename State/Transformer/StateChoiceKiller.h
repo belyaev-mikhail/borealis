@@ -20,9 +20,12 @@ public:
     PredicateState::Ptr transform(PredicateState::Ptr ps);
     PredicateState::Ptr transformPredicateStateChoice(PredicateStateChoicePtr ps);
 
+    bool isChanged();
+
 private:
 
     FactoryNest FN;
+    bool changed;
 
 };
 

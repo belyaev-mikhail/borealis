@@ -25,6 +25,7 @@ public:
     EqualityMapper(FactoryNest FN);
 
     Predicate::Ptr transformEqualityPredicate(EqualityPredicatePtr pred);
+    Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
     const TermMap& getMappedValues() const;
 
