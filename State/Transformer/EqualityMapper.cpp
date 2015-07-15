@@ -23,6 +23,10 @@ Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr p
     return pred;
 }
 
+Predicate::Ptr EqualityMapper::transformPredicate(Predicate::Ptr pred) {
+    return pred;
+}
+
 const EqualityMapper::TermMap& EqualityMapper::getMappedValues() const {
     return mapping;
 }

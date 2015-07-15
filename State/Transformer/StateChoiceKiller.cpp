@@ -8,7 +8,7 @@
 
 namespace borealis {
 
-StateChoiceKiller::StateChoiceKiller(const FactoryNest& fn) : Base(fn) {
+StateChoiceKiller::StateChoiceKiller(const FactoryNest& fn) : Base(fn), changed(false) {
     FN = fn;
 }
 
@@ -69,6 +69,7 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
     for (auto&& it : statesMap) {
         auto&& inverted = Predicate::Ptr{ it.first->replaceOperands(boolInv) };
         if (auto&& optRef = util::at(statesMap, inverted)) {
+            changed = true;
             auto&& state = optRef.getUnsafe();
             auto counter = 0U;
             newChoice.push_back(state->filter([&](auto&&) { return (counter++ < equalPredicates) ? true : false; })
@@ -79,6 +80,10 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
     }
 
     return FN.State->Choice(newChoice);
+}
+
+bool StateChoiceKiller::isChanged() {
+    return changed;
 }
 
 }  /* namespace borealis */

@@ -24,11 +24,12 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
         auto&& optimized = StateOptimizer(FN).transform(S);
         PredicateState::Ptr choiceKilled;
         while (true) {
-            choiceKilled = StateChoiceKiller(FN).transform(optimized);
-            optimized = StateOptimizer(FN).transform(choiceKilled);
-            if (optimized->equals(choiceKilled.get())) {
+            auto&& killer = StateChoiceKiller(FN);
+            choiceKilled = killer.transform(optimized);
+            if (not killer.isChanged()) {
                 break;
             }
+            optimized = StateOptimizer(FN).transform(choiceKilled);
         }
         if(not choiceKilled->isEmpty()) {
             TermMap argumentsReplacement;
