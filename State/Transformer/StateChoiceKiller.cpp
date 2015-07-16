@@ -52,12 +52,13 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
                 break;
             }
         }
-        if (equalPredicates >= minSize) {
-            equalPredicates = minSize - 1;
-        }
 
         for (auto&& it : basicStates) {
-            statesMap[it->getData()[equalPredicates]] = it->shared_from_this();
+            if (it->size() <= equalPredicates) {
+                newChoice.push_back(it->shared_from_this());
+            } else {
+                statesMap[it->getData()[equalPredicates]] = it->shared_from_this();
+            }
         }
     }
 
