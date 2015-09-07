@@ -16,6 +16,11 @@ OpaqueIntConstantTerm::OpaqueIntConstantTerm(Type::Ptr type, long long value):
         util::toString(value)
     ), value(value) {};
 
+Term* OpaqueIntConstantTerm::update() {
+    name = util::toString(getValue());
+    return this;
+}
+
 long long OpaqueIntConstantTerm::getValue() const {
     return value;
 }

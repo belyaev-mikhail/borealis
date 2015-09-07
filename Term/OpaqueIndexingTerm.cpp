@@ -18,6 +18,11 @@ OpaqueIndexingTerm::OpaqueIndexingTerm(Type::Ptr type, Term::Ptr lhv, Term::Ptr 
     subterms = { lhv, rhv };
 };
 
+Term* OpaqueIndexingTerm::update() {
+    name = getLhv()->getName() + "[" + getRhv()->getName() + "]";
+    return this;
+}
+
 Term::Ptr OpaqueIndexingTerm::getLhv() const {
     return subterms[0];
 }
