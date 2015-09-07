@@ -8,6 +8,8 @@
 #include "Statistics/statistics.h"
 #include "Term/Term.h"
 
+#include "Util/macros.h"
+
 namespace borealis {
 
 static Statistic totalTermsCreated("misc","totalTerms","Total number of terms created");
@@ -44,6 +46,24 @@ Term::Set Term::getFullTermSet(Term::Ptr term) {
     return res;
 }
 
+Term* Term::clone() const {
+    BYE_BYE(Term*, "Should not be called!");
+}
+
+Term* Term::update() {
+    return this;
+}
+
+Term* Term::replaceOperands(const std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>& map) const {
+    auto* res = this->clone();
+    for (auto&& subterm : res->subterms) {
+        if (auto&& m = util::at(map, subterm)) {
+            subterm = m.getUnsafe();
+        }
+    }
+    return res->update();
+}
+
 bool Term::equals(const Term* other) const {
     if (other == nullptr) return false;
     return classTag == other->classTag &&
@@ -71,3 +91,5 @@ borealis::logging::logstream& operator<<(borealis::logging::logstream& s, Term::
 }
 
 } // namespace borealis
+
+#include "Util/unmacros.h"

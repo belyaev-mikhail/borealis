@@ -43,6 +43,10 @@ message Term {
 }
 
 **/
+
+struct TermHash;
+struct TermEquals;
+
 class Term : public ClassTag, public std::enable_shared_from_this<const Term> {
 
     friend bool operator==(const Term& a, const Term& b);
@@ -85,6 +89,12 @@ public:
     }
 
     static Set getFullTermSet(Term::Ptr term);
+
+    virtual Term* clone() const;
+
+    virtual Term* update();
+
+    virtual Term* replaceOperands(const std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>& map) const;
 
 protected:
 
@@ -147,7 +157,11 @@ public: \
     } \
     static bool classof(const Term* t) { \
         return t->getClassTag() == class_tag<Self>(); \
-    }
+    } \
+    virtual Term* clone() const override { \
+        return new Self{ *this }; \
+    } \
+    virtual Term* update() override;
 
 #define TERM_ON_CHANGED(COND, CTOR) \
     if (COND) return Term::Ptr{ CTOR }; \

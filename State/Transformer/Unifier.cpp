@@ -13,8 +13,7 @@ Unifier::Unifier(const FactoryNest& fn, const std::unordered_map<int, Term::Ptr>
 }
 
 Predicate::Ptr Unifier::transformEqualityPredicate(EqualityPredicatePtr pred) {
-    auto&& revertedPred = revertEqualityPredicate(pred);
-    auto&& reverted = llvm::dyn_cast<EqualityPredicate>(revertedPred);
+    auto&& reverted = llvm::dyn_cast<EqualityPredicate>(revertEqualityPredicate(pred));
     if (auto&& cmp = llvm::dyn_cast<CmpTerm>(reverted->getLhv())) {
         auto cond = invertCondition(cmp->getOpcode());
         if (isInverted) {

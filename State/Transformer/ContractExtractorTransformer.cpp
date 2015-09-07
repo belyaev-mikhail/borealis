@@ -1,6 +1,4 @@
 /*
-            argToTerms[termToArg[t]].insert(t);
-            return true;
  * ContractExtractorTransformer.cpp
  *
  *  Created on: 21 мая 2015 г.
@@ -44,12 +42,12 @@ Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr p
     if (pred->getType() == PredicateType::PATH) {
         TermMap m;
         for (auto&& op : pred->getOperands()) {
-            if (checkTerm(op)) {
+            if (checkTermForArgs(op)) {
                 m[op] = op;
             }
             if (auto&& optRef = util::at(mapping, op)) {
                 auto&& res = optRef.getUnsafe();
-                if (checkTerm(res)) {
+                if (checkTermForArgs(res)) {
                     m[op] = res;
                 };
             }
@@ -63,38 +61,34 @@ Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr p
     return nullptr;
 }
 
-bool ContractExtractorTransformer::checkTerm(Term::Ptr term) {
-    auto&& flag = false;
+bool ContractExtractorTransformer::checkTermForArgs(Term::Ptr term) {
+    auto&& argFound = false;
 
     for (auto&& t : Term::getFullTermSet(term)) {
         if (util::contains(args, t)) {
             argToTerms[termToArg[t]].insert(t);
-            flag = true;
+            argFound = true;
         }
         if (auto&& optRef = util::at(mapping, t)) {
             auto&& res = optRef.getUnsafe();
             if (util::contains(args, res)) {
                 argToTerms[termToArg[res]].insert(t);
-                flag = true;
+                argFound = true;
             }
         }
     }
 
-    return flag;
+    return argFound;
 }
 
 bool ContractExtractorTransformer::isOpaqueTerm(Term::Ptr term) {
-    if (llvm::is_one_of<
+    return llvm::is_one_of<
         OpaqueBoolConstantTerm,
         OpaqueIntConstantTerm,
         OpaqueFloatingConstantTerm,
         OpaqueStringConstantTerm,
         OpaqueNullPtrTerm
-    >(term)) {
-        return true;
-    } else {
-        return false;
-    }
+    >(term);
 }
 
 }  /* namespace borealis */

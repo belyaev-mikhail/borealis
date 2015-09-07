@@ -19,6 +19,11 @@ LoadTerm::LoadTerm(Type::Ptr type, Term::Ptr rhv, bool retypable):
     subterms = { rhv };
 };
 
+Term* LoadTerm::update() {
+    name = "*(" + getRhv()->getName() + ")";
+    return this;
+}
+
 Term::Ptr LoadTerm::getRhv() const {
     return subterms[0];
 }

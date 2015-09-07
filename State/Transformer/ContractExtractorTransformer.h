@@ -38,7 +38,7 @@ public:
 
 private:
 
-    bool checkTerm(Term::Ptr term);
+    bool checkTermForArgs(Term::Ptr term);
     bool isOpaqueTerm(Term::Ptr term);
 
 private:
