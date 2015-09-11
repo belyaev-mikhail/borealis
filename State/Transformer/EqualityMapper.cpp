@@ -14,13 +14,17 @@ EqualityMapper::EqualityMapper(FactoryNest FN) : Base(FN) {}
 Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr pred) {
     if (util::at(mapping, pred->getLhv())) return pred;
 
-    if (auto&& optRef = util::at(mapping, pred->getRhv())) {
-        mapping[pred->getLhv()] = optRef.getUnsafe();
+    auto&& newRhv = Term::Ptr{ pred->getRhv()->replaceOperands(mapping) };
+    auto&& newPredicate = Predicate::Ptr{ pred->replaceOperands({ {pred->getRhv(), newRhv} }) };
+    auto&& newEqualityPredicate = llvm::dyn_cast<EqualityPredicate>(newPredicate.get());
+
+    if (auto&& value = util::at(mapping, newEqualityPredicate->getRhv())) {
+        mapping[newEqualityPredicate->getLhv()] = value.getUnsafe();
     } else {
-        mapping[pred->getLhv()] = pred->getRhv();
+        mapping[newEqualityPredicate->getLhv()] = newEqualityPredicate->getRhv();
     }
 
-    return pred;
+    return newEqualityPredicate->shared_from_this();
 }
 
 Predicate::Ptr EqualityMapper::transformPredicate(Predicate::Ptr pred) {
