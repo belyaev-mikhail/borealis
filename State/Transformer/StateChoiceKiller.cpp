@@ -69,9 +69,9 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
 
     for (auto&& it : statesMap) {
         auto&& inverted = Predicate::Ptr{ it.first->replaceOperands(boolInv) };
-        if (auto&& optRef = util::at(statesMap, inverted)) {
+        if (auto&& value = util::at(statesMap, inverted)) {
             changed = true;
-            auto&& state = optRef.getUnsafe();
+            auto&& state = value.getUnsafe();
             auto counter = 0U;
             newChoice.push_back(state->filter([&](auto&&) { return (counter++ < equalPredicates) ? true : false; })
                                         ->simplify());
