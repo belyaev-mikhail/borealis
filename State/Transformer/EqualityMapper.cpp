@@ -14,7 +14,7 @@ EqualityMapper::EqualityMapper(FactoryNest FN) : Base(FN) {}
 Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr pred) {
     if (util::at(mapping, pred->getLhv())) return pred;
 
-    auto&& newRhv = Term::Ptr{ pred->getRhv()->replaceOperands(mapping) };
+    auto&& newRhv = Term::Ptr{ pred->getRhv()->replaceOperands(boolTermsMapping) };
     auto&& newPredicate = Predicate::Ptr{ pred->replaceOperands({ {pred->getRhv(), newRhv} }) };
     auto&& newEqualityPredicate = llvm::dyn_cast<EqualityPredicate>(newPredicate.get());
 
@@ -22,6 +22,14 @@ Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr p
         mapping[newEqualityPredicate->getLhv()] = value.getUnsafe();
     } else {
         mapping[newEqualityPredicate->getLhv()] = newEqualityPredicate->getRhv();
+    }
+
+    if (llvm::is_one_of<BinaryTerm, CmpTerm>(pred->getRhv())) {
+        if (auto&& value = util::at(boolTermsMapping, newEqualityPredicate->getRhv())) {
+            boolTermsMapping[newEqualityPredicate->getLhv()] = value.getUnsafe();
+        } else {
+            boolTermsMapping[newEqualityPredicate->getLhv()] = newEqualityPredicate->getRhv();
+        }
     }
 
     return newEqualityPredicate->shared_from_this();
