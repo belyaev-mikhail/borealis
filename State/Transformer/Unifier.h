@@ -22,6 +22,7 @@ public:
     Predicate::Ptr transformEqualityPredicate(EqualityPredicatePtr pred);
     Term::Ptr transformTerm(Term::Ptr term);
     Term::Ptr transformCmpTerm(CmpTermPtr term);
+    Term::Ptr transformBinaryTerm(BinaryTermPtr term);
 
 private:
 
@@ -34,7 +35,7 @@ private:
     FactoryNest FN;
     bool isInverted;
     TermSet args;
-    TermMap termMap;
+    TermMap argsReplacement;
 
 };
 

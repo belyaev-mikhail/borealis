@@ -46,6 +46,8 @@ public:
 
 private:
 
+    std::unordered_map<llvm::Function*, TermMap> argsReplacement;
+
 };
 
 } /* namespace borealis */

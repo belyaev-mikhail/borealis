@@ -30,6 +30,10 @@ ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn
             args.insert(res);
         }
     }
+
+    if (I.getCalledFunction()->getName().equals("strcmp")) {
+        errs() << args << endl << endl;
+    }
 }
 
 PredicateState::Ptr ContractExtractorTransformer::transform(PredicateState::Ptr ps) {

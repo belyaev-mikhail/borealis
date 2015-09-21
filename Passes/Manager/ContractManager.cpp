@@ -7,6 +7,7 @@
 
 #include <State/Transformer/Unifier.h>
 #include <State/Transformer/StateOptimizer.h>
+#include <State/Transformer/StateMergingTransformer.h>
 #include "ContractManager.h"
 #include "State/Transformer/StateChoiceKiller.h"
 
@@ -32,16 +33,15 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
             optimized = StateOptimizer(FN).transform(choiceKilled);
         }
         if(not choiceKilled->isEmpty()) {
-            TermMap argumentsReplacement;
             for (auto&& it : mapping) {
                 if (not util::containsKey(arguments[F], it.first)) {
                    arguments[F][it.first] = *it.second.begin();
                 }
                 for (auto&& term : it.second) {
-                    argumentsReplacement[term] = arguments[F][it.first];
+                    argsReplacement[F][term] = arguments[F][it.first];
                 }
             }
-            auto&& unified = Unifier(FN, arguments[F], argumentsReplacement).transform(choiceKilled);
+            auto&& unified = Unifier(FN, arguments[F], argsReplacement[F]).transform(choiceKilled);
             states[F].insert(unified);
         }
     }
@@ -50,7 +50,7 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
 void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
     auto&& dbg = dbgs();
 
-    dbg << "Contract extraction results" << endl;
+    dbg << endl << "Contract extraction results" << endl;
 
     for (auto&& it : states) {
         dbg << "---" << "Function " << it.first->getName() << "---" << endl;
