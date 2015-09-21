@@ -6,7 +6,7 @@
 
 namespace borealis {
 
-Unifier::Unifier(const FactoryNest& fn, const std::unordered_map<int, Term::Ptr>& a, const TermMap& m) : Base(fn), FN(fn), termMap(m) {
+Unifier::Unifier(const FactoryNest& fn, const std::unordered_map<int, Term::Ptr>& a, const TermMap& m) : Base(fn), FN(fn), argsReplacement(m) {
     for (auto&& it : a) {
         args.insert(it.second);
     }
@@ -26,8 +26,8 @@ Predicate::Ptr Unifier::transformEqualityPredicate(EqualityPredicatePtr pred) {
 }
 
 Term::Ptr Unifier::transformTerm(Term::Ptr term) {
-    if (auto&& optRef = util::at(termMap, term)) {
-        return optRef.getUnsafe();
+    if (auto&& value = util::at(argsReplacement, term)) {
+        return value.getUnsafe();
     }
     return term;
 }
@@ -45,6 +45,17 @@ Term::Ptr Unifier::transformCmpTerm(CmpTermPtr term) {
     }
     return reverted->shared_from_this();
 }
+
+Term::Ptr Unifier::transformBinaryTerm(BinaryTermPtr term) {
+    if (containArgs(term->getRhv()) && not containArgs(term->getLhv())) {
+        return FN.Term->getBinaryTerm(term->getOpcode(), term->getRhv(), term->getLhv());
+    }
+    if (llvm::isa<OpaqueBoolConstantTerm>(term->getLhv())) {
+        return FN.Term->getBinaryTerm(term->getOpcode(), term->getRhv(), term->getLhv());
+    }
+    return term;
+}
+
 
 llvm::ConditionType Unifier::invertCondition(llvm::ConditionType cond) {
     switch (cond) {

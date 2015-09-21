@@ -38,7 +38,11 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
     }
 
     auto equalPredicates = 0U;
-    if (not basicStates.empty()) {
+
+    if (basicStates.size() == 1) {
+        newChoice.push_back(basicStates[0]->shared_from_this());
+        return FN.State->Choice(newChoice);
+    } else if (not basicStates.empty()) {
         for(; equalPredicates < minSize; ++equalPredicates) {
             bool isBreak = false;
             for (auto i = 1U; i < basicStates.size(); ++i) {
@@ -61,7 +65,6 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
             }
         }
     }
-
 
     std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals> boolInv;
     boolInv[FN.Term->getTrueTerm()] = FN.Term->getFalseTerm();
