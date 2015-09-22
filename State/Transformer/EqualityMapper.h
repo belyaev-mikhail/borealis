@@ -32,7 +32,6 @@ public:
 private:
 
     TermMap mapping;
-    TermMap boolTermsMapping;
 
 };
 
