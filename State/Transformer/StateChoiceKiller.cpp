@@ -21,19 +21,17 @@ PredicateState::Ptr StateChoiceKiller::transform(PredicateState::Ptr ps) {
 PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateStateChoicePtr ps) {
     std::vector<PredicateState::Ptr> newChoice;
     std::vector<BasicPredicateState*> basicStates;
-    std::unordered_map<Predicate::Ptr, PredicateState::Ptr, PredicateHash, PredicateEquals> statesMap;
+    PredicatesMap statesMap;
 
     auto minSize = UINT32_MAX;
-    for (auto&& it : ps->getChoices()) {
-        if (auto&& basicState = llvm::dyn_cast<BasicPredicateState>(it)) {
+    for (auto&& choice : ps->getChoices()) {
+        if (auto&& basicState = llvm::dyn_cast<BasicPredicateState>(choice)) {
             if (not basicState->isEmpty()) {
                 basicStates.push_back(const_cast<BasicPredicateState*>(basicState));
-                if (basicState->size() < minSize) {
-                    minSize = basicState->size();
-                }
+                if (basicState->size() < minSize) minSize = basicState->size();
             }
-        } else if (not it->isEmpty()){
-            newChoice.push_back(it);
+        } else if (not choice->isEmpty()){
+            newChoice.push_back(choice);
         }
     }
 
@@ -43,20 +41,11 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
         newChoice.push_back(basicStates[0]->shared_from_this());
         return FN.State->Choice(newChoice);
     } else if (not basicStates.empty()) {
-        for(; equalPredicates < minSize; ++equalPredicates) {
-            bool isBreak = false;
-            for (auto i = 1U; i < basicStates.size(); ++i) {
-                auto&& data = basicStates[i]->getData();
-                if (not data[equalPredicates]->equals(basicStates[0]->getData()[equalPredicates].get())) {
-                    isBreak = true;
-                    break;
-                }
-            }
-            if (isBreak) {
+        for(equalPredicates = 0U; equalPredicates < minSize; ++equalPredicates) {
+            if (not isAllPredicatesEqual(equalPredicates, basicStates)) {
                 break;
             }
         }
-
         for (auto&& it : basicStates) {
             if (it->size() <= equalPredicates) {
                 newChoice.push_back(it->shared_from_this());
@@ -83,11 +72,37 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
         }
     }
 
+    if (not newChoice.empty() && isAllStatesEqual(newChoice)) {
+        if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(newChoice[0])) {
+            changed = true;
+            return FN.State->Basic(basic->getData());
+        }
+    }
     return FN.State->Choice(newChoice);
 }
 
 bool StateChoiceKiller::isChanged() {
     return changed;
+}
+
+bool StateChoiceKiller::isAllStatesEqual(std::vector<PredicateState::Ptr>& states) {
+    for (auto i=1U; i < states.size(); ++i) {
+        if (not states[i]->equals(states[i-1].get())) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool StateChoiceKiller::isAllPredicatesEqual(const int predicateIndex, std::vector<BasicPredicateState*>& states) {
+    auto&& firstData = states[0]->getData();
+    for (auto i = 1U; i < states.size(); ++i) {
+        auto&& data = states[i]->getData();
+        if (not data[predicateIndex]->equals(firstData[predicateIndex].get())) {
+            return false;
+        }
+    }
+    return true;
 }
 
 }  /* namespace borealis */
