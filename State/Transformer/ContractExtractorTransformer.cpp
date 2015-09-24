@@ -45,12 +45,6 @@ Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr p
             if (checkTermForArgs(op)) {
                 m[op] = op;
             }
-            /*if (auto&& optRef = util::at(mapping, op)) {
-                auto&& res = optRef.getUnsafe();
-                if (checkTermForArgs(res)) {
-                    m[op] = res;
-                };
-            }*/
         }
 
         if (not m.empty()) {
@@ -69,13 +63,6 @@ bool ContractExtractorTransformer::checkTermForArgs(Term::Ptr term) {
             argToTerms[termToArg[t]].insert(t);
             argFound = true;
         }
-        /*if (auto&& optRef = util::at(mapping, t)) {
-            auto&& res = optRef.getUnsafe();
-            if (util::contains(args, res)) {
-                argToTerms[termToArg[res]].insert(t);
-                argFound = true;
-            }
-        }*/
     }
 
     return argFound;

@@ -12,6 +12,7 @@ namespace borealis {
 class StateChoiceKiller : public Transformer<StateChoiceKiller> {
 
     using Base = Transformer<StateChoiceKiller>;
+    using PredicatesMap = std::unordered_map<Predicate::Ptr, PredicateState::Ptr, PredicateHash, PredicateEquals>;
 
 public:
 
@@ -26,6 +27,9 @@ private:
 
     FactoryNest FN;
     bool changed;
+
+    bool isAllStatesEqual(std::vector<PredicateState::Ptr>& states);
+    bool isAllPredicatesEqual(const int predicateIndex, std::vector<BasicPredicateState*>& states);
 
 };
 
