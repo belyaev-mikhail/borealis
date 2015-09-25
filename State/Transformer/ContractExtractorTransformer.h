@@ -27,8 +27,9 @@ class ContractExtractorTransformer: public Transformer<ContractExtractorTransfor
 
 public:
 
-    ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, const TermMap& m);
+    ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, const TermMap& termMap);
 
+    using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
     Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
@@ -44,7 +45,6 @@ private:
 private:
 
     TermSet args;
-    TermMap mapping;
 
     TermToArg termToArg;
     ArgToTerms argToTerms;

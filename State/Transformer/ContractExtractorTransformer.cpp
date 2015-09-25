@@ -11,8 +11,8 @@
 
 namespace borealis {
 
-ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, const TermMap& m) :
-    Base(fn), mapping(m) {
+ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, const TermMap& termMap) :
+    Base(fn) {
 
     for (auto&& i = 0U; i < I.getNumOperands(); ++i) {
         auto&& arg = I.getArgOperand(i);
@@ -22,8 +22,8 @@ ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn
         termToArg[term] = i;
         args.insert(term);
 
-        if (auto&& optRef = util::at(mapping, term)) {
-            auto&& res = optRef.getUnsafe();
+        if (auto&& value = util::at(termMap, term)) {
+            auto&& res = value.getUnsafe();
 
             if (isOpaqueTerm(res)) continue;
             termToArg[res] = i;

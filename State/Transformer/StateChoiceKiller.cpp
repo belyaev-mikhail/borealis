@@ -41,7 +41,7 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
         newChoice.push_back(basicStates[0]->shared_from_this());
         return FN.State->Choice(newChoice);
     } else if (not basicStates.empty()) {
-        for(equalPredicates = 0U; equalPredicates < minSize; ++equalPredicates) {
+        for (equalPredicates = 0U; equalPredicates < minSize; ++equalPredicates) {
             if (not isAllPredicatesEqual(equalPredicates, basicStates)) {
                 break;
             }
@@ -72,26 +72,36 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
         }
     }
 
-    if (not newChoice.empty() && isAllStatesEqual(newChoice)) {
-        if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(newChoice[0])) {
+    auto&& unique = getUniqueStates(newChoice);
+    if (unique.size() == 1) {
+        if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(unique[0])) {
             changed = true;
             return FN.State->Basic(basic->getData());
         }
     }
-    return FN.State->Choice(newChoice);
+
+    return FN.State->Choice(unique);
 }
 
 bool StateChoiceKiller::isChanged() {
     return changed;
 }
 
-bool StateChoiceKiller::isAllStatesEqual(std::vector<PredicateState::Ptr>& states) {
-    for (auto i=1U; i < states.size(); ++i) {
-        if (not states[i]->equals(states[i-1].get())) {
-            return false;
+std::vector<PredicateState::Ptr> StateChoiceKiller::getUniqueStates(std::vector<PredicateState::Ptr>& states) {
+    std::vector<PredicateState::Ptr> unique;
+    for (auto&& state : states) {
+        bool isUnique = true;
+        for (auto && it : unique) {
+            if (it->equals(state.get())) {
+                isUnique = false;
+                break;
+            }
+        }
+        if (isUnique) {
+            unique.push_back(state);
         }
     }
-    return true;
+    return unique;
 }
 
 bool StateChoiceKiller::isAllPredicatesEqual(const int predicateIndex, std::vector<BasicPredicateState*>& states) {

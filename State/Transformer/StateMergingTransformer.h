@@ -18,6 +18,7 @@ public:
 
     StateMergingTransformer(const FactoryNest& fn);
 
+    using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
     Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
