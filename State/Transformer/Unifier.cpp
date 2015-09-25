@@ -38,7 +38,7 @@ Term::Ptr Unifier::transformCmpTerm(CmpTermPtr term) {
     switch (reverted->getOpcode()) {
         case llvm::ConditionType::GT:
             if (auto&& op = llvm::dyn_cast<OpaqueIntConstantTerm>(reverted->getRhv())) {
-                return FN.Term->getCmpTerm(llvm::ConditionType::GE, reverted->getLhv(), FN.Term->getOpaqueConstantTerm(op->getValue() + 1));
+                return FN.Term->getCmpTerm(llvm::ConditionType::GE, reverted->getLhv(), FN.Term->getOpaqueConstantTerm(op->getValue() + 1.0));
             } break;
         default:
             break;
@@ -58,21 +58,17 @@ Term::Ptr Unifier::transformBinaryTerm(BinaryTermPtr term) {
 
 
 llvm::ConditionType Unifier::invertCondition(llvm::ConditionType cond) {
+    isInverted = true;
     switch (cond) {
         case llvm::ConditionType::LT:
-            isInverted = true;
             return llvm::ConditionType::GE;
         case llvm::ConditionType::LE:
-            isInverted = true;
             return llvm::ConditionType::GT;
         case llvm::ConditionType::ULT:
-            isInverted = true;
             return llvm::ConditionType::UGE;
         case llvm::ConditionType::ULE:
-            isInverted = true;
             return llvm::ConditionType::UGT;
         case llvm::ConditionType::EQ:
-            isInverted = true;
             return llvm::ConditionType::NEQ;
         default:
             isInverted = false;

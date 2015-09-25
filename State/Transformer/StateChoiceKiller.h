@@ -18,6 +18,7 @@ public:
 
     StateChoiceKiller(const FactoryNest& fn);
 
+    using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
     PredicateState::Ptr transformPredicateStateChoice(PredicateStateChoicePtr ps);
 
@@ -28,7 +29,7 @@ private:
     FactoryNest FN;
     bool changed;
 
-    bool isAllStatesEqual(std::vector<PredicateState::Ptr>& states);
+    std::vector<PredicateState::Ptr> getUniqueStates(std::vector<PredicateState::Ptr>& states);
     bool isAllPredicatesEqual(const int predicateIndex, std::vector<BasicPredicateState*>& states);
 
 };
