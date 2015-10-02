@@ -23,7 +23,7 @@ Predicate::Ptr StateMergingTransformer::transformPredicate(Predicate::Ptr pred) 
     return pred;
 }
 
-const StateMergingTransformer::PredicateNumberMap& StateMergingTransformer::getPredicates() {
+const StateMergingTransformer::PredicatesCounter& StateMergingTransformer::getPredicates() {
     return predicates;
 }
 

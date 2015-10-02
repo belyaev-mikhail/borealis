@@ -12,9 +12,10 @@ namespace borealis {
 class StateChoiceKiller : public Transformer<StateChoiceKiller> {
 
     using Base = Transformer<StateChoiceKiller>;
-    using PredicatesMap = std::unordered_map<Predicate::Ptr, PredicateState::Ptr, PredicateHash, PredicateEquals>;
 
 public:
+
+    using States = std::vector<PredicateState::Ptr>;
 
     StateChoiceKiller(const FactoryNest& fn);
 
@@ -29,8 +30,10 @@ private:
     FactoryNest FN;
     bool changed;
 
-    std::vector<PredicateState::Ptr> getUniqueStates(std::vector<PredicateState::Ptr>& states);
-    bool isAllPredicatesEqual(const int predicateIndex, std::vector<BasicPredicateState*>& states);
+    void removeFullGroups(const States& states, States& removed);
+    void getDifferentGroups(const States& states, std::vector<States>& groups);
+    bool containsState(const States& states, const PredicateState::Ptr value);
+    bool isConditionsEqual(PredicateState::Ptr a, PredicateState::Ptr b);
 
 };
 
