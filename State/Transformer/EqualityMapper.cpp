@@ -20,14 +20,13 @@ Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr p
             replacement[subterm] = value.getUnsafe();
         }
     }
-
     auto&& newRhv = Term::Ptr{ pred->getRhv()->replaceOperands(replacement) };
     auto&& replaced = FN.Predicate->getEqualityPredicate(pred->getLhv(), newRhv, pred->getLocation(), pred->getType());
+    replaced = Predicate::Ptr{ replaced->replaceOperands(replacement) };
 
     if (auto&& newEq = llvm::dyn_cast<EqualityPredicate>(replaced)) {
         mapping[newEq->getLhv()] = newEq->getRhv();
     }
-
     return replaced;
 }
 
