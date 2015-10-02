@@ -8,9 +8,7 @@
 
 namespace borealis {
 
-StateChoiceKiller::StateChoiceKiller(const FactoryNest& fn) : Base(fn), changed(false) {
-    FN = fn;
-}
+StateChoiceKiller::StateChoiceKiller(const FactoryNest& fn) : Base(fn), FN(fn), changed(false) {}
 
 PredicateState::Ptr StateChoiceKiller::transform(PredicateState::Ptr ps) {
     return Base::transform(ps)
