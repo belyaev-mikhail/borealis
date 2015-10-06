@@ -19,6 +19,7 @@ ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn
         auto&& term = FN.Term->getValueTerm(arg);
 
         if (isOpaqueTerm(term)) continue;
+        errs()<<"term "<<term<<" = "<<i<<"\n";
         termToArg[term] = i;
         args.insert(term);
 
@@ -40,6 +41,7 @@ PredicateState::Ptr ContractExtractorTransformer::transform(PredicateState::Ptr 
 
 Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr pred) {
     if (pred->getType() == PredicateType::PATH) {
+        errs()<<"PREDPATH="<<pred<<"\n";
         TermMap m;
         for (auto&& op : pred->getOperands()) {
             if (checkTermForArgs(op)) {
@@ -54,6 +56,7 @@ Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr p
         }
 
         if (not m.empty()) {
+            errs()<<"PREDPATH2="<<Predicate::Ptr{ pred->replaceOperands(m) }<<"\n";
             return Predicate::Ptr{ pred->replaceOperands(m) };
         }
     }
