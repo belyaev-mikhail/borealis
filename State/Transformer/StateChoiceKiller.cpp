@@ -71,20 +71,18 @@ bool StateChoiceKiller::containsState(const States& states, const PredicateState
 bool StateChoiceKiller::isConditionsEqual(PredicateState::Ptr a, PredicateState::Ptr b) {
     auto&& first = llvm::dyn_cast<BasicPredicateState>(a);
     auto&& second = llvm::dyn_cast<BasicPredicateState>(b);
-    if (first != nullptr && second != nullptr) {
-        if (first->size() == second->size()) {
-            auto predicateIndex = 0U;
-            for(; predicateIndex < first->size(); ++predicateIndex) {
-                auto&& firstCond = llvm::dyn_cast<EqualityPredicate>(first->getData()[predicateIndex]);
-                auto&& secondCond = llvm::dyn_cast<EqualityPredicate>(second->getData()[predicateIndex]);
-                if (firstCond!= nullptr && secondCond != nullptr) {
-                    if (not firstCond->getLhv()->equals(secondCond->getLhv().get())) {
-                        break;
-                    }
+    if (first != nullptr && second != nullptr && first->size() == second->size()) {
+        auto predicateIndex = 0U;
+        for(; predicateIndex < first->size(); ++predicateIndex) {
+            auto&& firstCond = llvm::dyn_cast<EqualityPredicate>(first->getData()[predicateIndex]);
+            auto&& secondCond = llvm::dyn_cast<EqualityPredicate>(second->getData()[predicateIndex]);
+            if (firstCond != nullptr && secondCond != nullptr) {
+                if (not firstCond->getLhv()->equals(secondCond->getLhv().get())) {
+                    break;
                 }
             }
-            return predicateIndex == first->size();
         }
+        return predicateIndex == first->size();
     }
     return false;
 }
