@@ -11,20 +11,19 @@
 
 namespace borealis {
 
-ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, const TermMap& m) :
-    Base(fn), mapping(m) {
+ContractExtractorTransformer::ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, const TermMap& termMap) :
+    Base(fn) {
 
     for (auto&& i = 0U; i < I.getNumOperands(); ++i) {
         auto&& arg = I.getArgOperand(i);
         auto&& term = FN.Term->getValueTerm(arg);
 
         if (isOpaqueTerm(term)) continue;
-        errs()<<"term "<<term<<" = "<<i<<"\n";
         termToArg[term] = i;
         args.insert(term);
 
-        if (auto&& optRef = util::at(mapping, term)) {
-            auto&& res = optRef.getUnsafe();
+        if (auto&& value = util::at(termMap, term)) {
+            auto&& res = value.getUnsafe();
 
             if (isOpaqueTerm(res)) continue;
             termToArg[res] = i;
@@ -41,22 +40,14 @@ PredicateState::Ptr ContractExtractorTransformer::transform(PredicateState::Ptr 
 
 Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr pred) {
     if (pred->getType() == PredicateType::PATH) {
-        errs()<<"PREDPATH="<<pred<<"\n";
         TermMap m;
         for (auto&& op : pred->getOperands()) {
             if (checkTermForArgs(op)) {
                 m[op] = op;
             }
-            /*if (auto&& optRef = util::at(mapping, op)) {
-                auto&& res = optRef.getUnsafe();
-                if (checkTermForArgs(res)) {
-                    m[op] = res;
-                };
-            }*/
         }
 
         if (not m.empty()) {
-            errs()<<"PREDPATH2="<<Predicate::Ptr{ pred->replaceOperands(m) }<<"\n";
             return Predicate::Ptr{ pred->replaceOperands(m) };
         }
     }
@@ -72,13 +63,6 @@ bool ContractExtractorTransformer::checkTermForArgs(Term::Ptr term) {
             argToTerms[termToArg[t]].insert(t);
             argFound = true;
         }
-        /*if (auto&& optRef = util::at(mapping, t)) {
-            auto&& res = optRef.getUnsafe();
-            if (util::contains(args, res)) {
-                argToTerms[termToArg[res]].insert(t);
-                argFound = true;
-            }
-        }*/
     }
 
     return argFound;

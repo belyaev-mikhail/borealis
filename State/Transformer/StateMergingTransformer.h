@@ -12,7 +12,7 @@ namespace borealis {
 class StateMergingTransformer : public Transformer<StateMergingTransformer> {
 
     using Base = Transformer<StateMergingTransformer>;
-    using PredicateNumberMap = std::unordered_map<Predicate::Ptr, int, PredicateHash, PredicateEquals>;
+    using PredicatesCounter = std::unordered_map<Predicate::Ptr, int, PredicateHash, PredicateEquals>;
 
 public:
 
@@ -22,12 +22,12 @@ public:
     PredicateState::Ptr transform(PredicateState::Ptr ps);
     Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
-    const PredicateNumberMap& getPredicates();
+    const PredicatesCounter& getPredicates();
 
 private:
 
     FactoryNest FN;
-    PredicateNumberMap predicates;
+    PredicatesCounter predicates;
 
 };
 

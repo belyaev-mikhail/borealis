@@ -43,7 +43,6 @@ private:
 
 private:
 
-
     TermSet arguments;
     TermMap mapping;
 
@@ -52,6 +51,7 @@ private:
 
     ChoiceInfo choiceInfo;
     Term::Ptr rtv;
+    int curPredi;
 };
 
 } /*namespace borealis*/

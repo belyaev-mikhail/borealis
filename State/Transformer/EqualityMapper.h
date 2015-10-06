@@ -14,27 +14,28 @@
 
 namespace borealis {
 
-    class EqualityMapper: public borealis::Transformer<EqualityMapper> {
+class EqualityMapper: public borealis::Transformer<EqualityMapper> {
 
-        using Base = borealis::Transformer<EqualityMapper>;
+    using Base = borealis::Transformer<EqualityMapper>;
 
-    public:
+public:
 
-        using TermMap = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
+    using TermMap = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
 
-        EqualityMapper(FactoryNest FN);
+    EqualityMapper(FactoryNest FN);
 
-        Predicate::Ptr transformEquality(EqualityPredicatePtr pred);
-        Predicate::Ptr transformPredicate(Predicate::Ptr pred);
-        bool isOpaqueTerm(Term::Ptr term);
+    Predicate::Ptr transformEqualityPredicate(EqualityPredicatePtr pred);
+    Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
-        const TermMap& getMappedValues() const;
+    const TermMap& getMappedValues() const;
 
-    private:
+private:
 
-        TermMap mapping;
+    TermMap mapping;
 
-    };
+    bool isOpaqueTerm(Term::Ptr term);
+
+};
 
 }  /* namespace borealis */
 

@@ -15,6 +15,8 @@ class StateChoiceKiller : public Transformer<StateChoiceKiller> {
 
 public:
 
+    using States = std::vector<PredicateState::Ptr>;
+
     StateChoiceKiller(const FactoryNest& fn);
 
     using Base::transform;
@@ -27,6 +29,11 @@ private:
 
     FactoryNest FN;
     bool changed;
+
+    void removeFullGroups(const States& states, States& removed);
+    void getDifferentGroups(const States& states, std::vector<States>& groups);
+    bool containsState(const States& states, const PredicateState::Ptr value);
+    bool isConditionsEqual(PredicateState::Ptr a, PredicateState::Ptr b);
 
 };
 
