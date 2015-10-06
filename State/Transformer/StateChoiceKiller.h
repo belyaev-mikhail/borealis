@@ -17,6 +17,7 @@ public:
 
     StateChoiceKiller(const FactoryNest& fn);
 
+    using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
     PredicateState::Ptr transformPredicateStateChoice(PredicateStateChoicePtr ps);
 

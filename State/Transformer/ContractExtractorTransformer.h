@@ -29,6 +29,7 @@ public:
 
     ContractExtractorTransformer(const FactoryNest& fn, llvm::CallInst& I, const TermMap& m);
 
+    using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
     Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
