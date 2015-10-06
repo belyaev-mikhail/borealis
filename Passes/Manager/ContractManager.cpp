@@ -22,8 +22,17 @@ bool ContractManager::runOnModule(llvm::Module&) {
 void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
     ++calls[F];
     if (not S->isEmpty()) {
-        auto&& optimized = StateOptimizer(FN).transform(S);
-        PredicateState::Ptr choiceKilled;
+        for (auto&& it : mapping) {
+            if (not util::containsKey(arguments[F], it.first)) {
+                arguments[F][it.first] = *it.second.begin();
+            }
+            for (auto&& term : it.second) {
+                argsReplacement[F][term] = arguments[F][it.first];
+            }
+        }
+        auto&& unified = Unifier(FN, arguments[F], argsReplacement[F]).transform(S);
+        auto&& optimized = StateOptimizer(FN).transform(unified);
+        auto&& choiceKilled = optimized;
         while (true) {
             auto&& killer = StateChoiceKiller(FN);
             choiceKilled = killer.transform(optimized);
@@ -32,17 +41,8 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
             }
             optimized = StateOptimizer(FN).transform(choiceKilled);
         }
-        if(not choiceKilled->isEmpty()) {
-            for (auto&& it : mapping) {
-                if (not util::containsKey(arguments[F], it.first)) {
-                   arguments[F][it.first] = *it.second.begin();
-                }
-                for (auto&& term : it.second) {
-                    argsReplacement[F][term] = arguments[F][it.first];
-                }
-            }
-            auto&& unified = Unifier(FN, arguments[F], argsReplacement[F]).transform(choiceKilled);
-            states[F].insert(unified);
+        if (not choiceKilled->isEmpty()) {
+            states[F].insert(choiceKilled);
         }
     }
 }
@@ -50,7 +50,7 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
 void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
     auto&& dbg = dbgs();
 
-    dbg << endl << "Contract extraction results" << endl;
+    dbg << "Contract extraction results" << endl;
 
     for (auto&& it : states) {
         dbg << "---" << "Function " << it.first->getName() << "---" << endl;

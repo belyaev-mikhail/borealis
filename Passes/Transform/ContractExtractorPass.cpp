@@ -5,11 +5,6 @@
  *      Author: kivi
  */
 
-
-
-
-
-
 #include "Passes/Tracker/SlotTrackerPass.h"
 #include "State/Transformer/EqualityMapper.h"
 #include "State/Transformer/ChoiceInfoCollector.h"
@@ -24,17 +19,28 @@ namespace borealis {
 ContractExtractorPass::ContractExtractorPass() : ProxyFunctionPass(ID) {}
 
 bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
-    if(F.getName()!="main") {
-        FN = FactoryNest(GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(&F));
-        CM = &GetAnalysis<ContractManager>::doit(this, F);
-        PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, F);
+    FN = FactoryNest(GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(&F));
+    CM = &GetAnalysis<ContractManager>::doit(this, F);
+    PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, F);
+
+    for (auto&& I : util::viewContainer(F)
+                    .flatten()
+                    .map(ops::take_pointer)
+                    .map(llvm::dyn_caster<llvm::CallInst>())
+                    .filter()) {
+        processCallInstruction(*I, PSA->getInstructionState(I));
+	}
+
+
+	if (not F.getName().equals("main")) {
         PredicateState::Ptr S;
         for (auto &&I : util::viewContainer(F)
-                .flatten()
-                .map(ops::take_pointer)
-                .filter()) {
-            if (I->isTerminator())
+                        .flatten()
+                        .map(ops::take_pointer)
+                        .filter()) {
+            if (I->isTerminator()) {
                 S = PSA->getInstructionState(I);
+            }
         }
         auto &&mapper = EqualityMapper(FN);
         auto &&mappedState = mapper.transform(S);
@@ -51,10 +57,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         auto &&transformedState = extractor.transform(mappedState);
         auto &&argToTerms = extractor.getArgToTermMapping();
 
-
-        /*errs() << "state!!\n" << transformedState << "\n\nargToTerms";
-        errs() << argToTerms << "\n";*/
-        if(!(transformedState->isEmpty())) {
+        if (not transformedState->isEmpty()) {
             CM->addContract(&F, FN, transformedState, argToTerms);
         }
     }
@@ -65,6 +68,7 @@ void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateS
     auto&& mapper = EqualityMapper(FN);
     auto&& mappedState = mapper.transform(S);
     auto&& mapping = mapper.getMappedValues();
+
     auto&& extractor = ContractExtractorTransformer(FN, I, mapping);
     auto&& transformedState = extractor.transform(mappedState);
     auto&& argToTerms = extractor.getArgToTermMapping();

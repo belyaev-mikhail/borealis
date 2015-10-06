@@ -9,9 +9,9 @@
 
 namespace borealis {
 
-    EqualityMapper::EqualityMapper(FactoryNest FN) : Base(FN) {}
+EqualityMapper::EqualityMapper(FactoryNest FN) : Base(FN) {}
 
-    Predicate::Ptr EqualityMapper::transformEquality(EqualityPredicatePtr pred) {
+Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr pred) {
     if (util::at(mapping, pred->getLhv())) return pred;
 
     TermMap replacement;
@@ -20,13 +20,14 @@ namespace borealis {
             replacement[subterm] = value.getUnsafe();
         }
     }
-
     auto&& newRhv = Term::Ptr{ pred->getRhv()->replaceOperands(replacement) };
     auto&& replaced = FN.Predicate->getEqualityPredicate(pred->getLhv(), newRhv, pred->getLocation(), pred->getType());
+    replaced = Predicate::Ptr{ replaced->replaceOperands(replacement) };
 
     if (auto&& newEq = llvm::dyn_cast<EqualityPredicate>(replaced)) {
-        if(!isOpaqueTerm(newEq->getRhv()))
-        mapping[newEq->getLhv()] = newEq->getRhv();
+        if (not isOpaqueTerm(newEq->getRhv())) {
+            mapping[newEq->getLhv()] = newEq->getRhv();
+        }
     }
     return replaced;
 }
@@ -42,14 +43,14 @@ const EqualityMapper::TermMap& EqualityMapper::getMappedValues() const {
     return mapping;
 }
 
-bool EqualityMapper::isOpaqueTerm(Term::Ptr term)  {
-        return llvm::is_one_of<
-                OpaqueBoolConstantTerm,
-                OpaqueIntConstantTerm,
-                OpaqueFloatingConstantTerm,
-                OpaqueStringConstantTerm,
-                OpaqueNullPtrTerm
-        >(term);
-    }
+bool EqualityMapper::isOpaqueTerm(Term::Ptr term) {
+    return llvm::is_one_of<
+            OpaqueBoolConstantTerm,
+            OpaqueIntConstantTerm,
+            OpaqueFloatingConstantTerm,
+            OpaqueStringConstantTerm,
+            OpaqueNullPtrTerm
+    >(term);
+}
 
 }  /* namespace borealis */
