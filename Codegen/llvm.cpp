@@ -20,11 +20,13 @@
 
 
 #include "Codegen/FileManager.h"
+#include "Codegen/intrinsics_manager.h"
 #include "Codegen/llvm.h"
 #include "Util/functional.hpp"
 #include "Util/cast.hpp"
 
 #include "Util/macros.h"
+
 namespace borealis {
 
 bool isTriviallyInboundsGEP(const llvm::Value* I) {
@@ -133,8 +135,8 @@ void setDebugLocusWithCopiedScope(
     auto* dbg = MDNode::get(
             ctx,
             std::vector<Value*>{
-                    ConstantInt::get(Type::getInt32Ty(ctx), loc.loc.line),
-                    ConstantInt::get(Type::getInt32Ty(ctx), loc.loc.col),
+                    ConstantInt::get(llvm::Type::getInt32Ty(ctx), loc.loc.line),
+                    ConstantInt::get(llvm::Type::getInt32Ty(ctx), loc.loc.col),
                     from->getDebugLoc().getScope(ctx),
                     nullptr
             });
@@ -204,6 +206,37 @@ std::list<const llvm::Constant*> getAsSeqData(const llvm::Constant* value) {
     return std::move(res);
 }
 
+bool isAllocaLikeValue(const llvm::Value* value) {
+    if (llvm::isa<llvm::AllocaInst>(value)) {
+        return true;
+    }
+
+    if (auto ci = llvm::dyn_cast<llvm::CallInst>(value)) {
+        auto&& im = IntrinsicsManager::getInstance();
+        if (im.getIntrinsicType(*ci) == function_type::INTRINSIC_ALLOC) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool isAllocaLikeTypes(const llvm::Type* llvmType, const llvm::DIType& metaType, const DebugInfoFinder& dfi) {
+    if (not metaType.isValid()) return false;
+
+    auto&& resolvedMetaType = stripAliases(dfi, metaType);
+
+    if (llvmType->isPointerTy() && resolvedMetaType.getTag() == llvm::dwarf::DW_TAG_pointer_type) {
+        auto&& nextLLVM = llvmType->getPointerElementType();
+        auto&& nextMETA = dfi.resolve(DIDerivedType(resolvedMetaType).getTypeDerivedFrom());
+        return isAllocaLikeTypes(nextLLVM, nextMETA, dfi);
+    } else if (llvmType->isPointerTy() && resolvedMetaType.getTag() != llvm::dwarf::DW_TAG_pointer_type) {
+        return true;
+    }
+
+    return false;
+}
+
 std::set<DIType>& flattenTypeTree(const DebugInfoFinder& dfi, DIType di, std::set<DIType>& collected) {
     if(collected.count(di)) return collected;
     collected.insert(di);
@@ -240,11 +273,11 @@ std::map<llvm::Type*, DIType>& flattenTypeTree(
     const std::pair<llvm::Type*, DIType>& tp,
     std::map<llvm::Type*, DIType>& collected) {
 
-    auto* type = tp.first;
+    auto&& type = tp.first;
 
-    if(!tp.second) return collected;
+    if(not tp.second) return collected;
 
-    auto di = stripAliases(dfi, tp.second);
+    auto&& di = stripAliases(dfi, tp.second);
 
     if(collected.count(type)) return collected;
     collected.insert({type, di});
@@ -258,27 +291,38 @@ std::map<llvm::Type*, DIType>& flattenTypeTree(
     } else if(DIStructType struct_ = di) {
         ASSERTC(type->isStructTy());
         auto* structType = llvm::dyn_cast<llvm::StructType>(type);
-        auto SL = DL->getStructLayout(structType);
 
-        auto members = struct_.getMembers();
-        for (auto i = 0U; i < members.getNumElements(); ++i) {
-            auto mmem =  members.getElement(i);
-            auto offset = mmem.getOffsetInBits() / 8;
+        if (structType->isOpaque() and struct_.isOpaque()) {
+            // Skip opaque structs
+        } else {
+            auto&& SL = DL->getStructLayout(structType);
 
-            auto elem = structType->getStructElementType(SL->getElementContainingOffset(offset));
-            flattenTypeTree(dfi, DL, {elem, stripAliases(dfi, mmem.getType())}, collected);
+            auto&& members = struct_.getMembers();
+            for (auto&& i = 0U; i < members.getNumElements(); ++i) {
+                auto&& mmem = members.getElement(i);
+                auto&& offset = mmem.getOffsetInBits() / 8;
+
+                auto&& elem = structType->getStructElementType(SL->getElementContainingOffset(offset));
+                flattenTypeTree(dfi, DL, {elem, stripAliases(dfi, mmem.getType())}, collected);
+            }
         }
-    } else if(DICompositeType struct_ = di) {
-        auto members = struct_.getTypeArray();
-        ASSERTC(members.getNumElements() == type->getNumContainedTypes());
-        for(auto i = 0U; i < members.getNumElements(); ++i) {
-            auto mem = type->getContainedType(i);
-            auto mmem = dfi.resolve(members.getElement(i));
+    } else if(DICompositeType comp_ = di) {
+        if (comp_.isEnumeration()) {
+            ASSERTC(type->isIntegerTy());
+            // No need to go deeper the flatten tree
+        } else {
+            auto&& members = comp_.getTypeArray();
+            ASSERTC(members.getNumElements() == type->getNumContainedTypes());
 
-            if (!mmem){
-                ASSERTC(mem->isVoidTy()); // typical for functions returning void
-            } else {
-                flattenTypeTree(dfi, DL, {mem, mmem}, collected);
+            for (auto i = 0U; i < members.getNumElements(); ++i) {
+                auto&& mem = type->getContainedType(i);
+                auto&& mmem = dfi.resolve(members.getElement(i));
+
+                if (not mmem) {
+                    ASSERTC(mem->isVoidTy()); // typical for functions returning void
+                } else {
+                    flattenTypeTree(dfi, DL, {mem, mmem}, collected);
+                }
             }
         }
     } else if(DIDerivedType derived = di) {

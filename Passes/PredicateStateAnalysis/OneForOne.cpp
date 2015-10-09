@@ -13,6 +13,7 @@
 #include "State/Transformer/AggregateTransformer.h"
 #include "State/Transformer/CallSiteInitializer.h"
 #include "State/Transformer/MemoryContextSplitter.h"
+#include "State/Transformer/Retyper.h"
 #include "State/Transformer/StateOptimizer.h"
 #include "Util/util.h"
 
@@ -127,6 +128,13 @@ void OneForOne::finalize() {
             v = so.transform(v);
         }
     }
+
+    Retyper retyper{FN};
+
+    initialState = retyper.transform(initialState);
+    for (auto&& v : util::viewContainerValues(instructionStates)) {
+        v = retyper.transform(v);
+    }
 }
 
 void OneForOne::processBasicBlock(const WorkQueueEntry& wqe) {
@@ -149,13 +157,13 @@ void OneForOne::processBasicBlock(const WorkQueueEntry& wqe) {
     for ( ; isa<PHINode>(iter); ++iter) {
         const PHINode* phi = cast<PHINode>(iter);
         if (phi->getBasicBlockIndex(from) != -1) {
-            inState = (FN.State * inState + PPM({from, phi}))();
+            inState = (FN.State * inState + PPM({from, phi})).apply();
         }
     }
 
     for (auto& I : view(iter, bb->end())) {
 
-        PredicateState::Ptr modifiedInState = (FN.State * inState + PM(&I))();
+        PredicateState::Ptr modifiedInState = (FN.State * inState + PM(&I)).apply();
         predicateStates[&I].push_back(modifiedInState);
 
         TRACE_MEASUREMENT(
@@ -172,7 +180,7 @@ void OneForOne::processBasicBlock(const WorkQueueEntry& wqe) {
                 FN.State *
                 FM->getBdy(CI, FN) +
                 FM->getEns(CI, FN)
-            )();
+            ).apply();
             auto t = CallSiteInitializer(CI, FN);
 
             PredicateState::Ptr instantiatedCallState = callState->map(
@@ -182,9 +190,8 @@ void OneForOne::processBasicBlock(const WorkQueueEntry& wqe) {
             modifiedInState = (
                 FN.State *
                 modifiedInState +
-                instantiatedCallState <<
-                SLT->getLocFor(&I)
-            )();
+                instantiatedCallState
+            ).apply();
         }
 
         inState = modifiedInState;
@@ -219,8 +226,8 @@ void OneForOne::processBranchInst(
         PredicateState::Ptr trueState = TPM({&I, trueSucc});
         PredicateState::Ptr falseState = TPM({&I, falseSucc});
 
-        enqueue(I.getParent(), trueSucc, (FN.State * state + trueState)());
-        enqueue(I.getParent(), falseSucc, (FN.State * state + falseState)());
+        enqueue(I.getParent(), trueSucc, (FN.State * state + trueState).apply());
+        enqueue(I.getParent(), falseSucc, (FN.State * state + falseState).apply());
     }
 }
 
@@ -232,12 +239,12 @@ void OneForOne::processSwitchInst(
     for (auto c = I.case_begin(); c != I.case_end(); ++c) {
         const BasicBlock* caseSucc = c.getCaseSuccessor();
         PredicateState::Ptr caseState = TPM({&I, caseSucc});
-        enqueue(I.getParent(), caseSucc, (FN.State * state + caseState)());
+        enqueue(I.getParent(), caseSucc, (FN.State * state + caseState).apply());
     }
 
     const BasicBlock* defaultSucc = I.getDefaultDest();
     PredicateState::Ptr defaultState = TPM({&I, defaultSucc});
-    enqueue(I.getParent(), defaultSucc, (FN.State * state + defaultState)());
+    enqueue(I.getParent(), defaultSucc, (FN.State * state + defaultState).apply());
 }
 
 PredicateState::Ptr OneForOne::PM(const llvm::Instruction* I) {

@@ -37,7 +37,6 @@ package borealis.proto;
 message Term {
     optional Type type = 1;
     optional string name = 2;
-    optional bool retypable = 3;
 
     extensions 16 to 64;
 }
@@ -65,7 +64,7 @@ public:
 
 protected:
 
-    Term(id_t classTag, Type::Ptr type, const std::string& name, bool retypable = true);
+    Term(id_t classTag, Type::Ptr type, const std::string& name);
     Term(const Term&) = default;
 
     friend struct protobuf_traits<Term>;
@@ -76,13 +75,19 @@ public:
 
     Type::Ptr getType() const;
     const std::string& getName() const;
-    bool isRetypable() const;
 
     size_t getNumSubterms() const;
     const Subterms& getSubterms() const;
 
     virtual bool equals(const Term* other) const;
     virtual size_t hashCode() const;
+
+    virtual Term::Ptr setType(Type::Ptr newtype) const {
+        auto&& res = std::unique_ptr<Term>{ new Term(*this) };
+        res->type = newtype;
+        res->update();
+        return Term::Ptr{ std::move(res) };
+    }
 
     static bool classof(const Term*) {
         return true;
@@ -100,7 +105,6 @@ protected:
 
     Type::Ptr type;
     std::string name;
-    bool retypable;
 
     Subterms subterms;
 
@@ -132,16 +136,12 @@ struct TermCompare {
 namespace std {
 template<>
 struct hash<borealis::Term::Ptr> {
-    size_t operator()(const borealis::Term::Ptr& t) const {
+    size_t operator()(const borealis::Term::Ptr& t) const noexcept {
         return t->hashCode();
     }
 };
 template<>
-struct hash<const borealis::Term::Ptr> {
-    size_t operator()(const borealis::Term::Ptr& t) const {
-        return t->hashCode();
-    }
-};
+struct hash<const borealis::Term::Ptr> : hash<borealis::Term::Ptr> {};
 } // namespace std
 
 #define MK_COMMON_TERM_IMPL(CLASS) \
@@ -150,13 +150,19 @@ private: \
     CLASS(const Self&) = default; \
 public: \
     friend class TermFactory; \
-    friend struct protobuf_traits_impl<CLASS>; \
+    friend struct protobuf_traits_impl<Self>; \
     virtual ~CLASS() = default; \
     static bool classof(const Self*) { \
         return true; \
     } \
     static bool classof(const Term* t) { \
         return t->getClassTag() == class_tag<Self>(); \
+    } \
+    virtual Term::Ptr setType(Type::Ptr newtype) const override { \
+        auto&& res = std::unique_ptr<Self>{ new Self(*this) }; \
+        res->type = newtype; \
+        res->update(); \
+        return Term::Ptr{ std::move(res) }; \
     } \
     virtual Term* clone() const override { \
         return new Self{ *this }; \

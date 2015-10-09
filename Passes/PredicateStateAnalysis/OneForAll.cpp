@@ -15,6 +15,7 @@
 #include "State/Transformer/AggregateTransformer.h"
 #include "State/Transformer/CallSiteInitializer.h"
 #include "State/Transformer/MemoryContextSplitter.h"
+#include "State/Transformer/Retyper.h"
 #include "State/Transformer/StateOptimizer.h"
 #include "Util/graph.h"
 #include "Util/util.h"
@@ -121,6 +122,13 @@ void OneForAll::finalize() {
             v = so.transform(v);
         }
     }
+
+    Retyper retyper{FN};
+
+    initialState = retyper.transform(initialState);
+    for (auto&& v : util::viewContainerValues(instructionStates)) {
+        v = retyper.transform(v);
+    }
 }
 
 void OneForAll::processBasicBlock(llvm::BasicBlock* BB) {
@@ -136,7 +144,7 @@ void OneForAll::processBasicBlock(llvm::BasicBlock* BB) {
 
     for (auto&& I : viewContainer(*BB)) {
 
-        auto&& instructionState = (FN.State * inState + PM(&I))();
+        auto&& instructionState = (FN.State * inState + PM(&I)).apply();
         instructionStates[&I] = instructionState;
 
         // Add ensures and summary *after* the CallInst has been processed
@@ -147,7 +155,7 @@ void OneForAll::processBasicBlock(llvm::BasicBlock* BB) {
                 FN.State *
                 FM->getBdy(CI, FN) +
                 FM->getEns(CI, FN)
-            )();
+            ).apply();
 
             auto&& instantiatedCallState =
                     CallSiteInitializer(CI, FN).transform(callState);
@@ -155,9 +163,8 @@ void OneForAll::processBasicBlock(llvm::BasicBlock* BB) {
             instructionState = (
                 FN.State *
                 instructionState +
-                instantiatedCallState <<
-                SLT->getLocFor(&I)
-            )();
+                instantiatedCallState
+            ).apply();
         }
 
         inState = instructionState;
@@ -203,7 +210,7 @@ PredicateState::Ptr OneForAll::BBM(llvm::BasicBlock* BB) {
             }
         }
 
-        auto&& inState = stateBuilder();
+        auto&& inState = stateBuilder.apply();
 
         auto&& slice = inState->sliceOn(base);
         ASSERT(nullptr != slice, "Could not slice state on its predecessor");
@@ -221,7 +228,7 @@ PredicateState::Ptr OneForAll::BBM(llvm::BasicBlock* BB) {
             FN.State *
             base +
             FN.State->Choice(choices)
-        )();
+        ).apply();
     }
 }
 

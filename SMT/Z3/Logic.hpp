@@ -262,7 +262,7 @@ template<size_t N>
 struct generator< BitVector<N> > {
     typedef long long basetype;
 
-    static z3::sort sort(z3::context& ctx) { return ctx.bv_sort(N)  ; }
+    static z3::sort sort(z3::context& ctx) { return ctx.bv_sort(N); }
     static bool check(z3::expr e) { return e.is_bv() && e.get_sort().bv_size() == N; }
     static z3::expr mkConst(z3::context& ctx, int n) { return ctx.bv_val(n, N); }
 };
@@ -660,39 +660,6 @@ ASPECT(ComparableExpr)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class UComparableExpr;
-
-namespace impl {
-template<>
-struct generator<UComparableExpr> : generator<BitVector<1>> {
-    static bool check(z3::expr e) { return e.is_bv(); }
-};
-} // namespace impl
-
-ASPECT_BEGIN(UComparableExpr)
-public:
-
-#define DEF_OP(NAME) \
-Bool NAME(const UComparableExpr& other) { \
-    auto& ctx = z3impl::getContext(this); \
-    auto l = z3impl::getExpr(this); \
-    auto r = z3impl::getExpr(other); \
-    auto res = z3::to_expr(ctx, Z3_mk_bv##NAME(ctx, l, r)); \
-    auto axm = z3impl::spliceAxioms(*this, other); \
-    return Bool{ res, axm }; \
-}
-
-DEF_OP(ugt)
-DEF_OP(uge)
-DEF_OP(ult)
-DEF_OP(ule)
-
-#undef DEF_OP
-
-ASPECT_END
-
-////////////////////////////////////////////////////////////////////////////////
-
 class DynBitVectorExpr;
 
 namespace impl {
@@ -742,6 +709,21 @@ public:
         };
     }
 
+    DynBitVectorExpr adapt(size_t N) const {
+        if (N > getBitSize()) {
+            return zgrowTo(N);
+        } else if (N < getBitSize()) {
+            return extract(N - 1, 0);
+        } else {
+            return *this;
+        }
+    }
+
+    template<class Expr>
+    Expr adapt(GUARDED(void*, Expr::bitsize >= 0) = nullptr) const {
+        return adapt(Expr::bitsize);
+    }
+
     DynBitVectorExpr lshr(const DynBitVectorExpr& shift) {
         size_t sz = std::max(getBitSize(), shift.getBitSize());
         DynBitVectorExpr w = this->growTo(sz);
@@ -752,6 +734,19 @@ public:
         auto axm = z3impl::spliceAxioms(w, s);
         return DynBitVectorExpr{ res, axm };
     }
+
+    static DynBitVectorExpr mkSizedConst(z3::context& ctx, long long value, size_t bitSize) {
+        return DynBitVectorExpr{ ctx.bv_val(value, bitSize) };
+    }
+
+    static DynBitVectorExpr mkSizedVar(z3::context& ctx, const std::string& name, size_t bitSize) {
+        return DynBitVectorExpr{ ctx.bv_const(name.c_str(), bitSize) };
+    }
+
+    static DynBitVectorExpr mkFreshSizedVar(z3::context& ctx, const std::string& name, size_t bitSize) {
+        return DynBitVectorExpr{ ctx, Z3_mk_fresh_const(ctx, name.c_str(), ctx.bv_sort(bitSize)) };
+    }
+
 ASPECT_END
 
 #define BIN_OP(OP) \
@@ -769,6 +764,136 @@ ASPECT_END
     BIN_OP(<<)
 
 #undef BIN_OP
+
+#define BIN_OP(OP) \
+    template<size_t N> \
+    BitVector<N> operator OP(const DynBitVectorExpr& lhv, const BitVector<N>& rhv) { \
+        return BitVector<N>(lhv.adapt(N)) OP rhv; \
+    }
+
+    BIN_OP(+)
+    BIN_OP(-)
+    BIN_OP(*)
+    BIN_OP(/)
+
+#undef BIN_OP
+
+#define BIN_OP(OP) \
+    template<size_t N> \
+    BitVector<N> operator OP(const BitVector<N>& lhv, const DynBitVectorExpr& rhv) { \
+        return lhv OP BitVector<N>(rhv.adapt(N)); \
+    }
+
+    BIN_OP(+)
+    BIN_OP(-)
+    BIN_OP(*)
+    BIN_OP(/)
+
+#undef BIN_OP
+
+#define BIN_OP(OP) \
+    DynBitVectorExpr operator OP(const DynBitVectorExpr& lhv, int rhv);
+
+    BIN_OP(+)
+    BIN_OP(-)
+    BIN_OP(*)
+    BIN_OP(/)
+
+#undef BIN_OP
+
+#define BIN_OP(OP) \
+    DynBitVectorExpr operator OP(int lhv, const DynBitVectorExpr& rhv);
+
+    BIN_OP(+)
+    BIN_OP(-)
+    BIN_OP(*)
+    BIN_OP(/)
+
+#undef BIN_OP
+
+#define BOOL_OP(OP) \
+    Bool operator OP(const DynBitVectorExpr& lhv, const DynBitVectorExpr& rhv);
+
+    BOOL_OP(==)
+    BOOL_OP(!=)
+    BOOL_OP(>)
+    BOOL_OP(>=)
+    BOOL_OP(<)
+    BOOL_OP(<=)
+
+#undef BOOL_OP
+
+#define UN_OP(OP) \
+    DynBitVectorExpr operator OP(const DynBitVectorExpr& lhv);
+
+    UN_OP(-)
+    UN_OP(~)
+
+#undef UN_OP
+
+
+
+template<size_t N>
+struct merger<BitVector<N>, DynBitVectorExpr> {
+    typedef BitVector<N> type;
+
+    static type app(BitVector<N> bv0) {
+        return bv0;
+    }
+
+    static type app(DynBitVectorExpr bv1) {
+        return bv1.adapt(N);
+    }
+};
+
+template<size_t N>
+struct merger<DynBitVectorExpr, BitVector<N>> {
+    typedef BitVector<N> type;
+
+    static type app(DynBitVectorExpr bv0) {
+        return bv0.adapt(N);
+    }
+
+    static type app(BitVector<N> bv1) {
+        return bv1;
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+
+class UComparableExpr;
+
+namespace impl {
+template<>
+struct generator<UComparableExpr> : generator<BitVector<1>> {
+    static bool check(z3::expr e) { return e.is_bv(); }
+};
+} // namespace impl
+
+ASPECT_BEGIN(UComparableExpr)
+public:
+
+#define DEF_OP(NAME) \
+    Bool NAME(const UComparableExpr& other) { \
+        auto&& ctx = z3impl::getContext(this); \
+        auto&& ll = DynBitVectorExpr(*this); \
+        auto&& rr = DynBitVectorExpr(other); \
+        auto&& sz = std::max(ll.getBitSize(), rr.getBitSize()); \
+        auto&& l = z3impl::getExpr(ll.growTo(sz)); \
+        auto&& r = z3impl::getExpr(rr.growTo(sz)); \
+        auto&& res = z3::to_expr(ctx, Z3_mk_bv##NAME(ctx, l, r)); \
+        auto&& axm = z3impl::spliceAxioms(*this, other); \
+        return Bool{ res, axm }; \
+    }
+
+    DEF_OP(ugt)
+    DEF_OP(uge)
+    DEF_OP(ult)
+    DEF_OP(ule)
+
+#undef DEF_OP
+
+ASPECT_END
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1326,7 +1451,7 @@ BitVector<N> concatBytes(const std::vector<BitVector<ElemSize>>& bytes) {
 }
 
 template<size_t ElemSize = 8>
-SomeExpr concatBytesDynamic(const std::vector<BitVector<ElemSize>>& bytes) {
+SomeExpr concatBytesDynamic(const std::vector<BitVector<ElemSize>>& bytes, size_t bitSize) {
     typedef BitVector<ElemSize> Byte;
 
     using borealis::util::toString;
@@ -1343,7 +1468,7 @@ SomeExpr concatBytesDynamic(const std::vector<BitVector<ElemSize>>& bytes) {
         axiom = z3impl::spliceAxioms(z3impl::getAxiom(bytes[i]), axiom);
     }
 
-    return SomeExpr{ head, axiom };
+    return DynBitVectorExpr{ head, axiom }.adapt(bitSize);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1366,10 +1491,10 @@ public:
 
     SomeExpr select(Index i, size_t elemBitSize) const {
         std::vector<Byte> bytes;
-        for (size_t j = 0; j < elemBitSize/ElemSize; ++j) {
+        for (size_t j = 0; j <= (elemBitSize - 1)/ElemSize; ++j) {
             bytes.push_back(inner[i+j]);
         }
-        return concatBytesDynamic(bytes);
+        return concatBytesDynamic(bytes, elemBitSize);
     }
 
     template<class Elem>
@@ -1377,7 +1502,7 @@ public:
         enum{ elemBitSize = Elem::bitsize };
 
         std::vector<Byte> bytes;
-        for (size_t j = 0; j < elemBitSize/ElemSize; ++j) {
+        for (size_t j = 0; j <= (elemBitSize - 1)/ElemSize; ++j) {
             bytes.push_back(inner[i+j]);
         }
         return concatBytes<elemBitSize>(bytes);
@@ -1398,13 +1523,13 @@ public:
         std::vector<Byte> bytes = splitBytes<ElemSize>(e);
 
         std::vector<std::pair<Index, Byte>> cases;
-        for (size_t j = 0; j < elemBitSize/ElemSize; ++j) {
+        for (size_t j = 0; j <= (elemBitSize - 1)/ElemSize; ++j) {
             cases.push_back({ i+j, bytes[j] });
         }
         return inner.store(cases);
     }
 
-    template<class Elem>
+    template<class Elem, GUARD(Elem::bitsize >= 0)>
     ScatterArray store(Index i, Elem e) {
         return store(i, e, Elem::bitsize);
     }

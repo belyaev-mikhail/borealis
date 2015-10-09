@@ -124,6 +124,10 @@ STEAL_FROM_LLVM_BEGIN(DICompositeType)
     DITypedArray<llvm::DITypeRef> getTypeArray() const  {
         return llvm::DICompositeType::getTypeArray();
     }
+
+    bool isEnumeration() const {
+        return getTag() == llvm::dwarf::DW_TAG_enumeration_type;
+    }
 STEAL_FROM_LLVM_END()
 
 struct DIArrayType : public llvm::DIDerivedType {
@@ -207,6 +211,14 @@ struct DIStructType : public llvm::DICompositeType {
 
     DITypedArray<DIMember> getMembers() const {
         return DITypedArray<DIMember>{ getTypeArray() };
+    }
+
+    bool isOpaque() const {
+        return 0 == this->getMembers().getNumElements();
+    }
+
+    bool isUnion() const {
+        return this->getTag() == llvm::dwarf::DW_TAG_union_type;
     }
 };
 
@@ -393,6 +405,9 @@ std::map<llvm::Type*, DIType> flattenTypeTree(
     const DebugInfoFinder& dfi,
     const llvm::DataLayout* DL,
     const std::pair<llvm::Type*, DIType>& tp);
+
+bool isAllocaLikeValue(const llvm::Value* value);
+bool isAllocaLikeTypes(const llvm::Type* llvmType, const llvm::DIType& metaType, const DebugInfoFinder& dfi);
 
 namespace impl_ {
 
