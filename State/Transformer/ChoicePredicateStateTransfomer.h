@@ -16,6 +16,7 @@
 namespace borealis {
 
 class ChoicePredicateStateTransfomer : public Transformer<ChoicePredicateStateTransfomer> {
+
     using Base = Transformer<ChoicePredicateStateTransfomer>;
     using ChoiceInfo = std::vector<std::vector<Predicate::Ptr>>;
 
@@ -29,19 +30,15 @@ public:
 
     ChoiceInfo getChoiceInfo(){return choiceInfo;}
 
-
-
-
-
     using Base::transformBase;
 
 private:
 
     ChoiceInfo choiceInfo;
+    int curChoice;
+    std::vector <Predicate::Ptr> temp;
 
 };
-
-
 
 }
 

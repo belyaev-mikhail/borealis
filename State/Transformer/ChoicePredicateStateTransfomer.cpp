@@ -6,28 +6,23 @@
 
 namespace borealis {
 
-    ChoicePredicateStateTransfomer::ChoicePredicateStateTransfomer(const FactoryNest& FN):Base(FN){ }
+ChoicePredicateStateTransfomer::ChoicePredicateStateTransfomer(const FactoryNest& FN) : Base(FN), curChoice(0) {}
 
-
-    int curChoice=0;
-    std::vector <Predicate::Ptr> temp;
-
-    Predicate::Ptr ChoicePredicateStateTransfomer::transformPredicate(Predicate::Ptr pred){
-        if(pred->getType()==PredicateType::PATH) {
-            if(curChoice!=0)
-                pushBackTemp();
-            ++curChoice;
-            temp.clear();
-            temp.push_back(pred);
+Predicate::Ptr ChoicePredicateStateTransfomer::transformPredicate(Predicate::Ptr pred) {
+    if (pred->getType() == PredicateType::PATH) {
+        if (curChoice != 0) {
+            pushBackTemp();
         }
-        else temp.push_back(pred);
-
-
-        return pred;
+        ++curChoice;
+        temp.clear();
+        temp.push_back(pred);
     }
-
-
-    void ChoicePredicateStateTransfomer::pushBackTemp() {
-       choiceInfo.push_back(temp);
-    }
+    else temp.push_back(pred);
+    return pred;
 }
+
+void ChoicePredicateStateTransfomer::pushBackTemp() {
+   choiceInfo.push_back(temp);
+}
+
+}   /* namespace borealis */

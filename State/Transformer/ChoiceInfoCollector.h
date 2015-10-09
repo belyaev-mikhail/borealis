@@ -12,6 +12,7 @@
 namespace borealis {
 
 class ChoiceInfoCollector : public Transformer<ChoiceInfoCollector> {
+
     using Base = Transformer<ChoiceInfoCollector>;
     using ChoiceInfo = std::vector<std::vector<Predicate::Ptr>>;
 
@@ -19,14 +20,11 @@ public:
 
     ChoiceInfoCollector(const FactoryNest& fn);
 
-
-    ChoiceInfo getChoiceInfo(){return choiceInfo;}
-
+    ChoiceInfo getChoiceInfo() {return choiceInfo;}
 
     PredicateState::Ptr transformChoice(PredicateStateChoicePtr pred);
 
     using Base::transformBase;
-
 
 private:
 

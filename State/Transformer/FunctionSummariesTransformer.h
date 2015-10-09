@@ -13,7 +13,8 @@
 #include "State/Transformer/Transformer.hpp"
 
 namespace borealis {
-class FunctionSummariesTransformer: public borealis::Transformer<FunctionSummariesTransformer> {
+
+class FunctionSummariesTransformer : public borealis::Transformer<FunctionSummariesTransformer> {
 
     using Base = borealis::Transformer<FunctionSummariesTransformer>;
 
@@ -25,8 +26,8 @@ class FunctionSummariesTransformer: public borealis::Transformer<FunctionSummari
 
 
 public:
-    FunctionSummariesTransformer(const FactoryNest& FN, llvm::iplist<llvm::Argument>& args,const TermMap& TM,
-    const ChoiceInfo& ci,const Term::Ptr rvt);
+    FunctionSummariesTransformer(const FactoryNest& FN, llvm::iplist<llvm::Argument>& args, const TermMap& TM,
+                const ChoiceInfo& ci, const Term::Ptr rvt);
 
     using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
@@ -52,6 +53,7 @@ private:
     ChoiceInfo choiceInfo;
     Term::Ptr rtv;
     int curPredi;
+
 };
 
 } /*namespace borealis*/
