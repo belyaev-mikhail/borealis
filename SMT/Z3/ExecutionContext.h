@@ -78,27 +78,36 @@ public:
     ExprClass readExprFromMemory(Pointer ix) {
         return memory().select<ExprClass>(ix);
     }
+    void writeExprToMemory(Pointer ix, DynBV val) {
+        writeExprToMemory(ix, val.adapt<Byte>());
+    }
     template<class ExprClass>
     void writeExprToMemory(Pointer ix, ExprClass val) {
         memory( memory().store(ix, val) );
     }
+    void writeExprRangeToMemory(Pointer from, size_t size, DynBV val) {
+        writeExprRangeToMemory(from, size, val.adapt<Byte>());
+    }
     template<class ExprClass>
     void writeExprRangeToMemory(Pointer from, size_t size, ExprClass val) {
-        auto currentMemory = memory();
-        auto newMem = factory.getEmptyMemoryArray(MEMORY_ID);
-        std::function<Bool(Pointer)> fun = [=](Pointer inner){
+        auto&& currentMemory = memory();
+
+        auto&& newMem = factory.getEmptyMemoryArray(MEMORY_ID);
+
+        std::function<Bool(Pointer)> fun = [=](Pointer inner) {
             return
                 factory.if_(inner >= from && inner < from + size)
                        .then_(newMem.select<ExprClass>(inner) == val)
                        .else_(newMem.select<ExprClass>(inner) == currentMemory.select<ExprClass>(inner));
         };
-        std::function<std::vector<Dynamic>(Pointer)> patterns = [=](Pointer inner){
+        std::function<std::vector<Dynamic>(Pointer)> patterns = [=](Pointer inner) {
             return util::make_vector(Dynamic(newMem.select<ExprClass>(inner)));
         };
 
-        auto axiom = factory.forAll(fun, patterns);
+        auto&& axiom = factory.forAll(fun, patterns);
 
         contextAxioms.push_back(axiom);
+
         return memory(newMem);
     }
 
@@ -108,6 +117,9 @@ public:
     template<class ExprClass>
     ExprClass readProperty(const std::string& id, Pointer ix) {
         return get(id).select<ExprClass>(ix);
+    }
+    void writeProperty(const std::string& id, Pointer ix, DynBV val) {
+        writeProperty(id, ix, val.adapt<Byte>());
     }
     template<class ExprClass>
     void writeProperty(const std::string& id, Pointer ix, ExprClass val) {
@@ -127,7 +139,7 @@ public:
 
 ////////////////////////////////////////////////////////////////////////////////
 
-    Integer getBound(const Pointer& p);
+    Integer getBound(const Pointer& p, size_t bitSize);
     void writeBound(const Pointer& p, const Integer& bound);
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -17,12 +17,14 @@
 #include "Protobuf/Gen/Term/AxiomTerm.pb.h"
 #include "Protobuf/Gen/Term/BinaryTerm.pb.h"
 #include "Protobuf/Gen/Term/BoundTerm.pb.h"
+#include "Protobuf/Gen/Term/CastTerm.pb.h"
 #include "Protobuf/Gen/Term/CmpTerm.pb.h"
 #include "Protobuf/Gen/Term/ConstTerm.pb.h"
 #include "Protobuf/Gen/Term/GepTerm.pb.h"
 #include "Protobuf/Gen/Term/LoadTerm.pb.h"
 #include "Protobuf/Gen/Term/OpaqueBoolConstantTerm.pb.h"
 #include "Protobuf/Gen/Term/OpaqueBuiltinTerm.pb.h"
+#include "Protobuf/Gen/Term/OpaqueNamedConstantTerm.pb.h"
 #include "Protobuf/Gen/Term/OpaqueCallTerm.pb.h"
 #include "Protobuf/Gen/Term/OpaqueFloatingConstantTerm.pb.h"
 #include "Protobuf/Gen/Term/OpaqueIndexingTerm.pb.h"
@@ -164,6 +166,30 @@ struct protobuf_traits_impl<BoundTerm> {
 };
 
 template<>
+struct protobuf_traits_impl<CastTerm> {
+
+    typedef protobuf_traits<Term> TermConverter;
+
+    static std::unique_ptr<proto::CastTerm> toProtobuf(const CastTerm& t) {
+        auto res = util::uniq(new proto::CastTerm());
+        res->set_allocated_rhv(
+            TermConverter::toProtobuf(*t.getRhv()).release()
+        );
+        res->set_signextend(t.isSignExtend());
+        return std::move(res);
+    }
+
+    static Term::Ptr fromProtobuf(
+            const FactoryNest& fn,
+            Term::Ptr base,
+            const proto::CastTerm& t) {
+        auto rhv = TermConverter::fromProtobuf(fn, t.rhv());
+        auto signExtend = t.signextend();
+        return Term::Ptr{ new CastTerm(base->getType(), signExtend, rhv) };
+    }
+};
+
+template<>
 struct protobuf_traits_impl<CmpTerm> {
 
     typedef protobuf_traits<Term> TermConverter;
@@ -287,7 +313,7 @@ struct protobuf_traits_impl<LoadTerm> {
             Term::Ptr base,
             const proto::LoadTerm& t) {
         auto rhv = TermConverter::fromProtobuf(fn, t.rhv());
-        return Term::Ptr{ new LoadTerm(base->getType(), rhv, base->isRetypable()) };
+        return Term::Ptr{ new LoadTerm(base->getType(), rhv) };
     }
 };
 
@@ -328,6 +354,26 @@ struct protobuf_traits_impl<OpaqueBuiltinTerm> {
             const proto::OpaqueBuiltinTerm& t) {
         auto vname = t.vname();
         return Term::Ptr{ new OpaqueBuiltinTerm(base->getType(), vname) };
+    }
+};
+
+template<>
+struct protobuf_traits_impl<OpaqueNamedConstantTerm> {
+
+    typedef protobuf_traits<Term> TermConverter;
+
+    static std::unique_ptr<proto::OpaqueNamedConstantTerm> toProtobuf(const OpaqueNamedConstantTerm& t) {
+        auto res = util::uniq(new proto::OpaqueNamedConstantTerm());
+        res->set_vname(t.getVName());
+        return std::move(res);
+    }
+
+    static Term::Ptr fromProtobuf(
+            const FactoryNest&,
+            Term::Ptr base,
+            const proto::OpaqueNamedConstantTerm& t) {
+        auto vname = t.vname();
+        return Term::Ptr{ new OpaqueNamedConstantTerm(base->getType(), vname) };
     }
 };
 

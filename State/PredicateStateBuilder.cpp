@@ -6,6 +6,7 @@
  */
 
 #include "State/PredicateStateBuilder.h"
+#include "State/Transformer/Retyper.h"
 
 namespace borealis {
 
@@ -20,6 +21,10 @@ PredicateStateBuilder::PredicateStateBuilder(
         PSF(PSF), State(PSF->Basic() + pred) {};
 
 PredicateState::Ptr PredicateStateBuilder::operator()() const {
+    return Retyper(FactoryNest(nullptr)).transform(State);
+}
+
+PredicateState::Ptr PredicateStateBuilder::apply() const {
     return State;
 }
 

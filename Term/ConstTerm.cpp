@@ -19,4 +19,5 @@ ConstTerm::ConstTerm(Type::Ptr type, const std::string& name):
 Term* ConstTerm::update() {
     return this;
 }
+
 } // namespace borealis

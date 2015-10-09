@@ -20,6 +20,22 @@ struct AnnotationMaterializer::AnnotationMaterializerImpl {
     NameContext nc;
 };
 
+static size_t getNextUniqueNumber() {
+    static size_t current = 0;
+    return current++;
+}
+
+static size_t nameToValueMapping(const std::string& key) {
+    static std::unordered_map<std::string, size_t> data;
+    auto end = std::end(data);
+    auto it = data.find(key);
+    if(it == end) {
+        return data[key] = getNextUniqueNumber();
+    } else {
+        return it->second;
+    }
+}
+
 AnnotationMaterializer::AnnotationMaterializer(
         const LogicAnnotation& A,
         FactoryNest FN,
@@ -144,7 +160,7 @@ Term::Ptr AnnotationMaterializer::transformOpaqueCall(OpaqueCallTermPtr trm) {
             auto&& prop = FN.Term->getOpaqueConstantTerm(rhv[0]->getName());
             auto&& val = this->transform(rhv[1]);
 
-            return FN.Term->getReadPropertyTerm(FN.Type->getInteger(32), prop, val);
+            return FN.Term->getReadPropertyTerm(FN.Type->getInteger(), prop, val);
 
         } else if (builtin->getVName() == "bound") {
             auto&& rhv = trm->getRhv().toVector();
@@ -171,6 +187,26 @@ Term::Ptr AnnotationMaterializer::transformOpaqueCall(OpaqueCallTermPtr trm) {
                        && bval.bound().uge( builder(TypeUtils::getTypeSizeInElems(pointed)) );
             } else {
                 failWith("Illegal \\is_valid_ptr access " + trm->getName() + ": called on non-pointer");
+            }
+        } else if (builtin->getVName() == "is_valid_array") {
+            auto&& rhv = trm->getRhv().toVector();
+            if (rhv.size() != 2) failWith("Illegal \\is_valid_array access " + trm->getName() + ": exactly two operands expected");
+
+            auto&& val = this->transform(rhv[0]);
+            auto&& type = val->getType();
+
+            auto&& size = this->transform(rhv[1]);
+
+            if (auto* ptrType = llvm::dyn_cast<type::Pointer>(type)) {
+                auto&& pointed = ptrType->getPointed();
+
+                auto&& bval = builder(val);
+
+                return bval != null()
+                       && bval != invalid()
+                       && bval.bound().uge( builder(TypeUtils::getTypeSizeInElems(pointed)) * size );
+            } else {
+                failWith("Illegal \\is_valid_array access " + trm->getName() + ": called on non-pointer");
             }
         } else if (builtin->getVName() == "old") {
             // all \old's should be already taken care of, let's try to guess the problem
@@ -290,16 +326,9 @@ Term::Ptr AnnotationMaterializer::transformOpaqueVarTerm(OpaqueVarTermPtr trm) {
     auto&& ret = forName(trm->getVName());
     if (ret.isInvalid()) failWith(trm->getVName() + " : variable not found in scope");
 
-//    FIXME: akhin WTF???
-//    auto&& bcType = ret.val->getType();
-//    if (ret.shouldBeDereferenced) {
-//        if (not bcType->isPointerTy()) failWith("wtf");
-//        bcType = bcType->getPointerElementType();
-//    }
-
     auto&& shouldBeDereferenced = ret.shouldBeDereferenced;
     // FIXME: Need to sort out memory model
-    //        Global arrays and structures break things...
+    //        Global arrays and structures break things
     if (auto* ptrType = llvm::dyn_cast<llvm::PointerType>(ret.val->getType())) {
         shouldBeDereferenced &= ptrType->getPointerElementType()->isSingleValueType();
     }
@@ -311,6 +340,11 @@ Term::Ptr AnnotationMaterializer::transformOpaqueVarTerm(OpaqueVarTermPtr trm) {
     } else {
         return var;
     }
+}
+
+Term::Ptr AnnotationMaterializer::transformOpaqueNamedConstantTerm(OpaqueNamedConstantTermPtr trm) {
+    auto value = nameToValueMapping(trm->getVName());
+    return FN.Term->getOpaqueConstantTerm(value, FN.Type->defaultTypeSize);
 }
 
 Term::Ptr AnnotationMaterializer::transformOpaqueBuiltinTerm(OpaqueBuiltinTermPtr trm) {
@@ -393,12 +427,13 @@ Annotation::Ptr materialize(
         FactoryNest FN,
         VariableInfoTracker* MI
 ) {
-    if (auto* logic = llvm::dyn_cast<LogicAnnotation>(annotation)){
-        AnnotationMaterializer am(*logic, FN, MI);
-        return am.doit();
+    Annotation::Ptr res;
+    if (auto logic = llvm::dyn_cast<LogicAnnotation>(annotation)) {
+        res = AnnotationMaterializer(*logic, FN, MI).doit();
     } else {
-        return annotation;
+        res = annotation;
     }
+    return res;
 }
 
 } // namespace borealis
