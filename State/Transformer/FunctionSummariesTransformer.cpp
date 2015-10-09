@@ -38,15 +38,11 @@ FunctionSummariesTransformer::FunctionSummariesTransformer(const FactoryNest& FN
 
 }
 
-
-
 PredicateState::Ptr FunctionSummariesTransformer::transform(PredicateState::Ptr ps) {
     return Base::transform(ps)
         ->filter([](auto&& p) { return !!p; })
         ->simplify();
 }
-
-
 
 bool FunctionSummariesTransformer::checkTerm(Term::Ptr term) {
     auto&& flag = false;
@@ -59,7 +55,6 @@ bool FunctionSummariesTransformer::checkTerm(Term::Ptr term) {
 
     return flag;
 }
-
 
 Predicate::Ptr FunctionSummariesTransformer::transformPredicate(Predicate::Ptr pred) {
     if (pred->getType() == PredicateType::PATH) {
@@ -90,27 +85,15 @@ Predicate::Ptr FunctionSummariesTransformer::transformPredicate(Predicate::Ptr p
     //return pred;
 }
 
-
-
-
-
 bool FunctionSummariesTransformer::isOpaqueTerm(Term::Ptr term) {
-    if (llvm::is_one_of<
+    return llvm::is_one_of<
         OpaqueBoolConstantTerm,
         OpaqueIntConstantTerm,
         OpaqueFloatingConstantTerm,
         OpaqueStringConstantTerm,
         OpaqueNullPtrTerm
-    >(term)) {
-        return true;
-    } else {
-        return false;
-    }
+    >(term);
 }
-
-
-
-
 
 } /*namespace borealis*/
 

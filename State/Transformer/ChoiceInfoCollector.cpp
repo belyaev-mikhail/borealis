@@ -9,20 +9,14 @@
 
 namespace borealis {
 
-    ChoiceInfoCollector::ChoiceInfoCollector(const FactoryNest& FN):Base(FN){ }
+    ChoiceInfoCollector::ChoiceInfoCollector(const FactoryNest& FN) : Base(FN) {}
 
-
-
-    PredicateState::Ptr ChoiceInfoCollector::transformChoice(PredicateStateChoicePtr pred){
-        auto&& chp=ChoicePredicateStateTransfomer(FN);
+    PredicateState::Ptr ChoiceInfoCollector::transformChoice(PredicateStateChoicePtr pred) {
+        auto&& chp = ChoicePredicateStateTransfomer(FN);
         chp.transform(pred.get()->self());
         chp.pushBackTemp();
-        choiceInfo=chp.getChoiceInfo();
-        errs()<<pred.get()->self()<<"\n";
+        choiceInfo = chp.getChoiceInfo();
         return pred;
     }
-
-
-
 
 }  /* namespace borealis */

@@ -31,7 +31,6 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         processCallInstruction(*I, PSA->getInstructionState(I));
 	}
 
-
 	if (not F.getName().equals("main")) {
         PredicateState::Ptr S;
         for (auto &&I : util::viewContainer(F)
@@ -42,24 +41,22 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
                 S = PSA->getInstructionState(I);
             }
         }
-        auto &&mapper = EqualityMapper(FN);
-        auto &&mappedState = mapper.transform(S);
-        auto &&mapping = mapper.getMappedValues();
+        auto&& mapper = EqualityMapper(FN);
+        auto&& mappedState = mapper.transform(S);
+        auto&& mapping = mapper.getMappedValues();
 
 
-        auto &&choiceInfo = ChoiceInfoCollector(FN);
+        auto&& choiceInfo = ChoiceInfoCollector(FN);
         choiceInfo.transform(mappedState);
-        auto &&vec = choiceInfo.getChoiceInfo();
+        auto&& vec = choiceInfo.getChoiceInfo();
 
 
-        auto &&rtv = FN.Term->getReturnValueTerm(&F);
-        auto &&extractor = FunctionSummariesTransformer(FN, F.getArgumentList(), mapping, vec, rtv);
-        auto &&transformedState = extractor.transform(mappedState);
-        auto &&argToTerms = extractor.getArgToTermMapping();
+        auto&& rtv = FN.Term->getReturnValueTerm(&F);
+        auto&& extractor = FunctionSummariesTransformer(FN, F.getArgumentList(), mapping, vec, rtv);
+        auto&& transformedState = extractor.transform(mappedState);
+        auto&& argToTerms = extractor.getArgToTermMapping();
 
-        if (not transformedState->isEmpty()) {
-            CM->addContract(&F, FN, transformedState, argToTerms);
-        }
+        CM->addContract(&F, FN, transformedState, argToTerms);
     }
     return false;
 }
