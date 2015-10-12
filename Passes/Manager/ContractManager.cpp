@@ -65,7 +65,6 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
             dbg << "State:" << endl;
             dbg << state << endl;
         }
-
         dbg << endl;
     }
 
