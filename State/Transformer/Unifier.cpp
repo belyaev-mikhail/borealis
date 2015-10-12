@@ -38,7 +38,7 @@ Term::Ptr Unifier::transformCmpTerm(CmpTermPtr term) {
     switch (reverted->getOpcode()) {
         case llvm::ConditionType::GT:
             if (auto&& op = llvm::dyn_cast<OpaqueIntConstantTerm>(reverted->getRhv())) {
-                return FN.Term->getCmpTerm(llvm::ConditionType::GE, reverted->getLhv(), FN.Term->getOpaqueConstantTerm(op->getValue() + 1.0));
+                return FN.Term->getCmpTerm(llvm::ConditionType::GE, reverted->getLhv(), FN.Term->getOpaqueConstantTerm(op->getValue() + 1));
             } break;
         default:
             break;
