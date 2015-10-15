@@ -31,9 +31,12 @@ class ContractManager : public llvm::ModulePass {
 public:
 
     static char ID;
-    static ContractStates states;
-    static ContractArguments arguments;
+    static ContractStates contracts;
+    static ContractArguments contractArguments;
     static std::unordered_map<llvm::Function*, int> calls;
+
+    static ContractStates summaries;
+    static ContractArguments summaryArguments;
 
     ContractManager();
     virtual ~ContractManager() = default;
@@ -42,11 +45,13 @@ public:
     virtual void print(llvm::raw_ostream&, const llvm::Module*) const override;
 
     void addContract(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping);
+    void addSummary(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping);
 
 
 private:
 
-    std::unordered_map<llvm::Function*, TermMap> argsReplacement;
+    std::unordered_map<llvm::Function*, TermMap> contractArgsReplacement;
+    std::unordered_map<llvm::Function*, TermMap> summaryArgsReplacement;
 
 };
 
