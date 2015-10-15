@@ -35,7 +35,7 @@ namespace borealis {
         }
         return replaced;
     }
-
+    
     Predicate::Ptr EqualityMapper::transformPredicate(Predicate::Ptr pred) {
         if (pred->getType() == PredicateType::PATH) {
             return Predicate::Ptr{ pred->replaceOperands(mapping) };
