@@ -49,7 +49,6 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         choiceInfo.transform(mappedState);
         auto&& vec = choiceInfo.getChoiceInfo();
 
-
         auto&& rtv = FN.Term->getReturnValueTerm(&F);
         auto&& extractor = FunctionSummariesTransformer(FN, F.getArgumentList(), mapping, vec, rtv);
         auto&& transformedState = extractor.transform(mappedState);

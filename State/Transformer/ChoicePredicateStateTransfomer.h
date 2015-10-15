@@ -21,21 +21,19 @@ class ChoicePredicateStateTransfomer : public Transformer<ChoicePredicateStateTr
     using ChoiceInfo = std::vector<std::vector<Predicate::Ptr>>;
 
 public:
-    ChoicePredicateStateTransfomer(const FactoryNest& fn);
 
+    ChoicePredicateStateTransfomer(const FactoryNest& fn);
 
     Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
     void pushBackTemp();
-
-    ChoiceInfo getChoiceInfo(){return choiceInfo;}
-
+    ChoiceInfo getChoiceInfo() {return choiceInfo;}
     using Base::transformBase;
 
 private:
 
-    ChoiceInfo choiceInfo;
     int curChoice;
+    ChoiceInfo choiceInfo;
     std::vector <Predicate::Ptr> temp;
 
 };
