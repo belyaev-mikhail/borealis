@@ -45,7 +45,6 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         auto&& mappedState = mapper.transform(S);
         auto&& mapping = mapper.getMappedValues();
 
-
         auto&& choiceInfo = ChoiceInfoCollector(FN);
         choiceInfo.transform(mappedState);
         auto&& vec = choiceInfo.getChoiceInfo();
@@ -56,6 +55,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         auto&& transformedState = extractor.transform(mappedState);
         auto&& argToTerms = extractor.getArgToTermMapping();
 
+        if(not argToTerms.empty())
         CM->addContract(&F, FN, transformedState, argToTerms);
     }
     return false;
