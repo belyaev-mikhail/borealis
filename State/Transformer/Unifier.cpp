@@ -6,7 +6,8 @@
 
 namespace borealis {
 
-Unifier::Unifier(const FactoryNest& fn, const std::unordered_map<int, Term::Ptr>& a, const TermMap& m) : Base(fn), FN(fn), argsReplacement(m) {
+Unifier::Unifier(const FactoryNest& fn, const std::unordered_map<int, Term::Ptr>& a, const TermMap& m)
+        : Base(fn), FN(fn), argsReplacement(m) {
     for (auto&& it : a) {
         args.insert(it.second);
     }
@@ -38,8 +39,15 @@ Term::Ptr Unifier::transformCmpTerm(CmpTermPtr term) {
     switch (reverted->getOpcode()) {
         case llvm::ConditionType::GT:
             if (auto&& op = llvm::dyn_cast<OpaqueIntConstantTerm>(reverted->getRhv())) {
-                return FN.Term->getCmpTerm(llvm::ConditionType::GE, reverted->getLhv(), FN.Term->getOpaqueConstantTerm(op->getValue() + 1));
-            } break;
+                if (op->getValue() == getMaxIntValue(op->getType())) {
+                    return FN.Term->getCmpTerm(llvm::ConditionType::GE, reverted->getLhv(),
+                                               FN.Term->getOpaqueConstantTerm((long long)0));
+                } else {
+                    return FN.Term->getCmpTerm(llvm::ConditionType::GE, reverted->getLhv(),
+                                               FN.Term->getOpaqueConstantTerm(op->getValue() + 1));
+                }
+            }
+            break;
         default:
             break;
     }
@@ -129,6 +137,15 @@ bool Unifier::containArgs(Term::Ptr term) {
         }
     }
     return false;
+}
+
+long long Unifier::getMaxIntValue(Type::Ptr type) {
+    auto&& itype = llvm::cast<borealis::type::Integer>(type);
+    if (itype->getSignedness() == llvm::Signedness::Signed) {
+        return (long long)(pow(2, itype->getBitsize() - 1)) - 1;
+    } else {
+        return (long long)(pow(2, itype->getBitsize())) - 1;
+    }
 }
 
 }   /* namespace borealis */

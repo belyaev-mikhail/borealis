@@ -54,8 +54,9 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         auto&& transformedState = extractor.transform(mappedState);
         auto&& argToTerms = extractor.getArgToTermMapping();
 
-        if(not argToTerms.empty())
-        CM->addContract(&F, FN, transformedState, argToTerms);
+        if (not argToTerms.empty()) {
+            CM->addSummary(&F, FN, transformedState, argToTerms);
+        }
     }
     return false;
 }
