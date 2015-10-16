@@ -92,8 +92,9 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
 
         dbg << endl;
     }
+    dbg << end;
 
-    /*dbg << "Summary extraction results" << endl;
+    dbg << "Summary extraction results" << endl;
 
     for (auto&& it : summaries) {
         dbg << "---" << "Function " << it.first->getName() << "---" << endl;
@@ -106,8 +107,7 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
         }
 
         dbg << endl;
-    }*/
-
+    }
     dbg << end;
 }
 
