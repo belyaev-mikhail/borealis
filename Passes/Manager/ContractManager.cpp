@@ -7,7 +7,6 @@
 
 #include <State/Transformer/Unifier.h>
 #include <State/Transformer/StateOptimizer.h>
-#include <State/Transformer/StateMergingTransformer.h>
 #include "ContractManager.h"
 #include "State/Transformer/StateChoiceKiller.h"
 
@@ -19,9 +18,21 @@ bool ContractManager::runOnModule(llvm::Module&) {
     return false;
 }
 
+void ContractManager::saveState(llvm::Function* F, PredicateState::Ptr S) {
+    if (auto&& choice = llvm::dyn_cast<PredicateStateChoice>(S)) {
+        choiceContracts[F].insert(choice->shared_from_this());
+    } else if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(S)) {
+        basicContracts[F].insert(basic->shared_from_this());
+    } else {
+        auto&& chain = llvm::cast<PredicateStateChain>(S);
+        saveState(F, chain->getBase());
+        saveState(F, chain->getCurr());
+    }
+}
+
 void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S,
                                   const std::unordered_map<int, Args>& mapping) {
-    ++calls[F];
+    ++functionCalls[F];
     if (not S->isEmpty()) {
         for (auto&& it : mapping) {
             if (not util::containsKey(contractArguments[F], it.first)) {
@@ -45,7 +56,7 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
             optimized = StateOptimizer(FN).transform(choiceKilled);
         }
         if (not choiceKilled->isEmpty()) {
-            contracts[F].insert(choiceKilled);
+            saveState(F, choiceKilled);
         }
     }
 }
@@ -75,30 +86,31 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
     auto&& dbg = dbgs();
 
     dbg << "Contract extraction results" << endl;
-
-    for (auto&& it : contracts) {
+    for (auto&& it : functionCalls) {
+        if (not util::containsKey(basicContracts, it.first) && not util::containsKey(choiceContracts, it.first)) {
+            continue;
+        }
         dbg << "---" << "Function " << it.first->getName() << "---" << endl;
-        dbg << "Called " << calls[it.first] << " times" << endl;
+        dbg << "Called " << it.second << " times" << endl;
         dbg << endl;
 
-        auto&& merger = StateMergingTransformer(FactoryNest());
-        for (auto&& state : it.second) {
+        for (auto&& state : basicContracts[it.first]) {
             dbg << "State:" << endl;
             dbg << state << endl;
-            merger.transform(state);
         }
-        //dbg << "Merged:" << endl;
-        //dbg << merger.getPredicates() << endl << endl;
+        for (auto&& state : choiceContracts[it.first]) {
+            dbg << "State:" << endl;
+            dbg << state << endl;
+        }
 
         dbg << endl;
     }
     dbg << end;
 
     dbg << "Summary extraction results" << endl;
-
     for (auto&& it : summaries) {
         dbg << "---" << "Function " << it.first->getName() << "---" << endl;
-        dbg << "Called " << calls[it.first] << " times" << endl;
+        dbg << "Called " << functionCalls[it.first] << " times" << endl;
         dbg << endl;
 
         for (auto&& state : it.second) {
@@ -112,9 +124,10 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
 }
 
 char ContractManager::ID = 0;
-ContractManager::ContractStates ContractManager::contracts;
+ContractManager::ContractStates ContractManager::choiceContracts;
+ContractManager::ContractStates ContractManager::basicContracts;
 ContractManager::ContractArguments ContractManager::contractArguments;
-std::unordered_map<llvm::Function*, int> ContractManager::calls;
+std::unordered_map<llvm::Function*, int> ContractManager::functionCalls;
 
 ContractManager::ContractStates ContractManager::summaries;
 ContractManager::ContractArguments ContractManager::summaryArguments;
