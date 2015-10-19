@@ -36,21 +36,6 @@ Term::Ptr Unifier::transformTerm(Term::Ptr term) {
 Term::Ptr Unifier::transformCmpTerm(CmpTermPtr term) {
     auto&& revertedTerm = revertCmpTerm(term);
     const CmpTerm* reverted = llvm::dyn_cast<CmpTerm>(revertedTerm);
-    switch (reverted->getOpcode()) {
-        case llvm::ConditionType::GT:
-            if (auto&& op = llvm::dyn_cast<OpaqueIntConstantTerm>(reverted->getRhv())) {
-                if (op->getValue() == getMaxIntValue(op->getType())) {
-                    return FN.Term->getCmpTerm(llvm::ConditionType::GE, reverted->getLhv(),
-                                               FN.Term->getOpaqueConstantTerm((long long)0));
-                } else {
-                    return FN.Term->getCmpTerm(llvm::ConditionType::GE, reverted->getLhv(),
-                                               FN.Term->getOpaqueConstantTerm(op->getValue() + 1));
-                }
-            }
-            break;
-        default:
-            break;
-    }
     return reverted->shared_from_this();
 }
 
@@ -137,15 +122,6 @@ bool Unifier::containArgs(Term::Ptr term) {
         }
     }
     return false;
-}
-
-long long Unifier::getMaxIntValue(Type::Ptr type) {
-    auto&& itype = llvm::cast<borealis::type::Integer>(type);
-    if (itype->getSignedness() == llvm::Signedness::Signed) {
-        return (long long)(pow(2, itype->getBitsize() - 1)) - 1;
-    } else {
-        return (long long)(pow(2, itype->getBitsize())) - 1;
-    }
 }
 
 }   /* namespace borealis */
