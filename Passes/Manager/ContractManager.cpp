@@ -18,18 +18,6 @@ bool ContractManager::runOnModule(llvm::Module&) {
     return false;
 }
 
-void ContractManager::saveState(llvm::Function* F, PredicateState::Ptr S) {
-    if (auto&& choice = llvm::dyn_cast<PredicateStateChoice>(S)) {
-        choiceContracts[F].insert(choice->shared_from_this());
-    } else if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(S)) {
-        basicContracts[F].insert(basic->shared_from_this());
-    } else {
-        auto&& chain = llvm::cast<PredicateStateChain>(S);
-        saveState(F, chain->getBase());
-        saveState(F, chain->getCurr());
-    }
-}
-
 void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S,
                                   const std::unordered_map<int, Args>& mapping) {
     ++functionCalls[F];
@@ -98,9 +86,16 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
             dbg << "State:" << endl;
             dbg << state << endl;
         }
-        for (auto&& state : choiceContracts[it.first]) {
-            dbg << "State:" << endl;
-            dbg << state << endl;
+
+        if (it.second > 1) {
+            std::vector<std::pair<PredicateState::Ptr, int>> choices;
+            getUniqueChoices(it.first, choices);
+            for (auto&& it_choice : choices) {
+                if (double(it_choice.second)/double(it.second) > 0.66) {
+                    dbg << "State:" << endl;
+                    dbg << it_choice.first << endl;
+                }
+            }
         }
 
         dbg << endl;
@@ -121,6 +116,34 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
         dbg << endl;
     }
     dbg << end;
+}
+
+void ContractManager::saveState(llvm::Function* F, PredicateState::Ptr S) {
+    if (auto&& choice = llvm::dyn_cast<PredicateStateChoice>(S)) {
+        choiceContracts[F].insert(choice->shared_from_this());
+    } else if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(S)) {
+        basicContracts[F].insert(basic->shared_from_this());
+    } else {
+        auto&& chain = llvm::cast<PredicateStateChain>(S);
+        saveState(F, chain->getBase());
+        saveState(F, chain->getCurr());
+    }
+}
+
+void ContractManager::getUniqueChoices(llvm::Function* F, std::vector<std::pair<PredicateState::Ptr, int>>& res) const {
+    for (auto&& state : choiceContracts[F]) {
+        bool added = false;
+        for (auto&& it_choice : res) {
+            if (it_choice.first->equals(state.get())) {
+                ++it_choice.second;
+                added = true;
+                break;
+            }
+        }
+        if (not added) {
+            res.push_back({state, 1});
+        }
+    }
 }
 
 char ContractManager::ID = 0;
