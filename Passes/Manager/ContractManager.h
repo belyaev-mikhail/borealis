@@ -46,6 +46,9 @@ private:
     void saveState(llvm::Function* F, PredicateState::Ptr S);
     void getUniqueChoices(llvm::Function* F, std::vector<std::pair<PredicateState::Ptr, int>>& res) const;
 
+    void printContracts() const;
+    void printSummaries() const;
+
 private:
 
     static ContractStates choiceContracts;
