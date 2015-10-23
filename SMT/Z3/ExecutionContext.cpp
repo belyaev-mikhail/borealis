@@ -95,7 +95,7 @@ ExecutionContext::MemArray ExecutionContext::getCurrentMemoryContents() {
 }
 
 ExecutionContext::MemArray ExecutionContext::getInitialMemoryContents() {
-    return initialMemArrays.at(MEMORY_ID);
+    return util::at(initialMemArrays, MEMORY_ID).getOrElse(factory.getNoMemoryArray(MEMORY_ID));
 }
 
 ExecutionContext::MemArray ExecutionContext::getCurrentGepBounds() {
