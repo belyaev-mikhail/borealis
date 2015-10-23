@@ -16,9 +16,13 @@ SeqDataZeroPredicate::SeqDataZeroPredicate(
         PredicateType type) :
             Predicate(class_tag(*this), type, loc), size(size) {
 
-    asString = base->getName() + "=(0 x " + util::toString(size) + ")";
-
     ops.insert(ops.end(), base);
+    update();
+}
+
+Predicate* SeqDataZeroPredicate::update() {
+    asString = getBase()->getName() + "=(0 x " + util::toString(size) + ")";
+    return this;
 }
 
 Term::Ptr SeqDataZeroPredicate::getBase() const {
