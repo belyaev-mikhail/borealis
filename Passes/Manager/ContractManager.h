@@ -59,9 +59,6 @@ private:
     static ContractStates summaries;
     static ContractArguments summaryArguments;
 
-    std::unordered_map<llvm::Function*, TermMap> contractArgsReplacement;
-    std::unordered_map<llvm::Function*, TermMap> summaryArgsReplacement;
-
 };
 
 } /* namespace borealis */

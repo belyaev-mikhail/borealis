@@ -37,7 +37,6 @@ public:
 private:
 
     FactoryNest FN;
-
     ContractManager* CM;
     PredicateStateAnalysis* PSA;
 
