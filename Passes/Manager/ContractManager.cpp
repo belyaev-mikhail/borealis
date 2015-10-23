@@ -5,12 +5,12 @@
  *      Author: kivi
  */
 
-#include <State/Transformer/Unifier.h>
-#include <State/Transformer/StateOptimizer.h>
-#include <State/Transformer/MergingTransformer.h>
+#include "State/Transformer/Unifier.h"
+#include "State/Transformer/StateOptimizer.h"
+#include "State/Transformer/MergingTransformer.h"
+#include "State/Transformer/ChoiceKiller.h"
 
 #include "ContractManager.h"
-#include "State/Transformer/StateChoiceKiller.h"
 
 namespace borealis {
 
@@ -24,6 +24,7 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
                                   const std::unordered_map<int, Args>& mapping) {
     ++functionCalls[F];
     if (not S->isEmpty()) {
+        TermMap argsReplacement;
         for (auto&& it : mapping) {
             if (not util::containsKey(contractArguments[F], it.first)) {
                 auto&& type = (*it.second.begin())->getType();
@@ -31,14 +32,14 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
                 contractArguments[F][it.first] = arg;
             }
             for (auto&& term : it.second) {
-                contractArgsReplacement[F][term] = contractArguments[F][it.first];
+                argsReplacement[term] = contractArguments[F][it.first];
             }
         }
-        auto&& unified = Unifier(FN, contractArguments[F], contractArgsReplacement[F]).transform(S);
+        auto&& unified = Unifier(FN, contractArguments[F], argsReplacement).transform(S);
         auto&& optimized = StateOptimizer(FN).transform(unified);
         auto&& choiceKilled = optimized;
         while (true) {
-            auto&& killer = StateChoiceKiller(FN);
+            auto&& killer = ChoiceKiller(FN);
             choiceKilled = killer.transform(optimized);
             if (not killer.isChanged()) {
                 break;
@@ -54,6 +55,7 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, Pred
 void ContractManager::addSummary(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S,
                                   const std::unordered_map<int, Args>& mapping) {
     if (not S->isEmpty()) {
+        TermMap argsReplacement;
         for (auto&& it : mapping) {
             if (not util::containsKey(summaryArguments[F], it.first)) {
                 auto&& type = (*it.second.begin())->getType();
@@ -61,10 +63,10 @@ void ContractManager::addSummary(llvm::Function* F, const FactoryNest& FN, Predi
                 summaryArguments[F][it.first] = arg;
             }
             for (auto&& term : it.second) {
-                summaryArgsReplacement[F][term] = summaryArguments[F][it.first];
+                argsReplacement[term] = summaryArguments[F][it.first];
             }
         }
-        auto&& unified = Unifier(FN, summaryArguments[F], summaryArgsReplacement[F]).transform(S);
+        auto&& unified = Unifier(FN, summaryArguments[F], argsReplacement).transform(S);
         auto&& optimized = StateOptimizer(FN).transform(unified);
         if (not optimized->isEmpty()) {
             summaries[F].insert(optimized);

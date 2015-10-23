@@ -4,19 +4,19 @@
 
 #include <unordered_map>
 
-#include "StateChoiceKiller.h"
+#include "ChoiceKiller.h"
 
 namespace borealis {
 
-StateChoiceKiller::StateChoiceKiller(const FactoryNest& fn) : Base(fn), FN(fn), changed(false) {}
+ChoiceKiller::ChoiceKiller(const FactoryNest& fn) : Base(fn), FN(fn), changed(false) {}
 
-PredicateState::Ptr StateChoiceKiller::transform(PredicateState::Ptr ps) {
+PredicateState::Ptr ChoiceKiller::transform(PredicateState::Ptr ps) {
     return Base::transform(ps)
             ->filter([](auto&& p) { return !!p; })
             ->simplify();
 }
 
-PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateStateChoicePtr ps) {
+PredicateState::Ptr ChoiceKiller::transformPredicateStateChoice(PredicateStateChoicePtr ps) {
     std::unordered_map<int, States> choices;
     States newChoice;
     for (auto&& state : ps->getChoices()) {
@@ -36,11 +36,11 @@ PredicateState::Ptr StateChoiceKiller::transformPredicateStateChoice(PredicateSt
     return FN.State->Choice(newChoice);
 }
 
-bool StateChoiceKiller::isChanged() {
+bool ChoiceKiller::isChanged() {
     return changed;
 }
 
-void StateChoiceKiller::removeFullGroups(const States& states, States& removed) {
+void ChoiceKiller::removeFullGroups(const States& states, States& removed) {
     auto stateSize = states[0]->size();
     auto numOfCombinations = unsigned(std::pow(2, stateSize));
     if (states.size() < numOfCombinations) {
@@ -59,7 +59,7 @@ void StateChoiceKiller::removeFullGroups(const States& states, States& removed) 
     }
 }
 
-bool StateChoiceKiller::containsState(const States& states, const PredicateState::Ptr value) {
+bool ChoiceKiller::containsState(const States& states, const PredicateState::Ptr value) {
     for (auto&& state : states) {
         if (state->equals(value.get())) {
             return true;
@@ -68,7 +68,7 @@ bool StateChoiceKiller::containsState(const States& states, const PredicateState
     return false;
 }
 
-bool StateChoiceKiller::isConditionsEqual(PredicateState::Ptr a, PredicateState::Ptr b) {
+bool ChoiceKiller::isConditionsEqual(PredicateState::Ptr a, PredicateState::Ptr b) {
     auto&& first = llvm::dyn_cast<BasicPredicateState>(a);
     auto&& second = llvm::dyn_cast<BasicPredicateState>(b);
     if (first != nullptr && second != nullptr && first->size() == second->size()) {
@@ -88,7 +88,7 @@ bool StateChoiceKiller::isConditionsEqual(PredicateState::Ptr a, PredicateState:
 }
 
 
-void StateChoiceKiller::getDifferentGroups(const States& states, std::vector<States>& groups) {
+void ChoiceKiller::getDifferentGroups(const States& states, std::vector<States>& groups) {
     std::vector<bool> visited(states.size(), false);
     for (auto i = 0U; i < states.size(); ++i) {
         if (not visited[i]) {

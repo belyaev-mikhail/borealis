@@ -9,15 +9,15 @@
 
 namespace borealis {
 
-class StateChoiceKiller : public Transformer<StateChoiceKiller> {
+class ChoiceKiller : public Transformer<ChoiceKiller> {
 
-    using Base = Transformer<StateChoiceKiller>;
+    using Base = Transformer<ChoiceKiller>;
 
 public:
 
     using States = std::vector<PredicateState::Ptr>;
 
-    StateChoiceKiller(const FactoryNest& fn);
+    ChoiceKiller(const FactoryNest& fn);
 
     using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
