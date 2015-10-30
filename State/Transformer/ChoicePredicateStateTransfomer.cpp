@@ -17,7 +17,9 @@ Predicate::Ptr ChoicePredicateStateTransfomer::transformPredicate(Predicate::Ptr
         temp.clear();
         temp.push_back(pred);
     }
-    else temp.push_back(pred);
+    else {
+        temp.push_back(pred);
+    }
     return pred;
 }
 

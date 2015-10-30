@@ -45,7 +45,6 @@ private:
 private:
 
     TermSet args;
-
     TermToArg termToArg;
     ArgToTerms argToTerms;
 

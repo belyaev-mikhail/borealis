@@ -62,6 +62,8 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
 }
 
 void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateState::Ptr S) {
+    if (I.getCalledFunction() == nullptr) return;
+
     auto&& mapper = EqualityMapper(FN);
     auto&& mappedState = mapper.transform(S);
     auto&& mapping = mapper.getMappedValues();

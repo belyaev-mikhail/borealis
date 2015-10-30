@@ -108,27 +108,28 @@ void ContractManager::getUniqueChoices(llvm::Function* F, std::vector<std::pair<
 }
 
 void ContractManager::printContracts() const {
+    double minProbability = 0.66;
     ContractStates result;
 
     //analyzing results
     for (auto&& it : functionCalls) {
         auto&& F = it.first;
         auto&& calls = it.second;
-        //merging basic states for each function, probability 0.66
+        //merging basic states for each function
         auto&& merger = MergingTransformer(FactoryNest(nullptr), calls);
         for (auto&& state : basicContracts[F]) {
             merger.transform(state);
         }
-        auto&& merged = merger.getMergedState(0.66);
+        auto&& merged = merger.getMergedState(minProbability);
         if (not merged->isEmpty()) {
             result[F].insert(merged);
         }
-        //merging choice states for each function, probability 0.66
         if (calls > 1) {
+            //merging choice states for each function
             std::vector<std::pair<PredicateState::Ptr, int>> choices;
             getUniqueChoices(F, choices);
             for (auto&& it_choice : choices) {
-                if (double(it_choice.second)/double(calls) > 0.66) {
+                if (double(it_choice.second)/double(calls) > minProbability) {
                     result[F].insert(it_choice.first);
                 }
             }

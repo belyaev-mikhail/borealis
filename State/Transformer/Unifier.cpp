@@ -17,7 +17,7 @@ Predicate::Ptr Unifier::transformEqualityPredicate(EqualityPredicatePtr pred) {
     auto&& reverted = llvm::dyn_cast<EqualityPredicate>(revertEqualityPredicate(pred));
     if (auto&& cmp = llvm::dyn_cast<CmpTerm>(reverted->getLhv())) {
         auto cond = invertCondition(cmp->getOpcode());
-        if (isInverted) {
+        if (cond != cmp->getOpcode()) {
             auto&& term = FN.Term->getCmpTerm(cond, cmp->getLhv(), cmp->getRhv());
             auto&& boolean = invertBoolean(reverted->getRhv());
             return FN.Predicate->getEqualityPredicate(term, boolean, reverted->getLocation(), reverted->getType());
@@ -34,9 +34,7 @@ Term::Ptr Unifier::transformTerm(Term::Ptr term) {
 }
 
 Term::Ptr Unifier::transformCmpTerm(CmpTermPtr term) {
-    auto&& revertedTerm = revertCmpTerm(term);
-    const CmpTerm* reverted = llvm::dyn_cast<CmpTerm>(revertedTerm);
-    return reverted->shared_from_this();
+    return revertCmpTerm(term);
 }
 
 Term::Ptr Unifier::transformBinaryTerm(BinaryTermPtr term) {
@@ -51,7 +49,6 @@ Term::Ptr Unifier::transformBinaryTerm(BinaryTermPtr term) {
 
 
 llvm::ConditionType Unifier::invertCondition(llvm::ConditionType cond) {
-    isInverted = true;
     switch (cond) {
         case llvm::ConditionType::LT:
             return llvm::ConditionType::GE;
@@ -64,7 +61,6 @@ llvm::ConditionType Unifier::invertCondition(llvm::ConditionType cond) {
         case llvm::ConditionType::EQ:
             return llvm::ConditionType::NEQ;
         default:
-            isInverted = false;
             return cond;
     }
 }
