@@ -35,7 +35,6 @@ private:
 private:
 
     FactoryNest FN;
-    bool isInverted;
     TermSet args;
     TermMap argsReplacement;
 
