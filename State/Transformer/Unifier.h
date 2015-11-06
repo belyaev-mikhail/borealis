@@ -23,6 +23,7 @@ public:
     Term::Ptr transformTerm(Term::Ptr term);
     Term::Ptr transformCmpTerm(CmpTermPtr term);
     Term::Ptr transformBinaryTerm(BinaryTermPtr term);
+    Term::Ptr transformOpaqueIntConstantTerm(OpaqueIntConstantTermPtr term);
 
 private:
 
