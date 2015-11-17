@@ -47,17 +47,6 @@ Term::Ptr Unifier::transformBinaryTerm(BinaryTermPtr term) {
     return term;
 }
 
-Term::Ptr Unifier::transformOpaqueIntConstantTerm(Transformer::OpaqueIntConstantTermPtr term) {
-    auto&& type = llvm::cast<borealis::type::Integer>(term->getType());
-    long long maxVal = 1;
-    maxVal <<= type->getBitsize();
-    if (term->getValue() > ((maxVal / 2) - 1)) {
-        --maxVal;
-        return FN.Term->getIntTerm(-(maxVal - term->getValue() + 1), term->getType());
-    }
-    return term;
-}
-
 llvm::ConditionType Unifier::invertCondition(llvm::ConditionType cond) {
     switch (cond) {
         case llvm::ConditionType::LT:
