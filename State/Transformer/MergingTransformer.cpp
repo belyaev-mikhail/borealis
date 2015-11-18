@@ -28,11 +28,7 @@ PredicateState::Ptr MergingTransformer::getMergedState(double minProbability) {
         double probability = double(it.second)/double(functionCalls);
         auto&& pred = it.first;
         auto&& invertedPred = Predicate::Ptr{ pred->replaceOperands(booleanInvert) };
-        if (util::at(predicates, invertedPred)) {
-            if (it.second > predicates[invertedPred] && probability > 0.9) {
-                result.push_back(pred);
-            }
-        } else if (probability > minProbability) {
+        if (not util::at(predicates, invertedPred) && probability > minProbability) {
             result.push_back(pred);
         }
     }
