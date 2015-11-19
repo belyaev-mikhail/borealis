@@ -27,11 +27,30 @@ void GlobalVariableLifting::init() {
 }
 
 void GlobalVariableLifting::collectGlobals(llvm::Function& F) {
+    trash_set ptrGlobals;
+    auto&& isAllowedGlobal = [] (llvm::Instruction* inst, llvm::Value* glob) -> bool {
+        if (llvm::isa<llvm::LoadInst>(inst)) {
+            return true;
+        } else if (auto* stInst = llvm::dyn_cast<llvm::StoreInst>(&*inst)) {
+            return stInst->getPointerOperand() == glob;
+        } else {
+            return false;
+        }
+    };
+
     for (auto&& inst = llvm::inst_begin(F); inst != llvm::inst_end(F); ++inst) {
         for (auto&& op : inst->operand_values()) {
             if (llvm::isa<llvm::GlobalVariable>(op) &&
-                not op->getType()->getPointerElementType()->isAggregateType())
+                not op->getType()->getPointerElementType()->isAggregateType()) {
+                if (isAllowedGlobal(&*inst, op)) {
                     globals[op->getName()] = op;
+                } else {
+                    ptrGlobals.insert(op);
+                    if (util::containsKey(globals, op->getName())) {
+                        globals.erase(op->getName());
+                    }
+                }
+            }
         }
     }
 }
