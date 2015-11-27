@@ -46,6 +46,9 @@ public:
             const std::vector<Term::Ptr>& diversifiers,
             const std::vector<Term::Ptr>& collectibles);
 
+    smt::Result isFullGroup(
+            PredicateState::Ptr query);
+
 private:
 
     ExprFactory& z3ef;
