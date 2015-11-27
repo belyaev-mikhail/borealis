@@ -20,6 +20,7 @@ ContractExtractorPass::ContractExtractorPass() : ProxyFunctionPass(ID) {}
 
 bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
     FN = FactoryNest(GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(&F));
+    FM = &GetAnalysis<FunctionManager>::doit(this, F);
     CM = &GetAnalysis<ContractManager>::doit(this, F);
     PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, F);
 
@@ -72,12 +73,13 @@ void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateS
     auto&& transformedState = extractor.transform(mappedState);
     auto&& argToTerms = extractor.getArgToTermMapping();
 
-    CM->addContract(I.getCalledFunction(), FN, transformedState, argToTerms);
+    CM->addContract(I.getCalledFunction(), FN, *FM, transformedState, argToTerms);
 }
 
 void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
     Info.setPreservesAll();
 
+    AUX<FunctionManager>::addRequiredTransitive(Info);
     AUX<ContractManager>::addRequiredTransitive(Info);
     AUX<PredicateStateAnalysis>::addRequiredTransitive(Info);
     AUX<SlotTrackerPass>::addRequiredTransitive(Info);

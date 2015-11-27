@@ -5,6 +5,7 @@
  *      Author: kivi
  */
 
+#include <State/Transformer/Retyper.h>
 #include "State/Transformer/Unifier.h"
 #include "State/Transformer/StateOptimizer.h"
 #include "State/Transformer/MergingTransformer.h"
@@ -20,34 +21,29 @@ bool ContractManager::runOnModule(llvm::Module&) {
     return false;
 }
 
-void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S,
-                                  const std::unordered_map<int, Args>& mapping) {
+void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, const FunctionManager& FM,
+                                  PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
     ++functionCalls[F];
     if (not S->isEmpty()) {
-        TermMap argsReplacement;
-        for (auto&& it : mapping) {
-            if (not util::containsKey(contractArguments[F], it.first)) {
-                auto&& type = (*it.second.begin())->getType();
-                auto&& arg = FN.Term->getValueTerm(type,"arg%" + std::to_string(it.first));
-                contractArguments[F][it.first] = arg;
-            }
-            for (auto&& term : it.second) {
-                argsReplacement[term] = contractArguments[F][it.first];
-            }
-        }
-        auto&& unified = Unifier(FN, contractArguments[F], argsReplacement).transform(S);
-        auto&& optimized = StateOptimizer(FN).transform(unified);
-        auto&& choiceKilled = optimized;
-        while (true) {
-            auto&& killer = ChoiceKiller(FN);
-            choiceKilled = killer.transform(optimized);
-            if (not killer.isChanged()) {
-                break;
-            }
-            optimized = StateOptimizer(FN).transform(choiceKilled);
-        }
+        auto&& optimized = StateOptimizer(FN).transform(S);
+        auto&& retyped = Retyper(FN).transform(optimized);
+        auto&& choiceKilled = ChoiceKiller(FN, FM.getMemoryBounds(F)).transform(retyped);
+
         if (not choiceKilled->isEmpty()) {
-            saveState(F, choiceKilled);
+            TermMap argsReplacement;
+            for (auto&& it : mapping) {
+                if (not util::containsKey(contractArguments[F], it.first)) {
+                    auto&& type = (*it.second.begin())->getType();
+                    auto&& arg = FN.Term->getValueTerm(type,"arg%" + std::to_string(it.first));
+                    contractArguments[F][it.first] = arg;
+                }
+                for (auto&& term : it.second) {
+                    argsReplacement[term] = contractArguments[F][it.first];
+                }
+            }
+            auto&& unified = Unifier(FN, contractArguments[F], argsReplacement).transform(choiceKilled);
+            
+            saveState(F, unified);
         }
     }
 }
@@ -108,7 +104,6 @@ void ContractManager::getUniqueChoices(llvm::Function* F, std::vector<std::pair<
 }
 
 void ContractManager::printContracts() const {
-    double minProbability = 0.66;
     ContractStates result;
 
     //analyzing results
@@ -120,19 +115,16 @@ void ContractManager::printContracts() const {
         for (auto&& state : basicContracts[F]) {
             merger.transform(state);
         }
-        auto&& merged = merger.getMergedState(minProbability);
+        auto&& merged = merger.getMergedState(0.0);
         if (not merged->isEmpty()) {
             result[F].insert(merged);
         }
-        if (calls > 1) {
-            //merging choice states for each function
-            std::vector<std::pair<PredicateState::Ptr, int>> choices;
-            getUniqueChoices(F, choices);
-            for (auto&& it_choice : choices) {
-                if (double(it_choice.second)/double(calls) > minProbability) {
-                    result[F].insert(it_choice.first);
-                }
-            }
+
+        //merging choice states for each function
+        std::vector<std::pair<PredicateState::Ptr, int>> choices;
+        getUniqueChoices(F, choices);
+        for (auto&& it_choice : choices) {
+            result[F].insert(it_choice.first);
         }
     }
 

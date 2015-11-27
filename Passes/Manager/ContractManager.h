@@ -15,6 +15,7 @@
 #include "Term/Term.h"
 #include "State/PredicateState.h"
 #include "Factory/Nest.h"
+#include "FunctionManager.h"
 
 
 namespace borealis {
@@ -38,8 +39,11 @@ public:
     virtual bool runOnModule(llvm::Module&) override;
     virtual void print(llvm::raw_ostream&, const llvm::Module*) const override;
 
-    void addContract(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping);
-    void addSummary(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping);
+    void addContract(llvm::Function* F, const FactoryNest& FN, const FunctionManager& FM,
+                     PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping);
+
+    void addSummary(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S,
+                    const std::unordered_map<int, Args>& mapping);
 
 private:
 

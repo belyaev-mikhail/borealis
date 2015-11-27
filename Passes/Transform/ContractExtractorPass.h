@@ -37,6 +37,7 @@ public:
 private:
 
     FactoryNest FN;
+    FunctionManager* FM;
     ContractManager* CM;
     PredicateStateAnalysis* PSA;
 

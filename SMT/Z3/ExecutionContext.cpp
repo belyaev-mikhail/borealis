@@ -24,6 +24,7 @@ ExecutionContext::ExecutionContext(
     localPtr(localMemoryStart),
     localMemoryStart(localMemoryStart),
     localMemoryEnd(localMemoryEnd) {
+    initMemory();
     initGepBounds();
 };
 
@@ -38,6 +39,12 @@ void ExecutionContext::memory(const MemArray& value) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+void ExecutionContext::initMemory() {
+    auto&& mem = factory.getNoMemoryArray(MEMORY_ID);
+    memArrays.emplace(MEMORY_ID, mem);
+    initialMemArrays.emplace(MEMORY_ID, mem);
+}
 
 void ExecutionContext::initGepBounds() {
     if (CraigColtonMode.get(false)) {
@@ -70,7 +77,7 @@ void ExecutionContext::gepBounds(const MemArray& value) {
 
 ExecutionContext::MemArray ExecutionContext::get(const std::string& id) const {
     if (not util::containsKey(memArrays, id)) {
-        auto mem = factory.getNoMemoryArray(id);
+        auto&& mem = factory.getNoMemoryArray(id);
         memArrays.emplace(id, mem);
         initialMemArrays.emplace(id, mem);
     }

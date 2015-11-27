@@ -441,6 +441,40 @@ PredicateState::Ptr Solver::probeModels(
     return FN.State->Choice(states);
 }
 
+Result Solver::isFullGroup(PredicateState::Ptr query) {
+    TRACE_FUNC
+
+    ExecutionContext ctx(z3ef, memoryStart, memoryEnd);
+    auto z3state = z3ef.getTrue();
+    auto z3query = SMT<Z3>::doit(query, z3ef, &ctx);
+
+    z3::check_result res;
+    util::option<z3::model> model;
+    std::tie(res, model, std::ignore, std::ignore) = check(not z3query, z3state, ctx);
+
+    if (res == z3::sat) {
+        auto m = model.getUnsafe(); // You shall not fail! (c)
+
+        if(gatherZ3Models.get(false) or gatherSMTModels.get(false)) {
+            auto vars = collectVariables(FactoryNest{}, query);
+            auto pointers = collectPointers(FactoryNest{}, query);
+
+            auto collectedModel = recollectModel(z3ef, ctx, m, vars);
+            auto collectedMems = recollectMemory(z3ef, ctx, m, pointers);
+
+            return SatResult{
+                    util::copy_or_share(collectedModel),
+                    util::copy_or_share(collectedMems.first),
+                    util::copy_or_share(collectedMems.second)
+            };
+        }
+
+        return SatResult{};
+    }
+
+    return UnsatResult{};
+}
+
 } // namespace z3_
 } // namespace borealis
 

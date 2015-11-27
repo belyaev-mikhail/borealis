@@ -34,6 +34,7 @@ class ExecutionContext {
     std::vector<Bool> contextAxioms;
 
     static const std::string MEMORY_ID;
+    void initMemory();
     MemArray memory() const;
     void memory(const MemArray& value);
 
