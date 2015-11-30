@@ -25,24 +25,24 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, cons
                                   PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
     ++functionCalls[F];
     if (not S->isEmpty()) {
-        auto&& optimized = StateOptimizer(FN).transform(S);
-        auto&& retyped = Retyper(FN).transform(optimized);
+        auto&& retyped = Retyper(FN).transform(S);
         auto&& choiceKilled = ChoiceKiller(FN, FM.getMemoryBounds(F)).transform(retyped);
 
         if (not choiceKilled->isEmpty()) {
+            auto&& optimized = StateOptimizer(FN).transform(choiceKilled);
+
             TermMap argsReplacement;
             for (auto&& it : mapping) {
                 if (not util::containsKey(contractArguments[F], it.first)) {
                     auto&& type = (*it.second.begin())->getType();
-                    auto&& arg = FN.Term->getValueTerm(type,"arg%" + std::to_string(it.first));
+                    auto&& arg = FN.Term->getValueTerm(type,"arg$" + std::to_string(it.first));
                     contractArguments[F][it.first] = arg;
                 }
                 for (auto&& term : it.second) {
                     argsReplacement[term] = contractArguments[F][it.first];
                 }
             }
-            auto&& unified = Unifier(FN, contractArguments[F], argsReplacement).transform(choiceKilled);
-            
+            auto&& unified = Unifier(FN, contractArguments[F], argsReplacement).transform(optimized);
             saveState(F, unified);
         }
     }
