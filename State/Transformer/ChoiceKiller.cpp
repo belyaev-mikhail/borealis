@@ -22,20 +22,22 @@ PredicateState::Ptr ChoiceKiller::transform(PredicateState::Ptr ps) {
 
 PredicateState::Ptr ChoiceKiller::transformPredicateStateChoice(PredicateStateChoicePtr ps) {
     States choices;
+    for (auto&& state : ps->getChoices()) {
+        if (not containsState(choices, state)) {
+            choices.push_back(state);
+        }
+    }
+    auto&& newChoice = FN.State->Choice(choices);
 
     Z3::ExprFactory ef;
     Z3::Solver s(ef, fMemInfo.first, fMemInfo.second);
-    auto res = s.isFullGroup(ps);
+    auto res = s.isFullGroup(newChoice);
 
     if (res.isSat()) {
-        for (auto&& state : ps->getChoices()) {
-            if (not containsState(choices, state)) {
-                choices.push_back(state);
-            }
-        }
+        return newChoice;
+    } else {
+        return FN.State->Basic();
     }
-
-    return FN.State->Choice(choices);
 }
 
 bool ChoiceKiller::containsState(const States& states, const PredicateState::Ptr value) {
