@@ -34,7 +34,24 @@ Term::Ptr Unifier::transformTerm(Term::Ptr term) {
 }
 
 Term::Ptr Unifier::transformCmpTerm(CmpTermPtr term) {
-    return revertCmpTerm(term);
+    auto&& reverted = revertCmpTerm(term);
+    auto&& revCmp = llvm::cast<CmpTerm>(reverted);
+    if (isSigned(revCmp->getOpcode())) {
+        TermMap replacement;
+        for (auto&& subterm : Term::getFullTermSet(revCmp->shared_from_this())) {
+            if (auto&& intTerm = llvm::dyn_cast<OpaqueIntConstantTerm>(subterm)) {
+                auto&& type = llvm::cast<borealis::type::Integer>(subterm->getType());
+                long long maxVal = 1;
+                maxVal <<= type->getBitsize();
+                if (intTerm->getValue() > ((maxVal / 2) - 1)) {
+                    --maxVal;
+                    replacement[subterm] = FN.Term->getIntTerm(-(maxVal - intTerm->getValue() + 1), term->getType());
+                }
+            }
+        }
+        return Term::Ptr{ revCmp->replaceOperands(replacement) };
+    }
+    return reverted;
 }
 
 Term::Ptr Unifier::transformBinaryTerm(BinaryTermPtr term) {
@@ -116,6 +133,13 @@ bool Unifier::containArgs(Term::Ptr term) {
             return true;
         }
     }
+    return false;
+}
+
+bool Unifier::isSigned(llvm::ConditionType cond) {
+    using CondType = llvm::ConditionType;
+    if (cond != CondType::ULT && cond != CondType::ULE && cond != CondType::UGE && cond != CondType::UGT)
+        return true;
     return false;
 }
 

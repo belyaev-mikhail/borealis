@@ -49,6 +49,10 @@ public:
     smt::Result isFullGroup(
             PredicateState::Ptr query);
 
+    Predicate::Ptr getStrongerPredicate(
+            Predicate::Ptr first,
+            Predicate::Ptr second);
+
 private:
 
     ExprFactory& z3ef;
