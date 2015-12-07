@@ -25,9 +25,9 @@ class ContractManager : public llvm::ModulePass {
     using Args = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
     using ArgToTerm = std::unordered_map<int, Term::Ptr>;
     using TermMap = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
-
     using ContractStates = std::unordered_map<llvm::Function*, std::unordered_set<PredicateState::Ptr>>;
     using ContractArguments = std::unordered_map<llvm::Function*, ArgToTerm>;
+    using MemInfo = std::pair<unsigned int, unsigned int>;
 
 public:
 
@@ -59,6 +59,7 @@ private:
     static ContractStates basicContracts;
     static ContractArguments contractArguments;
     static std::unordered_map<llvm::Function*, int> functionCalls;
+    static std::unordered_map<llvm::Function*, MemInfo> memBounds;
 
     static ContractStates summaries;
     static ContractArguments summaryArguments;

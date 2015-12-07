@@ -5,7 +5,7 @@
  *      Author: kivi
  */
 
-#include <State/Transformer/Retyper.h>
+#include "State/Transformer/Retyper.h"
 #include "State/Transformer/Unifier.h"
 #include "State/Transformer/StateOptimizer.h"
 #include "State/Transformer/MergingTransformer.h"
@@ -24,9 +24,12 @@ bool ContractManager::runOnModule(llvm::Module&) {
 void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, const FunctionManager& FM,
                                   PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
     ++functionCalls[F];
+    if (not util::containsKey(memBounds, F)) {
+        memBounds[F] = FM.getMemoryBounds(F);
+    }
     if (not S->isEmpty()) {
         auto&& retyped = Retyper(FN).transform(S);
-        auto&& choiceKilled = ChoiceKiller(FN, FM.getMemoryBounds(F)).transform(retyped);
+        auto&& choiceKilled = ChoiceKiller(FN, memBounds[F]).transform(retyped);
 
         if (not choiceKilled->isEmpty()) {
             auto&& optimized = StateOptimizer(FN).transform(choiceKilled);
@@ -110,12 +113,14 @@ void ContractManager::printContracts() const {
     for (auto&& it : functionCalls) {
         auto&& F = it.first;
         auto&& calls = it.second;
+        Args args;
+        for (auto&& it : contractArguments[F]) args.insert(it.second);
         //merging basic states for each function
-        auto&& merger = MergingTransformer(FactoryNest(nullptr), calls);
+        auto&& merger = MergingTransformer(FactoryNest(nullptr), memBounds[F], args, calls);
         for (auto&& state : basicContracts[F]) {
             merger.transform(state);
         }
-        auto&& merged = merger.getMergedState(0.0);
+        auto&& merged = merger.getMergedState();
         if (not merged->isEmpty()) {
             result[F].insert(merged);
         }
@@ -168,6 +173,7 @@ ContractManager::ContractStates ContractManager::choiceContracts;
 ContractManager::ContractStates ContractManager::basicContracts;
 ContractManager::ContractArguments ContractManager::contractArguments;
 std::unordered_map<llvm::Function*, int> ContractManager::functionCalls;
+std::unordered_map<llvm::Function*, ContractManager::MemInfo> ContractManager::memBounds;
 
 ContractManager::ContractStates ContractManager::summaries;
 ContractManager::ContractArguments ContractManager::summaryArguments;

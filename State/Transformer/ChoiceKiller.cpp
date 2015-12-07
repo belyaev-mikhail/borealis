@@ -4,9 +4,9 @@
 
 #include <unordered_map>
 
-#include <SMT/Z3/Z3.h>
-#include <SMT/Z3/ExprFactory.h>
-#include <SMT/Z3/Solver.h>
+#include "SMT/Z3/Z3.h"
+#include "SMT/Z3/ExprFactory.h"
+#include "SMT/Z3/Solver.h"
 
 #include "ChoiceKiller.h"
 
@@ -27,6 +27,11 @@ PredicateState::Ptr ChoiceKiller::transformPredicateStateChoice(PredicateStateCh
             choices.push_back(state);
         }
     }
+    
+    std::sort(choices.begin(), choices.end(), [](auto&& a, auto&& b) -> bool {
+       return a->size() < b->size();
+    });
+
     auto&& newChoice = FN.State->Choice(choices);
 
     Z3::ExprFactory ef;

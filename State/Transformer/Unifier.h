@@ -31,6 +31,7 @@ private:
     Term::Ptr revertCmpTerm(CmpTermPtr term);
     Predicate::Ptr revertEqualityPredicate(EqualityPredicatePtr pred);
     bool containArgs(Term::Ptr term);
+    bool isSigned(llvm::ConditionType cond);
 
 private:
 
