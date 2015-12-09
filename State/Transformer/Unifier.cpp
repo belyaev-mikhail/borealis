@@ -6,11 +6,8 @@
 
 namespace borealis {
 
-Unifier::Unifier(const FactoryNest& fn, const std::unordered_map<int, Term::Ptr>& a, const TermMap& m)
-        : Base(fn), FN(fn), argsReplacement(m) {
-    for (auto&& it : a) {
-        args.insert(it.second);
-    }
+Unifier::Unifier(const FactoryNest& fn, const ArgToTerms& a)
+        : Base(fn), FN(fn), argsMapping(a) {
 }
 
 Predicate::Ptr Unifier::transformEqualityPredicate(EqualityPredicatePtr pred) {
@@ -27,8 +24,13 @@ Predicate::Ptr Unifier::transformEqualityPredicate(EqualityPredicatePtr pred) {
 }
 
 Term::Ptr Unifier::transformTerm(Term::Ptr term) {
-    if (auto&& value = util::at(argsReplacement, term)) {
-        return value.getUnsafe();
+    for (auto&& it : argsMapping) {
+        if (util::contains(it.second, term)) {
+            auto&& type = term->getType();
+            auto&& newTerm = FN.Term->getValueTerm(type, "arg$" + std::to_string(it.first));
+            args.insert(newTerm);
+            return newTerm;
+        }
     }
     return term;
 }
@@ -40,12 +42,14 @@ Term::Ptr Unifier::transformCmpTerm(CmpTermPtr term) {
         TermMap replacement;
         for (auto&& subterm : Term::getFullTermSet(revCmp->shared_from_this())) {
             if (auto&& intTerm = llvm::dyn_cast<OpaqueIntConstantTerm>(subterm)) {
-                auto&& type = llvm::cast<borealis::type::Integer>(subterm->getType());
-                long long maxVal = 1;
-                maxVal <<= type->getBitsize();
-                if (intTerm->getValue() > ((maxVal / 2) - 1)) {
-                    --maxVal;
-                    replacement[subterm] = FN.Term->getIntTerm(-(maxVal - intTerm->getValue() + 1), term->getType());
+                if (auto&& type = llvm::dyn_cast<borealis::type::Integer>(subterm->getType())) {
+                    long long maxVal = 1;
+                    maxVal <<= type->getBitsize();
+                    if (intTerm->getValue() > ((maxVal / 2) - 1)) {
+                        --maxVal;
+                        replacement[subterm] = FN.Term->getIntTerm(-(maxVal - intTerm->getValue() + 1),
+                                                                   term->getType());
+                    }
                 }
             }
         }
@@ -141,6 +145,10 @@ bool Unifier::isSigned(llvm::ConditionType cond) {
     if (cond != CondType::ULT && cond != CondType::ULE && cond != CondType::UGE && cond != CondType::UGT)
         return true;
     return false;
+}
+
+const Unifier::TermSet& Unifier::getArguments() {
+    return args;
 }
 
 }   /* namespace borealis */

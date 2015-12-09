@@ -26,11 +26,7 @@ Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr p
 
     if (auto&& newEq = llvm::dyn_cast<EqualityPredicate>(replaced)) {
         if (not isOpaqueTerm(newEq->getRhv())) {
-            if (auto&& castTerm = llvm::dyn_cast<CastTerm>(newEq->getRhv())) {
-                mapping[newEq->getLhv()] = castTerm->getRhv();
-            } else {
-                mapping[newEq->getLhv()] = newEq->getRhv();
-            }
+            mapping[newEq->getLhv()] = newEq->getRhv();
         }
     }
     return replaced;

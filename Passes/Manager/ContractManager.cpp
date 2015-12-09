@@ -28,25 +28,15 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, cons
         memBounds[F] = FM.getMemoryBounds(F);
     }
     if (not S->isEmpty()) {
-        auto&& retyped = Retyper(FN).transform(S);
+        auto&& unifier = Unifier(FN, mapping);
+        auto&& unified = unifier.transform(S);
+        for (auto&& arg : unifier.getArguments())
+            contractArguments[F].insert(arg);
+        auto&& retyped = Retyper(FN).transform(unified);
         auto&& choiceKilled = ChoiceKiller(FN, memBounds[F]).transform(retyped);
-
         if (not choiceKilled->isEmpty()) {
             auto&& optimized = StateOptimizer(FN).transform(choiceKilled);
-
-            TermMap argsReplacement;
-            for (auto&& it : mapping) {
-                if (not util::containsKey(contractArguments[F], it.first)) {
-                    auto&& type = (*it.second.begin())->getType();
-                    auto&& arg = FN.Term->getValueTerm(type,"arg$" + std::to_string(it.first));
-                    contractArguments[F][it.first] = arg;
-                }
-                for (auto&& term : it.second) {
-                    argsReplacement[term] = contractArguments[F][it.first];
-                }
-            }
-            auto&& unified = Unifier(FN, contractArguments[F], argsReplacement).transform(optimized);
-            saveState(F, unified);
+            saveState(F, optimized);
         }
     }
 }
@@ -54,18 +44,10 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, cons
 void ContractManager::addSummary(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S,
                                   const std::unordered_map<int, Args>& mapping) {
     if (not S->isEmpty()) {
-        TermMap argsReplacement;
-        for (auto&& it : mapping) {
-            if (not util::containsKey(summaryArguments[F], it.first)) {
-                auto&& type = (*it.second.begin())->getType();
-                auto&& arg = FN.Term->getValueTerm(type,"arg%" + std::to_string(it.first));
-                summaryArguments[F][it.first] = arg;
-            }
-            for (auto&& term : it.second) {
-                argsReplacement[term] = summaryArguments[F][it.first];
-            }
-        }
-        auto&& unified = Unifier(FN, summaryArguments[F], argsReplacement).transform(S);
+        auto&& unifier = Unifier(FN, mapping);
+        auto&& unified = unifier.transform(S);
+        for (auto&& arg : unifier.getArguments())
+            summaryArguments[F].insert(arg);
         auto&& optimized = StateOptimizer(FN).transform(unified);
         if (not optimized->isEmpty()) {
             summaries[F].insert(optimized);
@@ -113,10 +95,8 @@ void ContractManager::printContracts() const {
     for (auto&& it : functionCalls) {
         auto&& F = it.first;
         auto&& calls = it.second;
-        Args args;
-        for (auto&& it : contractArguments[F]) args.insert(it.second);
         //merging basic states for each function
-        auto&& merger = MergingTransformer(FactoryNest(nullptr), memBounds[F], args, calls);
+        auto&& merger = MergingTransformer(FactoryNest(nullptr), memBounds[F], contractArguments[F], calls);
         for (auto&& state : basicContracts[F]) {
             merger.transform(state);
         }
