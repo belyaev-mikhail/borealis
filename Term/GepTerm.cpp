@@ -34,7 +34,7 @@ Term* GepTerm::update() {
     name = std::string("gep") +
            (isTriviallyInbounds()? "[inbounds]" : "") +
            "(" + getBase()->getName() + "," +
-           util::viewContainer(subterms)
+           util::viewContainer(subterms).drop(1)
                    .map([](auto&& s) { return s->getName(); })
                    .fold(std::string("0"), [](auto&& acc, auto&& e) { return acc + "+" + e; }) +
            ")";
