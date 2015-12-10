@@ -475,7 +475,7 @@ Result Solver::isFullGroup(PredicateState::Ptr query) {
     return UnsatResult{};
 }
 
-Predicate::Ptr Solver::getStrongerPredicate(Predicate::Ptr first, Predicate::Ptr second) {
+smt::Result Solver::isPossible(Predicate::Ptr first, Predicate::Ptr second) {
     TRACE_FUNC
 
     using namespace logic;
@@ -492,7 +492,38 @@ Predicate::Ptr Solver::getStrongerPredicate(Predicate::Ptr first, Predicate::Ptr
         s.add(z3impl::asAxiom(axiom));
     }
 
-    auto z3query = implies(z3first, z3second);
+    auto z3query = z3first && z3second;
+
+    Bool pred = z3ef.getBoolVar("$CHECK$");
+    s.add(z3impl::getExpr(implies(pred, z3query)));
+
+    z3::expr pred_e = logic::z3impl::getExpr(pred);
+    z3::check_result r = s.check(1, &pred_e);
+
+    if (r == z3::sat) {
+        return SatResult{};
+    }
+    return UnsatResult{};
+}
+
+smt::Result Solver::isStronger(Predicate::Ptr first, Predicate::Ptr second) {
+    TRACE_FUNC
+
+    using namespace logic;
+
+    auto s = tactics().mk_solver();
+
+    ExecutionContext ctx(z3ef, memoryStart, memoryEnd);
+    auto z3state = z3ef.getTrue();
+    auto z3first = SMT<Z3>::doit(first, z3ef, &ctx);
+    auto z3second = SMT<Z3>::doit(second, z3ef, &ctx);
+
+    s.add(z3impl::asAxiom(z3state));
+    for (auto&& axiom : ctx.getAxioms()) {
+        s.add(z3impl::asAxiom(axiom));
+    }
+
+    auto z3query = implies(z3second, z3first);
 
     Bool pred = z3ef.getBoolVar("$CHECK$");
     s.add(z3impl::getExpr(implies(pred, not z3query)));
@@ -501,27 +532,9 @@ Predicate::Ptr Solver::getStrongerPredicate(Predicate::Ptr first, Predicate::Ptr
     z3::check_result r = s.check(1, &pred_e);
 
     if (r == z3::sat) {
-        s = tactics().mk_solver();
-
-        s.add(z3impl::asAxiom(z3state));
-        for (auto&& axiom : ctx.getAxioms()) {
-            s.add(z3impl::asAxiom(axiom));
-        }
-
-       z3query = implies(z3second, z3first);
-
-        pred = z3ef.getBoolVar("$CHECK$");
-        s.add(z3impl::getExpr(implies(pred, not z3query)));
-
-        pred_e = logic::z3impl::getExpr(pred);
-        z3::check_result r = s.check(1, &pred_e);
-        if (r == z3::sat)
-            return nullptr;
-        else
-            return first;
-    } else {
-        return second;
+        return SatResult{};
     }
+    return UnsatResult{};
 }
 
 } // namespace z3_

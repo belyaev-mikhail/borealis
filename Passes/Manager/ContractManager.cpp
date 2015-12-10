@@ -96,7 +96,7 @@ void ContractManager::printContracts() const {
         auto&& F = it.first;
         auto&& calls = it.second;
         //merging basic states for each function
-        auto&& merger = MergingTransformer(FactoryNest(nullptr), memBounds[F], contractArguments[F], calls);
+        auto&& merger = MergingTransformer(FactoryNest(nullptr), memBounds[F], calls);
         for (auto&& state : basicContracts[F]) {
             merger.transform(state);
         }

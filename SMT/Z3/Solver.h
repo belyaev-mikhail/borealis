@@ -49,7 +49,11 @@ public:
     smt::Result isFullGroup(
             PredicateState::Ptr query);
 
-    Predicate::Ptr getStrongerPredicate(
+    smt::Result isPossible(
+            Predicate::Ptr first,
+            Predicate::Ptr second);
+
+    smt::Result isStronger(
             Predicate::Ptr first,
             Predicate::Ptr second);
 
