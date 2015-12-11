@@ -39,6 +39,7 @@ BRING_FROM_IMPL(MemArray)
     using Integer = typename IMPL::Integer; \
     using Real = typename IMPL::Real; \
     using DynBV = typename IMPL::DynBV; \
+    using Comparable = typename IMPL::Comparable; \
     using UComparable = typename IMPL::UComparable; \
     using Dynamic = typename IMPL::Dynamic; \
     using MemArray = typename IMPL::MemArray;
