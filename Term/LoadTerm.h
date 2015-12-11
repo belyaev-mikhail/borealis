@@ -63,7 +63,7 @@ public:
 
 #include "Util/macros.h"
 template<class Impl>
-struct SMTImpl<Impl, LoadTerm> {
+struct SMTImpl<Impl, LoadTerm> {;
     static Dynamic<Impl> doit(
             const LoadTerm* t,
             ExprFactory<Impl>& ef,
@@ -78,7 +78,14 @@ struct SMTImpl<Impl, LoadTerm> {
         ASSERT(not r.empty(), "Load with non-pointer right side");
         auto&& rp = r.getUnsafe();
 
-        return ctx->readExprFromMemory(rp, ExprFactory::sizeForType(t->getType()));
+        if (llvm::isa<type::Bool>(t->getType())) {
+            return
+                    ctx->readExprFromMemory(rp, ExprFactory::sizeForType(t->getType())).toComparable().getUnsafe()
+                    !=
+                    Comparable(ef.getIntConst(0)); // Comparable does the size-fixing here
+        } else {
+            return ctx->readExprFromMemory(rp, ExprFactory::sizeForType(t->getType()));
+        }
     }
 };
 #include "Util/unmacros.h"

@@ -27,7 +27,7 @@ PredicateState::Ptr ChoiceKiller::transformPredicateStateChoice(PredicateStateCh
             choices.push_back(state);
         }
     }
-    
+
     std::sort(choices.begin(), choices.end(), [](auto&& a, auto&& b) -> bool {
        return a->size() < b->size();
     });
