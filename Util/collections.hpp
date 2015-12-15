@@ -215,6 +215,25 @@ auto at(M&& m, K&& k) -> decltype(justRef(std::forward<M>(m).at(std::forward<K>(
     return nothing();
 }
 
+template <class C1, class C2, class Out>
+void getIntersect(const C1& c1,const C2& c2,Out out){
+    for(auto&& it:c1){
+        if(util::contains(c2,it)) {
+            out = it;
+            ++out;
+        }
+    }
+}
+
+template <class C1, class C2>
+bool hasIntersect(C1& c1, C2& c2){
+    for(auto&& it:c1){
+        if(contains(c2,it))
+            return true;
+    }
+    return false;
+}
+
 template<class C1, class C2, class BinaryPred>
 bool equal(const C1& c1, const C2& c2, BinaryPred pred) {
     auto c1beg = std::begin(c1), c1end = std::end(c1);
