@@ -21,6 +21,7 @@ class EqualityMapper: public borealis::Transformer<EqualityMapper> {
 public:
 
     using TermMap = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
+    using TermSet = std::unordered_set<Term::Ptr,TermHash, TermEquals>;
 
     EqualityMapper(FactoryNest FN);
 
@@ -31,8 +32,10 @@ public:
 
 private:
 
+    Term::Ptr prev;
+    Term::Ptr prevRhv;
     TermMap mapping;
-
+    TermSet usedTerms;
     bool isOpaqueTerm(Term::Ptr term);
 
 };

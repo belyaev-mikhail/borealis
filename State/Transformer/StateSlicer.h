@@ -14,17 +14,19 @@
 #include <unordered_set>
 
 #include "State/PredicateState.def"
-#include "State/Transformer/CachingTransformer.hpp"
+#include "State/Transformer/Transformer.hpp"
 
 namespace borealis {
 
-class StateSlicer : public borealis::CachingTransformer<StateSlicer> {
+class StateSlicer : public borealis::Transformer<StateSlicer> {
 
-    using Base = borealis::CachingTransformer<StateSlicer>;
+    using Base = borealis::Transformer<StateSlicer>;
+    using TermSet = std::unordered_set<Term::Ptr,TermHash, TermEquals>;
 
 public:
 
     StateSlicer(FactoryNest FN, PredicateState::Ptr query, llvm::AliasAnalysis* AA);
+    StateSlicer(FactoryNest FN, TermSet TS, llvm::AliasAnalysis* AA);
 
     using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
@@ -42,6 +44,7 @@ private:
     Term::Set slicePtrs;
 
     void init();
+    void filterTerms(std::unordered_set<Term::Ptr,TermHash,TermEquals> ts);
     void addSliceTerm(Term::Ptr term);
 
     bool checkPath(Predicate::Ptr pred, const Term::Set& lhv, const Term::Set& rhv);

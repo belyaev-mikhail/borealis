@@ -4,6 +4,8 @@
  *  Created on: 19 мая 2015 г.
  *      Author: kivi
  */
+#include <llvm/Analysis/AliasAnalysis.h>
+#include <State/Transformer/UnnecesPredDeleter.h>
 
 #include "Passes/Tracker/SlotTrackerPass.h"
 #include "State/Transformer/EqualityMapper.h"
@@ -11,8 +13,10 @@
 #include "State/Transformer/ContractExtractorTransformer.h"
 #include "State/Transformer/EqualityMapper.h"
 #include "State/Transformer/FunctionSummariesTransformer.h"
+#include "State/Transformer/StateSlicer.h"
 #include "Term/TermFactory.h"
 #include "ContractExtractorPass.h"
+
 
 namespace borealis {
 
@@ -23,6 +27,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
     FM = &GetAnalysis<FunctionManager>::doit(this, F);
     CM = &GetAnalysis<ContractManager>::doit(this, F);
     PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, F);
+    AA = GetAnalysis<llvm::AliasAnalysis>::doit(this,F);
 
     for (auto&& I : util::viewContainer(F)
                     .flatten()
@@ -45,19 +50,31 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         auto&& mapper = EqualityMapper(FN);
         auto&& mappedState = mapper.transform(S);
         auto&& mapping = mapper.getMappedValues();
-
+        TermSet TS;
+        TS.insert(FN.Term->getReturnValueTerm(&F));
+        auto&& sliced1=StateSlicer(FN,TS,&AA).transform(mappedState);
         auto&& choiceInfo = ChoiceInfoCollector(FN);
-        choiceInfo.transform(mappedState);
+        choiceInfo.transform(sliced1);
+        choiceInfo.pushBackTemp();//add last path
         auto&& vec = choiceInfo.getChoiceInfo();
-
         auto&& rtv = FN.Term->getReturnValueTerm(&F);
-        auto&& extractor = FunctionSummariesTransformer(FN, F.getArgumentList(), mapping, vec, rtv);
-        auto&& transformedState = extractor.transform(mappedState);
-        auto&& argToTerms = extractor.getArgToTermMapping();
-
-        if (not argToTerms.empty()) {
-            CM->addSummary(&F, FN, transformedState, argToTerms);
-        }
+        auto&& extractor = FunctionSummariesTransformer(FN, mapping, vec, rtv);
+        extractor.transform(sliced1);
+        auto&& ters=extractor.getTermSet();
+        if(ters.size()==0) return false;
+        auto&& sliced=StateSlicer(FN,ters,&AA).transform(mappedState);
+        auto&& protStates=extractor.getProtectedPredicates();
+        auto&& choiceInfo2 = ChoiceInfoCollector(FN);
+        choiceInfo2.transform(sliced);
+        vec = choiceInfo.getChoiceInfo();
+        auto&& deleter=UnnecesPredDeleter(FN,protStates,ters,F.getArgumentList());
+        auto&& result=deleter.transform(sliced);
+        auto&& result2=StateSlicer(FN,deleter.getRigthTerms(),&AA).transform(result);
+        if(!result2->isEmpty())
+            errs()<<result2<<"\n";
+        //if (not argToTerms.empty()) {
+        //    CM->addSummary(&F, FN, transformedState, argToTerms);
+       // }
     }
     return false;
 }
@@ -83,11 +100,13 @@ void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
     AUX<ContractManager>::addRequiredTransitive(Info);
     AUX<PredicateStateAnalysis>::addRequiredTransitive(Info);
     AUX<SlotTrackerPass>::addRequiredTransitive(Info);
+    AUX<llvm::AliasAnalysis>::addRequiredTransitive(Info);
 }
 
 char ContractExtractorPass::ID = 0;
 
 static llvm::RegisterPass<ContractExtractorPass>
 X("contract-extractor", "Contract extractor pass", false, false);
+
 
 } /* namespace borealis */

@@ -23,29 +23,39 @@ class FunctionSummariesTransformer : public borealis::Transformer<FunctionSummar
     using TermToArg = std::unordered_map<Term::Ptr, int, TermHash, TermEquals>;
     using ArgToTerms = std::unordered_map<int, TermSet>;
     using ChoiceInfo = std::vector<std::vector<Predicate::Ptr>>;
+    using PrVector = std::vector<Predicate::Ptr>;
 
 
 public:
-    FunctionSummariesTransformer(const FactoryNest& FN, llvm::iplist<llvm::Argument>& args, const TermMap& TM,
+    FunctionSummariesTransformer(const FactoryNest& FN, const TermMap& TM,
                 const ChoiceInfo& ci, const Term::Ptr rvt);
 
     using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
     Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
+    const PrVector& getProtectedPredicates() const{
+        return protStates;
+    }
+
     const ArgToTerms& getArgToTermMapping() const {
         return argToTerms;
     }
 
-private:
+    TermSet& getTermSet() {
+        return TS;
+    }
 
-    bool checkTerm(Term::Ptr term);
+private:
+    bool isDepFromArg(Term::Ptr term);
     bool isOpaqueTerm(Term::Ptr term);
 
 private:
 
     TermSet arguments;
     TermMap mapping;
+    TermSet TS;
+    PrVector protStates;
 
     TermToArg termToArg;
     ArgToTerms argToTerms;

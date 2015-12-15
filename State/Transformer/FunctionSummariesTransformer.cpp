@@ -6,86 +6,71 @@
  */
 
 #include "FunctionSummariesTransformer.h"
-
+#include "State/Transformer/StateSlicer.h"
+#include "State/Transformer/ChoiceInfoCollector.h"
 
 #include "Util/algorithm.hpp"
 
 namespace borealis{
 
     FunctionSummariesTransformer::FunctionSummariesTransformer(const FactoryNest& FN,
-                                                               llvm::iplist<llvm::Argument>& args,const TermMap& TM, const ChoiceInfo& ci,const Term::Ptr rv) :
-            Base(FN), mapping(TM), choiceInfo(ci), rtv(rv), curPredi(-1) {
+                                                               const TermMap& TM,
+                                                               const ChoiceInfo& ci,const Term::Ptr rv
+    ) :
+            Base(FN), mapping(TM), choiceInfo(ci), rtv(rv), curPredi(-1) { }
 
-        for (auto ar = args.begin(), er = args.end(); ar != er; ++ar) {
-            llvm::Value *x = ar;
-            auto&& term = FN.Term->getValueTerm(x);
-            for (auto a = mapping.begin(), e = mapping.end(); a != e; ++a) {
-                Term::Ptr tp = a->second;
-                for(auto iter = tp->getSubterms().begin(), ite = tp->getSubterms().end(); iter != ite; ++iter) {
-                    if (term->equals(iter->get()) && not isOpaqueTerm(term)) {
-                        int dist=std::distance(args.begin(),ar);
-                        termToArg[term] = dist;
-                        arguments.insert(term);
-                    }
-                }
-            }
-            if (auto&& optRef = util::at(mapping, term)) {
-                auto&& res = optRef.getUnsafe();
-                arguments.insert(res);
-            }
-
-        }
-
-    }
-
+    int count=0;
     PredicateState::Ptr FunctionSummariesTransformer::transform(PredicateState::Ptr ps) {
         return Base::transform(ps)
                 ->filter([](auto&& p) { return !!p; })
-                ->simplify();
+                ->simplify();;
+
     }
 
-    bool FunctionSummariesTransformer::checkTerm(Term::Ptr term) {
-        auto&& flag = false;
-        for (auto&& t : Term::getFullTermSet(term)) {
-            if (util::contains(arguments, t)) {
-                argToTerms[termToArg[t]].insert(t);
-                flag = true;
-            }
-        }
 
-        return flag;
-    }
 
     Predicate::Ptr FunctionSummariesTransformer::transformPredicate(Predicate::Ptr pred) {
         if (pred->getType() == PredicateType::PATH) {
+            ++count;
             int k=choiceInfo.size();
-
             if (curPredi < k-1) {
                 ++curPredi;
                 if (choiceInfo[curPredi].size() == 2) {
-                    unsigned int count = 0;
-                    for (auto &&op :choiceInfo[curPredi][1]->getOperands()) {
-                        if(op.get()->equals(mapping[rtv].get()))
-                            return nullptr;
-                        ++count;
-                        if(count==choiceInfo[curPredi][1]->getNumOperands() && not isOpaqueTerm(op))
-                            return nullptr;
+
+                    bool isEq=true;
+                    auto&& pred2=llvm::dyn_cast<EqualityPredicate>(choiceInfo[curPredi][1]);
+                    auto&& pred3=llvm::dyn_cast<StorePredicate>(choiceInfo[curPredi][1]);
+                    if(pred2==NULL){
+                        isEq=false;
                     }
-                    TermMap m;
-                    for (auto &&op : pred->getOperands()) {
-                        if (checkTerm(op)) {
-                            m[op] = op;
+                    if(isEq){
+                        if(not(pred2->getLhv()->equals(mapping[rtv].get()))){
+                            return nullptr;}
+                        if(not isOpaqueTerm(pred2->getRhv())) {
+                            return nullptr;
                         }
                     }
-
-                    if (not m.empty()) {
-                        return Predicate::Ptr{pred->replaceOperands(m)};
+                    else{
+                        if(not(pred3->getLhv()->equals(mapping[rtv].get()))){
+                            return nullptr;}
+                        if(not isOpaqueTerm(pred3->getRhv())) {
+                            return nullptr;
+                        }
+                    }
+                    for (auto &&op : pred->getOperands()) {
+                        for (auto&& t : Term::getFullTermSet(op)) {
+                            if(!isOpaqueTerm(t)&&t->getNumSubterms()==0){
+                                TS.insert(t);
+                                protStates.push_back(pred);
+                            }
+                        }
                     }
                 }
             }
         }
 
-        return nullptr;
+        //return nullptr;
+        return pred;
     }
 
     bool FunctionSummariesTransformer::isOpaqueTerm(Term::Ptr term) {
