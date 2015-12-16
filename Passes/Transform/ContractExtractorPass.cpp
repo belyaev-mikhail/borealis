@@ -52,7 +52,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         auto&& mapping = mapper.getMappedValues();
         TermSet TS;
         TS.insert(FN.Term->getReturnValueTerm(&F));
-        auto&& sliced1=StateSlicer(FN,TS,&AA).transform(mappedState);
+        auto&& sliced1 = StateSlicer(FN, TS, &AA).transform(mappedState);
         auto&& choiceInfo = ChoiceInfoCollector(FN);
         choiceInfo.transform(sliced1);
         choiceInfo.pushBackTemp();//add last path
@@ -60,21 +60,22 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         auto&& rtv = FN.Term->getReturnValueTerm(&F);
         auto&& extractor = FunctionSummariesTransformer(FN, mapping, vec, rtv);
         extractor.transform(sliced1);
-        auto&& ters=extractor.getTermSet();
-        if(ters.size()==0) return false;
-        auto&& sliced=StateSlicer(FN,ters,&AA).transform(mappedState);
-        auto&& protStates=extractor.getProtectedPredicates();
+        auto&& terms = extractor.getTermSet();
+        if (terms.size() == 0)
+            return false;
+        auto&& sliced = StateSlicer(FN, terms, &AA).transform(mappedState);
+        auto&& protStates = extractor.getProtectedPredicates();
         auto&& choiceInfo2 = ChoiceInfoCollector(FN);
         choiceInfo2.transform(sliced);
         vec = choiceInfo.getChoiceInfo();
-        auto&& deleter=UnnecesPredDeleter(FN,protStates,ters,F.getArgumentList());
-        auto&& result=deleter.transform(sliced);
-        auto&& result2=StateSlicer(FN,deleter.getRigthTerms(),&AA).transform(result);
+        auto&& deleter = UnnecesPredDeleter(FN, protStates, terms, F.getArgumentList());
+        auto&& result = deleter.transform(sliced);
+        auto&& result2 = StateSlicer(FN, deleter.getRigthTerms(), &AA).transform(result);
         if(!result2->isEmpty())
             errs()<<result2<<"\n";
         //if (not argToTerms.empty()) {
         //    CM->addSummary(&F, FN, transformedState, argToTerms);
-       // }
+        //}
     }
     return false;
 }
