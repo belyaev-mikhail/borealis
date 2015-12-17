@@ -15,7 +15,7 @@
 #include "Term/Term.h"
 #include "State/PredicateState.h"
 #include "Factory/Nest.h"
-#include "FunctionManager.h"
+#include "Passes/Manager/FunctionManager.h"
 
 
 namespace borealis {

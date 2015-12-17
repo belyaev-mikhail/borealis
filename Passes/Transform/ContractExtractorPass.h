@@ -16,7 +16,7 @@
 
 #include "Passes/Util/ProxyFunctionPass.h"
 #include "Util/passes.hpp"
-#include "Passes/Manager/ContractManager.h"
+#include "Passes/Contract/ContractManager.h"
 #include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
 
 namespace borealis {

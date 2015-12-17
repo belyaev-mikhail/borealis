@@ -37,7 +37,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         processCallInstruction(*I, PSA->getInstructionState(I));
 	}
 
-	if (not F.getName().equals("main")) {
+	/*if (not F.getName().equals("main")) {
         PredicateState::Ptr S;
         for (auto &&I : util::viewContainer(F)
                         .flatten()
@@ -71,12 +71,12 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         auto&& deleter = UnnecesPredDeleter(FN, protStates, terms, F.getArgumentList());
         auto&& result = deleter.transform(sliced);
         auto&& result2 = StateSlicer(FN, deleter.getRigthTerms(), &AA).transform(result);
-        if(!result2->isEmpty())
-            errs()<<result2<<"\n";
+        if (not result2->isEmpty())
+            errs() << result2 << endl;
         //if (not argToTerms.empty()) {
         //    CM->addSummary(&F, FN, transformedState, argToTerms);
         //}
-    }
+    }*/
     return false;
 }
 

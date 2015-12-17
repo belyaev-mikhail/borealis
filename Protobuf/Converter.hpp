@@ -11,6 +11,7 @@
 #include "Protobuf/ConverterUtil.h"
 
 #include "Annotation/ProtobufConverterImpl.hpp"
+#include "Passes/Contract/ProtobufConverterImpl.hpp"
 #include "Predicate/ProtobufConverterImpl.hpp"
 #include "State/ProtobufConverterImpl.hpp"
 #include "Term/ProtobufConverterImpl.hpp"
@@ -35,6 +36,9 @@ Annotation::Ptr    deprotobuffy(FactoryNest FN, const proto::Annotation& p);
 
 AnnotationContainer::ProtoPtr protobuffy(AnnotationContainer::Ptr p);
 AnnotationContainer::Ptr    deprotobuffy(FactoryNest FN, const proto::AnnotationContainer& p);
+
+ContractContainer::ProtoPtr protobuffy(ContractContainer::Ptr p);
+ContractContainer::Ptr    deprotobuffy(FactoryNest FN, const proto::ContractContainer& p);
 
 PredicateState::ProtoPtr protobuffy(PredicateState::Ptr p);
 PredicateState::Ptr    deprotobuffy(FactoryNest FN, const proto::PredicateState& p);
