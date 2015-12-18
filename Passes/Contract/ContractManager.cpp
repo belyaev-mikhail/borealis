@@ -95,6 +95,9 @@ void ContractManager::printContracts() const {
     for (auto&& it : functionCalls) {
         auto&& F = it.first;
         auto&& calls = it.second;
+
+        if (calls < 2) continue;
+
         //merging basic states for each function
         auto&& merger = MergingTransformer(FactoryNest(nullptr), memBounds[F], calls);
         for (auto&& state : basicContracts[F]) {
@@ -109,7 +112,8 @@ void ContractManager::printContracts() const {
         std::vector<std::pair<PredicateState::Ptr, int>> choices;
         getUniqueChoices(F, choices);
         for (auto&& it_choice : choices) {
-            result[F].insert(it_choice.first);
+            if ((double)it_choice.second / functionCalls[F] >= mergingConstant)
+                result[F].insert(it_choice.first);
         }
     }
 
@@ -152,7 +156,7 @@ char ContractManager::ID = 0;
 ContractManager::ContractStates ContractManager::choiceContracts;
 ContractManager::ContractStates ContractManager::basicContracts;
 ContractManager::ContractArguments ContractManager::contractArguments;
-std::unordered_map<llvm::Function*, int> ContractManager::functionCalls;
+std::unordered_map<llvm::Function*, unsigned int> ContractManager::functionCalls;
 std::unordered_map<llvm::Function*, ContractManager::MemInfo> ContractManager::memBounds;
 
 ContractManager::ContractStates ContractManager::summaries;

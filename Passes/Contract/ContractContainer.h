@@ -10,21 +10,20 @@
 
 #include "State/PredicateState.h"
 #include "Protobuf/Gen/Passes/Contract/ContractContainer.pb.h"
-
-#include "Util/macros.h"
+#include "FunctionIdentifier.h"
 
 namespace borealis {
 
 /** protobuf -> Passes/Contract/ContractContainer.proto
 
 import "State/PredicateState.proto";
+import "Passes/Contract/FunctionIdentifier.proto";
 
 package borealis.proto;
 
 message ContractContainer {
-    optional string FunctionName = 1;
-    optional string RetType = 2;
-    repeated borealis.proto.PredicateState states = 3;
+    optional borealis.proto.FunctionIdentifier function = 1;
+    repeated borealis.proto.PredicateState data = 2;
 }
 
 **/
@@ -38,13 +37,17 @@ public:
     using Ptr = std::shared_ptr<ContractContainer>;
     using ProtoPtr = std::unique_ptr<borealis::proto::ContractContainer>;
 
-    ContractContainer(const std::string& fname,
-                      const std::string& rettype,
+    ContractContainer(const FunctionIdentifier::Ptr& function,
                       const std::vector<PredicateState::Ptr>& st) :
-            functionName_(fname), retType_(rettype), data_(st) {}
+            function_(function), data_(st) {}
+
+    ContractContainer(llvm::Function* F, const unsigned int calls) {
+        function_ = FunctionIdentifier::Ptr{ new FunctionIdentifier(F, calls) };
+    }
 
     ContractContainer(const ContractContainer&) = default;
     ContractContainer(ContractContainer&&)      = default;
+    ~ContractContainer()                        = default;
 
     void addContract(const PredicateState::Ptr& ptr) {
         data_.push_back(ptr);
@@ -58,30 +61,17 @@ public:
         return data_;
     }
 
-    void setFunction(llvm::Function* F) {
-        functionName_ = F->getName();
-        llvm::raw_string_ostream rso(retType_);
-        F->getReturnType()->print(rso);
-    }
-
-    const std::string& getFunctionName() const {
-        return functionName_;
-    }
-
-    const std::string& getRetType() const {
-        return retType_;
+    FunctionIdentifier::Ptr function() const {
+        return function_;
     }
 
 private:
 
-    std::string functionName_;
-    std::string retType_;
+    FunctionIdentifier::Ptr function_;
     Contracts data_;
 
 };
 
 }   /* namespace borealis */
-
-#include "Util/unmacros.h"
 
 #endif //BOREALIS_CONTRACTSCONTAINER_H

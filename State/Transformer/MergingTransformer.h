@@ -12,13 +12,13 @@ namespace borealis {
 class MergingTransformer : public Transformer<MergingTransformer> {
 
     using Base = Transformer<MergingTransformer>;
-    using PredicateCounter = std::unordered_map<Predicate::Ptr, int, PredicateHash, PredicateEquals>;
+    using PredicateCounter = std::unordered_map<Predicate::Ptr, unsigned int, PredicateHash, PredicateEquals>;
     using PredicateSet = std::unordered_set<Predicate::Ptr, PredicateHash, PredicateEquals>;
     using MemInfo = std::pair<unsigned int, unsigned int>;
 
 public:
 
-    MergingTransformer(const FactoryNest& fn, MemInfo& memInfo, int calls);
+    MergingTransformer(const FactoryNest& fn, MemInfo& memInfo, unsigned int calls);
 
     Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
@@ -32,7 +32,7 @@ private:
 
     FactoryNest FN;
     MemInfo fMemInfo;
-    int functionCalls;
+    unsigned int functionCalls;
     PredicateCounter contracts;
 
 };
