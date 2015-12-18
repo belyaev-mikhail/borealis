@@ -2,6 +2,7 @@
 // Created by kivi on 21.10.15.
 //
 
+#include <Passes/Contract/ContractManager.h>
 #include "SMT/Z3/Z3.h"
 #include "SMT/Z3/ExprFactory.h"
 #include "SMT/Z3/Solver.h"
@@ -10,7 +11,7 @@
 
 namespace borealis {
 
-MergingTransformer::MergingTransformer(const FactoryNest& fn, MemInfo& memInfo, int calls)
+MergingTransformer::MergingTransformer(const FactoryNest& fn, MemInfo& memInfo, unsigned int calls)
         : Base(fn), FN(fn), fMemInfo(memInfo), functionCalls(calls) {}
 
 Predicate::Ptr MergingTransformer::transformPredicate(Predicate::Ptr pred) {
@@ -29,24 +30,29 @@ PredicateState::Ptr MergingTransformer::getMergedState() {
         result.push_back(it.first);
     }
 
-    for (auto i = 0U; i < result.size(); ++i) {
-        for (auto j = i + 1; j < result.size(); ++j) {
-            if (s.isPossible(result[i], result[j]).isSat()) {
-                if (s.isStronger(result[i], result[j]).isUnsat()) {
-                    forDelete.insert(result[j]);
-                } else if (s.isStronger(result[j],result[i]).isUnsat()) {
-                    forDelete.insert(result[i]);
+    for (auto&& i = result.begin(); i != result.end(); ++i) {
+        for (auto&& j = i + 1; j != result.end() ; ++j) {
+            if (s.isPossible(*i, *j).isSat()) {
+                if (s.isStronger(*i, *j).isUnsat()) {
+                    forDelete.insert(*j);
+                    contracts[*i] += contracts[*j];
+                } else if (s.isStronger(*j, *i).isUnsat()) {
+                    forDelete.insert(*i);
+                    contracts[*j] += contracts[*i];
                 }
             } else {
-                forDelete.insert(result[i]);
-                forDelete.insert(result[j]);
+                forDelete.insert(*i);
+                forDelete.insert(*j);
             }
         }
     }
 
-    for (auto i = 0U; i < result.size(); ++i) {
-        if (util::contains(forDelete, result[i])) {
-            result.erase(result.begin() + i);
+    for (auto&& i = result.begin(); i != result.end(); ++i) {
+        if (util::contains(forDelete, *i)) {
+            result.erase(i);
+            --i;
+        } else if ((double)contracts[*i] / functionCalls < ContractManager::mergingConstant) {
+            result.erase(i);
             --i;
         }
     }

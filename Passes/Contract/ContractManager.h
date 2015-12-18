@@ -31,6 +31,7 @@ class ContractManager : public llvm::ModulePass {
 public:
 
     static char ID;
+    constexpr static double mergingConstant = 0.9;
 
     ContractManager();
     virtual ~ContractManager() = default;
@@ -57,7 +58,7 @@ private:
     static ContractStates choiceContracts;
     static ContractStates basicContracts;
     static ContractArguments contractArguments;
-    static std::unordered_map<llvm::Function*, int> functionCalls;
+    static std::unordered_map<llvm::Function*, unsigned int> functionCalls;
     static std::unordered_map<llvm::Function*, MemInfo> memBounds;
 
     static ContractStates summaries;
