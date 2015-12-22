@@ -37,6 +37,12 @@ Annotation::Ptr    deprotobuffy(FactoryNest FN, const proto::Annotation& p);
 AnnotationContainer::ProtoPtr protobuffy(AnnotationContainer::Ptr p);
 AnnotationContainer::Ptr    deprotobuffy(FactoryNest FN, const proto::AnnotationContainer& p);
 
+Contract::ProtoPtr protobuffy(Contract::Ptr p);
+Contract::Ptr    deprotobuffy(FactoryNest FN, const proto::Contract& p);
+
+FunctionIdentifier::ProtoPtr protobuffy(FunctionIdentifier::Ptr p);
+FunctionIdentifier::Ptr    deprotobuffy(const proto::FunctionIdentifier& p);
+
 ContractContainer::ProtoPtr protobuffy(ContractContainer::Ptr p);
 ContractContainer::Ptr    deprotobuffy(FactoryNest FN, const proto::ContractContainer& p);
 

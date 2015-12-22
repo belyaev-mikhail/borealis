@@ -11,64 +11,57 @@
 #include "State/PredicateState.h"
 #include "Protobuf/Gen/Passes/Contract/ContractContainer.pb.h"
 #include "FunctionIdentifier.h"
+#include "Contract.h"
 
 namespace borealis {
 
 /** protobuf -> Passes/Contract/ContractContainer.proto
 
-import "State/PredicateState.proto";
 import "Passes/Contract/FunctionIdentifier.proto";
+import "Passes/Contract/Contract.proto";
 
 package borealis.proto;
 
 message ContractContainer {
-    optional borealis.proto.FunctionIdentifier function = 1;
-    repeated borealis.proto.PredicateState data = 2;
+    repeated borealis.proto.FunctionIdentifier function = 1;
+    repeated borealis.proto.Contract data = 2;
 }
 
 **/
 
 class ContractContainer {
 
-    using Contracts = std::vector<PredicateState::Ptr>;
+    using Data = std::unordered_map<FunctionIdentifier::Ptr, Contract::Ptr, FunctionIdHash, FunctionIdEquals>;
 
 public:
 
     using Ptr = std::shared_ptr<ContractContainer>;
     using ProtoPtr = std::unique_ptr<borealis::proto::ContractContainer>;
 
-    ContractContainer(const FunctionIdentifier::Ptr& function,
-                      const std::vector<PredicateState::Ptr>& st) :
-            function_(function), data_(st) {}
+    ContractContainer()                         = default;
 
-    ContractContainer(llvm::Function* F, const unsigned int calls) {
-        function_ = FunctionIdentifier::Ptr{ new FunctionIdentifier(F, calls) };
+    ContractContainer(const std::vector<FunctionIdentifier::Ptr>& functions,
+                      const std::vector<Contract::Ptr>& contracts) {
+        for (auto i = 0U; i < functions.size(); ++i) {
+            data_[functions[i]] = contracts[i];
+        }
     }
 
     ContractContainer(const ContractContainer&) = default;
     ContractContainer(ContractContainer&&)      = default;
     ~ContractContainer()                        = default;
 
-    void addContract(const PredicateState::Ptr& ptr) {
-        data_.push_back(ptr);
+    Contract::Ptr operator[](FunctionIdentifier::Ptr func) {
+        return data_[func];
     }
 
-    void addContract(PredicateState::Ptr& ptr) {
-        data_.push_back(ptr);
-    }
-
-    const Contracts& data() const {
+    const Data& data() const {
         return data_;
-    }
-
-    FunctionIdentifier::Ptr function() const {
-        return function_;
     }
 
 private:
 
-    FunctionIdentifier::Ptr function_;
-    Contracts data_;
+    Data data_;
 
 };
 
