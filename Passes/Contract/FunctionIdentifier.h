@@ -23,11 +23,15 @@ message FunctionIdentifier {
     optional string FunctionName = 1;
     optional string RetType = 2;
     optional uint32 Calls = 3;
+    optional uint32 MemStart = 4;
+    optional uint32 MemEnd = 5;
 }
 
 **/
 
 class FunctionIdentifier {
+
+    using MemInfo = std::pair<unsigned int, unsigned int>;
 
 public:
 
@@ -36,11 +40,12 @@ public:
 
     FunctionIdentifier(const std::string& fname,
                        const std::string& rettype,
-                       const unsigned int calls) :
-            name_(fname), rettype_(rettype), calls_(calls) {}
+                       const unsigned int calls,
+                       const MemInfo& memBounds) :
+            name_(fname), rettype_(rettype), calls_(calls), memBounds_(memBounds) {}
 
-    FunctionIdentifier(llvm::Function* F, const unsigned int calls) :
-            calls_(calls) {
+    FunctionIdentifier(const llvm::Function* F, const unsigned int calls, const MemInfo& memBounds) :
+            calls_(calls), memBounds_(memBounds) {
         name_ = F->getName();
         llvm::raw_string_ostream rso(rettype_);
         F->getType()->print(rso);
@@ -62,12 +67,32 @@ public:
         return calls_;
     }
 
+    MemInfo memBounds() const {
+        return memBounds_;
+    }
+
+    bool equals(FunctionIdentifier* other);
+    size_t hashCode();
+
 private:
 
     std::string name_;
     std::string rettype_;
     unsigned int calls_;
+    MemInfo memBounds_;
 
+};
+
+struct FunctionIdHash {
+    size_t operator()(FunctionIdentifier::Ptr func) const noexcept {
+        return func->hashCode();
+    }
+};
+
+struct FunctionIdEquals {
+    bool operator()(FunctionIdentifier::Ptr lhv, FunctionIdentifier::Ptr rhv) const noexcept {
+        return lhv->equals(rhv.get());
+    }
 };
 
 }   /* namespace borealis */
