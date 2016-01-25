@@ -58,6 +58,10 @@ public:
         data_.push_back(std::move(ptr));
     }
 
+    void clear() {
+        data_.clear();
+    }
+
     const Data& data() const {
         return data_;
     }

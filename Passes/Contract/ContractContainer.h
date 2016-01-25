@@ -39,6 +39,9 @@ public:
     using ProtoPtr = std::unique_ptr<borealis::proto::ContractContainer>;
 
     ContractContainer()                         = default;
+    ContractContainer(const ContractContainer&) = default;
+    ContractContainer(ContractContainer&&)      = default;
+    ~ContractContainer()                        = default;
 
     ContractContainer(const std::vector<FunctionIdentifier::Ptr>& functions,
                       const std::vector<Contract::Ptr>& contracts) {
@@ -47,17 +50,29 @@ public:
         }
     }
 
-    ContractContainer(const ContractContainer&) = default;
-    ContractContainer(ContractContainer&&)      = default;
-    ~ContractContainer()                        = default;
-
     Contract::Ptr operator[](FunctionIdentifier::Ptr func) {
-        return data_[func];
+        if (auto&& op = util::at(data_, func)) {
+            return op.getUnsafe();
+        } else {
+            data_[func] = Contract::Ptr{ new Contract({}) };
+            return data_[func];
+        }
+    }
+
+    Contract::Ptr at(FunctionIdentifier::Ptr func) {
+        if (auto&& op = util::at(data_, func)) {
+            return op.getUnsafe();
+        } else {
+            data_[func] = Contract::Ptr{ new Contract({}) };
+            return data_[func];
+        }
     }
 
     const Data& data() const {
         return data_;
     }
+
+    FunctionIdentifier::Ptr getFunctionId(llvm::Function* F, std::pair<unsigned int, unsigned int> mem);
 
 private:
 

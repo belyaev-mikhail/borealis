@@ -16,6 +16,7 @@
 #include "State/PredicateState.h"
 #include "Factory/Nest.h"
 #include "Passes/Manager/FunctionManager.h"
+#include "ContractContainer.h"
 
 
 namespace borealis {
@@ -32,12 +33,14 @@ public:
 
     static char ID;
     constexpr static double mergingConstant = 0.9;
+    const std::string protoFile = "contracts.out";
 
     ContractManager();
-    virtual ~ContractManager() = default;
+    virtual ~ContractManager()  = default;
 
     virtual bool runOnModule(llvm::Module&) override;
     virtual void print(llvm::raw_ostream&, const llvm::Module*) const override;
+    virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override;
 
     void addContract(llvm::Function* F, const FactoryNest& FN, const FunctionManager& FM,
                      PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping);
@@ -47,22 +50,18 @@ public:
 
 private:
 
-    void saveState(llvm::Function* F, PredicateState::Ptr S);
-    void getUniqueChoices(llvm::Function* F, std::vector<std::pair<PredicateState::Ptr, int>>& res) const;
-
     void printContracts() const;
     void printSummaries() const;
 
+    ContractContainer::Ptr readFrom(const std::string& fname);
+    void writeTo(const std::string& fname) const;
+
+
 private:
 
-    static ContractStates choiceContracts;
-    static ContractStates basicContracts;
-    static ContractArguments contractArguments;
-    static std::unordered_map<llvm::Function*, unsigned int> functionCalls;
-    static std::unordered_map<llvm::Function*, MemInfo> memBounds;
+    static ContractContainer::Ptr contracts;
 
     static ContractStates summaries;
-    static ContractArguments summaryArguments;
 
 };
 
