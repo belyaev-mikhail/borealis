@@ -12,12 +12,12 @@ namespace borealis {
 EqualityMapper::EqualityMapper(FactoryNest FN) : Base(FN) {}
 
 Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr pred) {
-    if(util::at(mapping,pred->getLhv()) && pred->getType() == PredicateType::STATE){
+    if (util::at(mapping,pred->getLhv()) && pred->getType() == PredicateType::STATE) {
         usedTerms.insert(pred->getLhv());
     }
 
     TermMap replacement;
-    if(prev && pred->getRhv()->equals(prev.get()) && not (util::contains(usedTerms, prev)) ){
+    if (prev && pred->getRhv()->equals(prev.get()) && not (util::contains(usedTerms, prev))) {
         replacement[pred->getRhv()] = prevRhv;
     }
     else{

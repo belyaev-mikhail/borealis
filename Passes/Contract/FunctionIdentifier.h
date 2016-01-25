@@ -71,6 +71,10 @@ public:
         return memBounds_;
     }
 
+    void called() {
+        ++calls_;
+    }
+
     bool equals(FunctionIdentifier* other);
     size_t hashCode();
 

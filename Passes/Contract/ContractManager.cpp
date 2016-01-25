@@ -5,6 +5,9 @@
  *      Author: kivi
  */
 
+#include <Protobuf/Converter.hpp>
+#include <fstream>
+#include <Util/passes.hpp>
 #include "State/Transformer/Retyper.h"
 #include "State/Transformer/Unifier.h"
 #include "State/Transformer/StateOptimizer.h"
@@ -18,25 +21,30 @@ namespace borealis {
 ContractManager::ContractManager() : ModulePass(ID) {}
 
 bool ContractManager::runOnModule(llvm::Module&) {
+    FactoryNest FN = FactoryNest(nullptr);
+    VariableInfoTracker* VI = &GetAnalysis<VariableInfoTracker>::doit(this);
+    FN.Type->initialize(*VI);
+
+    contracts = readFrom(protoFile);
+    if (not contracts) {
+        contracts = ContractContainer::Ptr{new ContractContainer()};
+    }
     return false;
 }
 
 void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, const FunctionManager& FM,
                                   PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
-    ++functionCalls[F];
-    if (not util::containsKey(memBounds, F)) {
-        memBounds[F] = FM.getMemoryBounds(F);
-    }
+    auto&& func = contracts->getFunctionId(F, FM.getMemoryBounds(F));
+    func->called();
     if (not S->isEmpty()) {
         auto&& unifier = Unifier(FN, mapping);
         auto&& unified = unifier.transform(S);
-        for (auto&& arg : unifier.getArguments())
-            contractArguments[F].insert(arg);
         auto&& retyped = Retyper(FN).transform(unified);
-        auto&& choiceKilled = ChoiceKiller(FN, memBounds[F]).transform(retyped);
+        auto&& choiceKilled = ChoiceKiller(FN, func->memBounds()).transform(retyped);
         if (not choiceKilled->isEmpty()) {
             auto&& optimized = StateOptimizer(FN).transform(choiceKilled);
-            saveState(F, optimized);
+            contracts->at(func)->push_back(optimized);
+            writeTo(protoFile);
         }
     }
 }
@@ -46,8 +54,6 @@ void ContractManager::addSummary(llvm::Function* F, const FactoryNest& FN, Predi
     if (not S->isEmpty()) {
         auto&& unifier = Unifier(FN, mapping);
         auto&& unified = unifier.transform(S);
-        for (auto&& arg : unifier.getArguments())
-            summaryArguments[F].insert(arg);
         auto&& optimized = StateOptimizer(FN).transform(unified);
         if (not optimized->isEmpty()) {
             summaries[F].insert(optimized);
@@ -60,65 +66,17 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
     printSummaries();
 }
 
-void ContractManager::saveState(llvm::Function* F, PredicateState::Ptr S) {
-    if (auto&& choice = llvm::dyn_cast<PredicateStateChoice>(S)) {
-        choiceContracts[F].insert(choice->shared_from_this());
-    } else if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(S)) {
-        basicContracts[F].insert(basic->shared_from_this());
-    } else {
-        auto&& chain = llvm::cast<PredicateStateChain>(S);
-        saveState(F, chain->getBase());
-        saveState(F, chain->getCurr());
-    }
-}
-
-void ContractManager::getUniqueChoices(llvm::Function* F, std::vector<std::pair<PredicateState::Ptr, int>>& res) const {
-    for (auto&& state : choiceContracts[F]) {
-        bool added = false;
-        for (auto&& it_choice : res) {
-            if (it_choice.first->equals(state.get())) {
-                ++it_choice.second;
-                added = true;
-                break;
-            }
-        }
-        if (not added) {
-            res.push_back({state, 1});
-        }
-    }
-}
-
 void ContractManager::printContracts() const {
     ContractStates result;
 
-    //analyzing results
-    for (auto&& it : functionCalls) {
-        auto&& F = it.first;
-        auto&& calls = it.second;
-
-        if (calls < 2) continue;
-
-        //merging basic states for each function
-        auto&& merger = MergingTransformer(FactoryNest(nullptr), memBounds[F], calls);
-        for (auto&& state : basicContracts[F]) {
-            merger.transform(state);
-        }
-        auto&& merged = merger.getMergedState();
-        if (not merged->isEmpty()) {
-            result[F].insert(merged);
-        }
-
-        //merging choice states for each function
-        std::vector<std::pair<PredicateState::Ptr, int>> choices;
-        getUniqueChoices(F, choices);
-        for (auto&& it_choice : choices) {
-            if ((double)it_choice.second / functionCalls[F] >= mergingConstant)
-                result[F].insert(it_choice.first);
-        }
-    }
-
     //printing results
     auto&& dbg = dbgs();
+    for (auto&& it : contracts->data()) {
+        errs() << it.first->name() << endl;
+        for (auto&& st : *it.second) {
+            errs() << st << endl;
+        }
+    }
 
     dbg << "Contract extraction results" << endl;
     for (auto&& it : result) {
@@ -152,15 +110,39 @@ void ContractManager::printSummaries() const {
     dbg << end;
 }
 
+ContractContainer::Ptr ContractManager::readFrom(const std::string& fname) {
+    std::ifstream contractsStream(fname, std::iostream::in | std::iostream::binary);
+    if (not contractsStream) {
+        return nullptr;
+    }
+
+    ContractContainer::ProtoPtr proto{new proto::ContractContainer{}};
+    proto->ParseFromIstream(&contractsStream);
+
+    ContractContainer::Ptr container = deprotobuffy(FactoryNest(), *proto);
+    if (not container) {
+        return nullptr;
+    }
+
+    return container;
+}
+
+void ContractManager::writeTo(const std::string& fname) const {
+    ContractContainer::ProtoPtr proto = protobuffy(contracts);
+    std::ofstream contractsStream(fname, std::iostream::out | std::iostream::binary);
+    proto->SerializeToOstream(&contractsStream);
+}
+
+void ContractManager::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
+    Info.setPreservesAll();
+
+    AUX<VariableInfoTracker>::addRequiredTransitive(Info);
+}
+
 char ContractManager::ID = 0;
-ContractManager::ContractStates ContractManager::choiceContracts;
-ContractManager::ContractStates ContractManager::basicContracts;
-ContractManager::ContractArguments ContractManager::contractArguments;
-std::unordered_map<llvm::Function*, unsigned int> ContractManager::functionCalls;
-std::unordered_map<llvm::Function*, ContractManager::MemInfo> ContractManager::memBounds;
+ContractContainer::Ptr ContractManager::contracts;
 
 ContractManager::ContractStates ContractManager::summaries;
-ContractManager::ContractArguments ContractManager::summaryArguments;
 
 static llvm::RegisterPass<ContractManager>
 X("contract-manager", "Contract manager pass", false, false);
