@@ -5,15 +5,15 @@
  *      Author: kivi
  */
 
-#include <Protobuf/Converter.hpp>
 #include <fstream>
-#include <Util/passes.hpp>
+
+#include "Protobuf/Converter.hpp"
+#include "Util/passes.hpp"
 #include "State/Transformer/Retyper.h"
 #include "State/Transformer/Unifier.h"
 #include "State/Transformer/StateOptimizer.h"
 #include "State/Transformer/MergingTransformer.h"
 #include "State/Transformer/ChoiceKiller.h"
-
 #include "ContractManager.h"
 
 namespace borealis {
@@ -29,6 +29,7 @@ bool ContractManager::runOnModule(llvm::Module&) {
     if (not contracts) {
         contracts = ContractContainer::Ptr{new ContractContainer()};
     }
+
     return false;
 }
 
@@ -43,7 +44,7 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, cons
         auto&& choiceKilled = ChoiceKiller(FN, func->memBounds()).transform(retyped);
         if (not choiceKilled->isEmpty()) {
             auto&& optimized = StateOptimizer(FN).transform(choiceKilled);
-            contracts->at(func)->push_back(optimized);
+            saveState(func, optimized);
             writeTo(protoFile);
         }
     }
@@ -61,35 +62,74 @@ void ContractManager::addSummary(llvm::Function* F, const FactoryNest& FN, Predi
     }
 }
 
+void ContractManager::saveState(FunctionIdentifier::Ptr func, PredicateState::Ptr state) {
+    if (auto&& chain = llvm::dyn_cast<PredicateStateChain>(state)) {
+        saveState(func, chain->getBase());
+        saveState(func, chain->getCurr());
+    } else {
+        contracts->at(func)->push_back(state);
+    }
+}
+
 void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
     printContracts();
     printSummaries();
 }
 
 void ContractManager::printContracts() const {
-    ContractStates result;
-
-    //printing results
     auto&& dbg = dbgs();
-    for (auto&& it : contracts->data()) {
-        errs() << it.first->name() << endl;
-        for (auto&& st : *it.second) {
-            errs() << st << endl;
-        }
-    }
 
     dbg << "Contract extraction results" << endl;
-    for (auto&& it : result) {
+    for (auto&& it : contracts->data()) {
         auto&& F = it.first;
-        dbg << "---" << "Function " << F->getName() << "---" << endl;
+        auto&& memBounds = F->memBounds();
+        std::vector<std::pair<PredicateState::Ptr, int>> choices;
+        std::vector<PredicateState::Ptr> result;
+        auto&& merger = MergingTransformer(FactoryNest(nullptr), memBounds, F->calls());
 
-        for(auto&& state : it.second) {
-            dbg << "State:" << endl;
-            dbg << state << endl;
+        if (F->calls() < 5) continue;
+
+        //analyze each state
+        for (auto&& st : *it.second) {
+            if (llvm::isa<PredicateStateChoice>(st)) {
+                bool added = false;
+                for (auto&& it_choice : choices) {
+                    if (it_choice.first->equals(st.get())) {
+                        ++it_choice.second;
+                        added = true;
+                        break;
+                    }
+                }
+                if (not added) {
+                    choices.push_back({st, 1});
+                }
+            } else {
+                merger.transform(st);
+            }
         }
 
-        dbg << endl;
+        //collect results
+        if (not merger.getMergedState()->isEmpty()) result.push_back(merger.getMergedState());
+        for (auto&& it : choices) {
+            if ((double)it.second / F->calls() >= ContractManager::mergingConstant) {
+                result.push_back(it.first);
+            }
+        }
+
+        //print results
+        if (not result.empty()) {
+            dbg << "---" << "Function " << F->name() << "---" << endl;
+
+            for (auto&& state : result) {
+                dbg << "State:" << endl;
+                dbg << state << endl;
+            }
+
+            dbg << endl;
+        }
+
     }
+
     dbg << end;
 }
 
