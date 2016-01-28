@@ -39,6 +39,8 @@ struct MathSAT {
     using BV = mathsat_::logic::BitVector<N>;
     // dynamic bit vector
     using DynBV = mathsat_::logic::DynBitVectorExpr;
+    // regular comparable type
+    using Comparable = mathsat_::logic::ComparableExpr;
     // unsigned comparable type
     using UComparable = mathsat_::logic::UComparableExpr;
     // dynamic logic type

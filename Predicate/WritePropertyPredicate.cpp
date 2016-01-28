@@ -16,12 +16,17 @@ WritePropertyPredicate::WritePropertyPredicate(
         const Locus& loc,
         PredicateType type) :
             Predicate(class_tag(*this), type, loc) {
-    asString = "write(" +
-        propName->getName() + "," +
-        lhv->getName() + "," +
-        rhv->getName() +
-    ")";
     ops = { lhv, rhv, propName };
+    update();
+}
+
+Predicate* WritePropertyPredicate::update() {
+    asString = "write(" +
+        getPropertyName()->getName() + "," +
+        getLhv()->getName() + "," +
+        getRhv()->getName() +
+    ")";
+    return this;
 }
 
 Term::Ptr WritePropertyPredicate::getLhv() const {

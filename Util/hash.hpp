@@ -10,6 +10,8 @@
 
 #include <utility>
 #include <vector>
+#include <cstddef>
+#include <tuple>
 
 namespace borealis {
 namespace util {
