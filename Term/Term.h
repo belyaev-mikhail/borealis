@@ -42,6 +42,10 @@ message Term {
 }
 
 **/
+
+struct TermHash;
+struct TermEquals;
+
 class Term : public ClassTag, public std::enable_shared_from_this<const Term> {
 
     friend bool operator==(const Term& a, const Term& b);
@@ -62,8 +66,6 @@ protected:
 
     Term(id_t classTag, Type::Ptr type, const std::string& name);
     Term(const Term&) = default;
-
-    void update();
 
     friend struct protobuf_traits<Term>;
 
@@ -92,6 +94,12 @@ public:
     }
 
     static Set getFullTermSet(Term::Ptr term);
+
+    virtual Term* clone() const;
+
+    virtual Term* update();
+
+    virtual Term* replaceOperands(const std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>& map) const;
 
 protected:
 
@@ -155,7 +163,11 @@ public: \
         res->type = newtype; \
         res->update(); \
         return Term::Ptr{ std::move(res) }; \
-    }
+    } \
+    virtual Term* clone() const override { \
+        return new Self{ *this }; \
+    } \
+    virtual Term* update() override;
 
 #define TERM_ON_CHANGED(COND, CTOR) \
     if (COND) return Term::Ptr{ CTOR }; \

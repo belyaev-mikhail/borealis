@@ -1,0 +1,86 @@
+/*
+ * FunctionSummariesTransformer.cpp
+ *
+ *  Created on: 22 июня 2015 г.
+ *      Author: danya
+ */
+
+#include "FunctionSummariesTransformer.h"
+#include "State/Transformer/StateSlicer.h"
+#include "State/Transformer/ChoiceInfoCollector.h"
+
+#include "Util/algorithm.hpp"
+
+namespace borealis{
+
+    FunctionSummariesTransformer::FunctionSummariesTransformer(const FactoryNest& FN,
+                                                               const TermMap& TM,
+                                                               const ChoiceInfo& ci,const Term::Ptr rv
+    ) :
+            Base(FN), mapping(TM), choiceInfo(ci), rtv(rv), curPredi(-1) { }
+
+    int count=0;
+    PredicateState::Ptr FunctionSummariesTransformer::transform(PredicateState::Ptr ps) {
+        return Base::transform(ps)
+                ->filter([](auto&& p) { return !!p; })
+                ->simplify();;
+
+    }
+
+
+
+    Predicate::Ptr FunctionSummariesTransformer::transformPredicate(Predicate::Ptr pred) {
+        if (pred->getType() == PredicateType::PATH) {
+            ++count;
+            int k=choiceInfo.size();
+            if (curPredi < k-1) {
+                ++curPredi;
+                if (choiceInfo[curPredi].size() == 2) {
+
+                    bool isEq=true;
+                    auto&& pred2=llvm::dyn_cast<EqualityPredicate>(choiceInfo[curPredi][1]);
+                    auto&& pred3=llvm::dyn_cast<StorePredicate>(choiceInfo[curPredi][1]);
+                    if(pred2==NULL){
+                        isEq=false;
+                    }
+                    if(isEq){
+                        if(not(pred2->getLhv()->equals(mapping[rtv].get()))){
+                            return nullptr;}
+                        if(not isOpaqueTerm(pred2->getRhv())) {
+                            return nullptr;
+                        }
+                    }
+                    else{
+                        if(not(pred3->getLhv()->equals(mapping[rtv].get()))){
+                            return nullptr;}
+                        if(not isOpaqueTerm(pred3->getRhv())) {
+                            return nullptr;
+                        }
+                    }
+                    for (auto &&op : pred->getOperands()) {
+                        for (auto&& t : Term::getFullTermSet(op)) {
+                            if(!isOpaqueTerm(t)&&t->getNumSubterms()==0){
+                                TS.insert(t);
+                                protStates.push_back(pred);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        //return nullptr;
+        return pred;
+    }
+
+    bool FunctionSummariesTransformer::isOpaqueTerm(Term::Ptr term) {
+        return llvm::is_one_of<
+                OpaqueBoolConstantTerm,
+                OpaqueIntConstantTerm,
+                OpaqueFloatingConstantTerm,
+                OpaqueStringConstantTerm,
+                OpaqueNullPtrTerm
+        >(term);
+    }
+
+} /*namespace borealis*/

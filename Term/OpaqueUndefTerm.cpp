@@ -16,4 +16,8 @@ OpaqueUndefTerm::OpaqueUndefTerm(Type::Ptr type):
         "<undef>"
     ) {};
 
+Term* OpaqueUndefTerm::update() {
+    return this;
+}
+
 } // namespace borealis
