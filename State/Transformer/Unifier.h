@@ -18,6 +18,8 @@ class Unifier : public Transformer<Unifier> {
 
 public:
 
+    const std::string ARGUMENT_PREFIX = "arg$";
+
     Unifier(const FactoryNest& fn, const ArgToTerms& a);
 
     Predicate::Ptr transformEqualityPredicate(EqualityPredicatePtr pred);

@@ -32,7 +32,7 @@ public:
 
     static char ID;
     constexpr static double mergingConstant = 0.9;
-    const std::string protoFile = "contracts.out";
+    const std::string PROTOBUF_FILE = "contracts.out";
 
     ContractManager();
     virtual ~ContractManager()  = default;

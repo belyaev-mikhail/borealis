@@ -25,7 +25,7 @@ bool ContractManager::runOnModule(llvm::Module&) {
     VariableInfoTracker* VI = &GetAnalysis<VariableInfoTracker>::doit(this);
     FN.Type->initialize(*VI);
 
-    contracts = readFrom(protoFile);
+    contracts = readFrom(PROTOBUF_FILE);
     if (not contracts) {
         contracts = ContractContainer::Ptr{new ContractContainer()};
     }
@@ -45,7 +45,7 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, cons
         if (not choiceKilled->isEmpty()) {
             auto&& optimized = StateOptimizer(FN).transform(choiceKilled);
             saveState(func, optimized);
-            writeTo(protoFile);
+            writeTo(PROTOBUF_FILE);
         }
     }
 }
