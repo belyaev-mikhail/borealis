@@ -27,7 +27,7 @@ Term::Ptr Unifier::transformTerm(Term::Ptr term) {
     for (auto&& it : argsMapping) {
         if (util::contains(it.second, term)) {
             auto&& type = term->getType();
-            auto&& newTerm = FN.Term->getValueTerm(type, "arg$" + std::to_string(it.first));
+            auto&& newTerm = FN.Term->getValueTerm(type, ARGUMENT_PREFIX + std::to_string(it.first));
             args.insert(newTerm);
             return newTerm;
         }
