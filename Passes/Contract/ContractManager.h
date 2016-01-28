@@ -40,6 +40,7 @@ public:
     virtual bool runOnModule(llvm::Module&) override;
     virtual void print(llvm::raw_ostream&, const llvm::Module*) const override;
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override;
+    virtual bool doFinalization(llvm::Module &) override;
 
     void addContract(llvm::Function* F, const FactoryNest& FN, const FunctionManager& FM,
                      PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping);

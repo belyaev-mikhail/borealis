@@ -20,6 +20,11 @@ namespace borealis {
 
 ContractManager::ContractManager() : ModulePass(ID) {}
 
+bool ContractManager::doFinalization(llvm::Module&) {
+    writeTo(PROTOBUF_FILE);
+    return false;
+}
+
 bool ContractManager::runOnModule(llvm::Module& M) {
     DL = M.getDataLayout();
     FactoryNest FN = FactoryNest(DL, nullptr);
@@ -30,7 +35,7 @@ bool ContractManager::runOnModule(llvm::Module& M) {
     if (not contracts) {
         contracts = ContractContainer::Ptr{new ContractContainer()};
     }
-
+    
     return false;
 }
 
@@ -46,7 +51,6 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, cons
         if (not choiceKilled->isEmpty()) {
             auto&& optimized = StateOptimizer(FN).transform(choiceKilled);
             saveState(func, optimized);
-            writeTo(PROTOBUF_FILE);
         }
     }
 }
@@ -111,9 +115,9 @@ void ContractManager::printContracts() const {
 
         //collect results
         if (not merger.getMergedState()->isEmpty()) result.push_back(merger.getMergedState());
-        for (auto&& it : choices) {
-            if ((double)it.second / F->calls() >= ContractManager::mergingConstant) {
-                result.push_back(it.first);
+        for (auto&& choice : choices) {
+            if ((double)choice.second / F->calls() >= ContractManager::mergingConstant) {
+                result.push_back(choice.first);
             }
         }
 
