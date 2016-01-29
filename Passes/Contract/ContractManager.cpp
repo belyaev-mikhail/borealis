@@ -10,7 +10,7 @@
 #include "Protobuf/Converter.hpp"
 #include "Util/passes.hpp"
 #include "State/Transformer/Retyper.h"
-#include "State/Transformer/Unifier.h"
+#include "State/Transformer/ArgumentUnifier.h"
 #include "State/Transformer/StateOptimizer.h"
 #include "State/Transformer/MergingTransformer.h"
 #include "State/Transformer/ChoiceKiller.h"
@@ -35,7 +35,7 @@ bool ContractManager::runOnModule(llvm::Module& M) {
     if (not contracts) {
         contracts = ContractContainer::Ptr{new ContractContainer()};
     }
-    
+
     return false;
 }
 
@@ -44,7 +44,7 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, cons
     auto&& func = contracts->getFunctionId(F, FM.getMemoryBounds(F));
     func->called();
     if (not S->isEmpty()) {
-        auto&& unifier = Unifier(FN, mapping);
+        auto&& unifier = ArgumentUnifier(FN, mapping);
         auto&& unified = unifier.transform(S);
         auto&& retyped = Retyper(FN).transform(unified);
         auto&& choiceKilled = ChoiceKiller(FN, func->memBounds()).transform(retyped);
@@ -58,7 +58,7 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, cons
 void ContractManager::addSummary(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S,
                                   const std::unordered_map<int, Args>& mapping) {
     if (not S->isEmpty()) {
-        auto&& unifier = Unifier(FN, mapping);
+        auto&& unifier = ArgumentUnifier(FN, mapping);
         auto&& unified = unifier.transform(S);
         auto&& optimized = StateOptimizer(FN).transform(unified);
         if (not optimized->isEmpty()) {
@@ -92,6 +92,7 @@ void ContractManager::printContracts() const {
         std::vector<PredicateState::Ptr> result;
         auto&& merger = MergingTransformer(FactoryNest(DL, nullptr), memBounds, F->calls());
 
+        //magic number
         if (F->calls() < 5) continue;
 
         //analyze each state

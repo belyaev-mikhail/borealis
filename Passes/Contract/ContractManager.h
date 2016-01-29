@@ -31,7 +31,7 @@ class ContractManager : public llvm::ModulePass {
 public:
 
     static char ID;
-    constexpr static double mergingConstant = 0.9;
+    constexpr static double mergingConstant = 0.9;  //magic number
     const std::string PROTOBUF_FILE = "contracts.out";
 
     ContractManager();
