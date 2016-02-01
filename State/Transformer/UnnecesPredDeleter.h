@@ -21,31 +21,47 @@ namespace borealis {
         using PrVector = std::vector<Predicate::Ptr>;
         using StVector = std::vector<PredicateState::Ptr>;
         using TermSet = std::unordered_set<Term::Ptr,TermHash, TermEquals>;
+       // using VecTermSet =  std::vector<std::unordered_set<Term::Ptr,TermHash, TermEquals>>;
+        using TermMap = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
 
     public:
         UnnecesPredDeleter(const FactoryNest& FN,const PrVector& prPred,const TermSet& suspT,
                            llvm::iplist<llvm::Argument>& ar);
 
-        const TermSet getRigthTerms() const{
+        const TermSet getRightTerms() const{
             return contractTerms;
+        }
+
+        const StVector getResultVec() const{
+            return resultVec;
         }
 
         using Base::transform;
 
         PredicateState::Ptr transform(PredicateState::Ptr ps);
-        PredicateState::Ptr transformChoice(PredicateStateChoicePtr pred);
-
+        BasicPredicateState::Ptr transformBasic(BasicPredicateStatePtr pred);
+        BasicPredicateState::Ptr transformBasicPredicateState(BasicPredicateStatePtr pred);
+        PredicateState::Ptr transformPredicateState(PredicateState::Ptr state);
+        Predicate::Ptr transformBase(Predicate::Ptr pr);
 
         using Base::transformBase;
 
+        bool isOpaqueTerm(Term::Ptr term);
     private:
 
         TermSet intersTerms;
         TermSet contractTerms;
+        TermSet temp;
         TermSet mayInfl;
         PrVector protPred;
         TermSet suspTerms;
+        StVector resultVec;
+        StVector newChoice;
         llvm::iplist<llvm::Argument>& args;
+        TermMap chMap;
+        TermSet argTerms;
+        bool isDel;
+        bool inResVect;
     };
 
 } /*namespace borealis*/

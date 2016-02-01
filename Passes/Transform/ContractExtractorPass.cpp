@@ -23,7 +23,7 @@ namespace borealis {
 ContractExtractorPass::ContractExtractorPass() : ProxyFunctionPass(ID) {}
 
 bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
-    FN = FactoryNest(F.getDataLayout(), GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(&F));
+    FN = FactoryNest(GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(&F));
     FM = &GetAnalysis<FunctionManager>::doit(this, F);
     CM = &GetAnalysis<ContractManager>::doit(this, F);
     PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, F);
@@ -37,7 +37,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         processCallInstruction(*I, PSA->getInstructionState(I));
 	}
 
-	/*if (not F.getName().equals("main")) {
+	if (not F.getName().equals("main")) {
         PredicateState::Ptr S;
         for (auto &&I : util::viewContainer(F)
                         .flatten()
@@ -65,18 +65,48 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
             return false;
         auto&& sliced = StateSlicer(FN, terms, &AA).transform(mappedState);
         auto&& protStates = extractor.getProtectedPredicates();
+        auto&& protTerms=extractor.getProtTerms();
         auto&& choiceInfo2 = ChoiceInfoCollector(FN);
         choiceInfo2.transform(sliced);
         vec = choiceInfo.getChoiceInfo();
         auto&& deleter = UnnecesPredDeleter(FN, protStates, terms, F.getArgumentList());
-        auto&& result = deleter.transform(sliced);
-        auto&& result2 = StateSlicer(FN, deleter.getRigthTerms(), &AA).transform(result);
-        if (not result2->isEmpty())
-            errs() << result2 << endl;
+        auto&& del=deleter.transform(sliced);
+        auto&& rightTerms=deleter.getRightTerms();
+        auto&& resVec=deleter.getResultVec();
+        int i=0;
+        for(auto&& it:rightTerms){
+            errs()<<resVec[i]<<"\n";
+            errs()<<"imply "<<rtv<<" to ";
+            if(auto&& m=util::at(protTerms,it)){
+                errs()<<m.getUnsafe()<<"\n\n\n\n";
+            }
+            ++i;
+        }
+       /* errs()<<"\n\n\n";
+        errs()<<"RESVEC="<<resVec<<"\n";*/
+
+       // errs()<<"rees="<<resVec<<"\n\n\n";
+       // auto&& stat=FN.State->Choice(it);
+       // errs()<<"stat="<<stat<<"\n\n\n";
+       // auto&& stat=FN.State->Basic(resVec[i]);
+        //auto&& res = StateSlicer(FN, rightTerms[i] , &AA).transform(stat);
+       // errs()<<"RESUUULT="<<res<<"\n\n\n\n\n\n";
+        //}
+
+        //auto&& result2 = StateSlicer(FN, rightTerms , &AA).transform(result);
+        /*errs()<<"Right answ="<<rightTerms<<"\n";
+        if(!result2->isEmpty()){
+            errs()<<result2<<"\n";
+            errs()<<"imply "<<rtv<<" to ";
+            for(auto&& it:rightTerms){
+                 errs()<<protTerms.at(it)<<"\n";
+            }
+        }*/
+
         //if (not argToTerms.empty()) {
         //    CM->addSummary(&F, FN, transformedState, argToTerms);
         //}
-    }*/
+    }
     return false;
 }
 
