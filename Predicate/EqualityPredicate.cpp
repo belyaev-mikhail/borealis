@@ -15,9 +15,15 @@ EqualityPredicate::EqualityPredicate(
         const Locus& loc,
         PredicateType type) :
             Predicate(class_tag(*this), type, loc) {
-    asString = lhv->getName() + "=" + rhv->getName();
     ops = { lhv, rhv };
+    update();
 }
+
+Predicate* EqualityPredicate::update() {
+    asString = getLhv()->getName() + "=" + getRhv()->getName();
+    return this;
+}
+
 
 Term::Ptr EqualityPredicate::getLhv() const {
     return ops[0];

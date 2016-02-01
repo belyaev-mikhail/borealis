@@ -23,6 +23,15 @@ OpaqueCallTerm::OpaqueCallTerm(Type::Ptr type, Term::Ptr lhv, const std::vector<
     subterms.insert(subterms.end(), rhv.begin(), rhv.end());
 };
 
+Term* OpaqueCallTerm::update() {
+    name = getLhv()->getName() + "(" +
+           util::viewContainer(getRhv())
+                   .map([](auto&& trm) { return trm->getName(); })
+                   .reduce("", [](auto&& acc, auto&& e) { return acc + ", " + e; }) +
+           ")";
+    return this;
+}
+
 Term::Ptr OpaqueCallTerm::getLhv() const {
     return subterms[0];
 }

@@ -16,11 +16,16 @@ AllocaPredicate::AllocaPredicate(
         const Locus& loc,
         PredicateType type) :
             Predicate(class_tag(*this), type, loc) {
-    asString = lhv->getName() + "=alloca(" +
-        numElements->getName() + "," +
-        origNumElements->getName() +
-    ")";
     ops = { lhv, numElements, origNumElements };
+    update();
+}
+
+Predicate* AllocaPredicate::update() {
+    asString = getLhv()->getName() + "=alloca(" +
+        getNumElems()->getName() + "," +
+        getOrigNumElems()->getName() +
+    ")";
+    return this;
 }
 
 Term::Ptr AllocaPredicate::getLhv() const {
