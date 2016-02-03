@@ -43,6 +43,7 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, cons
                                   PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
     auto&& func = contracts->getFunctionId(F, FM.getMemoryBounds(F));
     func->called();
+    visitedFunctions.insert(func);
     if (not S->isEmpty()) {
         auto&& unifier = ArgumentUnifier(FN, mapping);
         auto&& unified = unifier.transform(S);
@@ -85,18 +86,17 @@ void ContractManager::printContracts() const {
     auto&& dbg = dbgs();
 
     dbg << "Contract extraction results" << endl;
-    for (auto&& it : contracts->data()) {
-        auto&& F = it.first;
+    for (auto&& F : visitedFunctions) {
         auto&& memBounds = F->memBounds();
         std::vector<std::pair<PredicateState::Ptr, int>> choices;
         std::vector<PredicateState::Ptr> result;
         auto&& merger = MergingTransformer(FactoryNest(DL, nullptr), memBounds, F->calls());
 
         //magic number
-        if (F->calls() < 5) continue;
+        //if (F->calls() < 5) continue;
 
         //analyze each state
-        for (auto&& st : *it.second) {
+        for (auto&& st : *contracts->at(F)) {
             if (llvm::isa<PredicateStateChoice>(st)) {
                 bool added = false;
                 for (auto&& it_choice : choices) {
@@ -188,6 +188,7 @@ void ContractManager::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
 
 char ContractManager::ID = 0;
 ContractContainer::Ptr ContractManager::contracts;
+ContractManager::FunctionSet ContractManager::visitedFunctions;
 
 ContractManager::ContractStates ContractManager::summaries;
 
