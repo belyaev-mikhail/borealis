@@ -14,7 +14,6 @@
 #include "State/Transformer/EqualityMapper.h"
 #include "State/Transformer/FunctionSummariesTransformer.h"
 #include "State/Transformer/StateSlicer.h"
-#include "Term/TermFactory.h"
 #include "ContractExtractorPass.h"
 
 

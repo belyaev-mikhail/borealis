@@ -115,7 +115,8 @@ void ContractManager::printContracts() const {
         }
 
         //collect results
-        if (not merger.getMergedState()->isEmpty()) result.push_back(merger.getMergedState());
+        auto&& mergedState = merger.getMergedState();
+        if (not mergedState->isEmpty()) result.push_back(mergedState);
         for (auto&& choice : choices) {
             if ((double)choice.second / F->calls() >= ContractManager::mergingConstant) {
                 result.push_back(choice.first);
