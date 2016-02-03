@@ -24,6 +24,7 @@ namespace borealis {
 class ContractManager : public llvm::ModulePass {
 
     using Args = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
+    using FunctionSet = std::unordered_set<FunctionIdentifier::Ptr, FunctionIdHash, FunctionIdEquals>;
     using ContractStates = std::unordered_map<llvm::Function*, std::unordered_set<PredicateState::Ptr>>;
     using ContractArguments = std::unordered_map<llvm::Function*, Args>;
     using MemInfo = std::pair<unsigned int, unsigned int>;
@@ -62,6 +63,7 @@ private:
 private:
 
     static ContractContainer::Ptr contracts;
+    static FunctionSet visitedFunctions;
     static ContractStates summaries;
 
     const llvm::DataLayout* DL;

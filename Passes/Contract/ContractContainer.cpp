@@ -13,6 +13,7 @@ FunctionIdentifier::Ptr ContractContainer::getFunctionId(llvm::Function* F, std:
             return it.first;
         }
     }
+    data_[newFunc] = Contract::Ptr{ new Contract({}) };
     return newFunc;
 }
 
