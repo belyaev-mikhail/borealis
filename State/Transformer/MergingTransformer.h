@@ -26,7 +26,8 @@ public:
 
 private:
 
-    bool containsTerm(Predicate::Ptr predicate, Term::Ptr term);
+    void deleteOppositePredicates(std::vector<Predicate::Ptr>& state);
+    void mergePredicates(std::vector<Predicate::Ptr>& state);
 
 private:
 

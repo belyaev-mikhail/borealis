@@ -93,7 +93,7 @@ void ContractManager::printContracts() const {
         auto&& merger = MergingTransformer(FactoryNest(DL, nullptr), memBounds, F->calls());
 
         //magic number
-        //if (F->calls() < 5) continue;
+        if (F->calls() < 5) continue;
 
         //analyze each state
         for (auto&& st : *contracts->at(F)) {
@@ -134,7 +134,6 @@ void ContractManager::printContracts() const {
 
             dbg << endl;
         }
-
     }
 
     dbg << end;

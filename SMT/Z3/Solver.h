@@ -49,6 +49,10 @@ public:
     smt::Result isFullGroup(
             PredicateState::Ptr query);
 
+    z3::expr_vector getUnsatCore(
+            std::vector<Predicate::Ptr>& query,
+            Predicate::Ptr pred = nullptr);
+
     smt::Result isPossible(
             Predicate::Ptr first,
             Predicate::Ptr second);
