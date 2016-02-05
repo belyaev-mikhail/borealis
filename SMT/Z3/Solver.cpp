@@ -504,6 +504,33 @@ Result Solver::isFullGroup(PredicateState::Ptr query) {
     return UnsatResult{};
 }
 
+z3::expr_vector Solver::getUnsatCore(std::vector<Predicate::Ptr>& query, Predicate::Ptr pred) {
+    TRACE_FUNC
+
+    using namespace logic;
+
+    auto s = z3::solver(z3ef.unwrap());
+
+    ExecutionContext ctx(z3ef, memoryStart, memoryEnd);
+    ctx.getAxioms().foreach(APPLY(s.add));
+
+    if (pred != nullptr) {
+        auto z3pred = SMT<Z3>::doit(pred, z3ef, &ctx);
+        s.add(z3impl::getExpr(z3pred), "$$uc$$");
+    }
+
+    for (auto i = 0U; i < query.size(); ++i) {
+        std::stringstream ss;
+        ss << "p" << i;
+        auto z3pred = SMT<Z3>::doit(query[i], z3ef, &ctx);
+        s.add(z3impl::getExpr(z3pred), ss.str().c_str());
+    }
+
+    s.check();
+
+    return s.unsat_core();
+}
+
 smt::Result Solver::isPossible(Predicate::Ptr first, Predicate::Ptr second) {
     TRACE_FUNC
 
@@ -512,20 +539,15 @@ smt::Result Solver::isPossible(Predicate::Ptr first, Predicate::Ptr second) {
     auto s = tactics().mk_solver();
 
     ExecutionContext ctx(z3ef, memoryStart, memoryEnd);
-    auto z3state = z3ef.getTrue();
     auto z3first = SMT<Z3>::doit(first, z3ef, &ctx);
     auto z3second = SMT<Z3>::doit(second, z3ef, &ctx);
 
-    s.add(z3impl::asAxiom(z3state));
     ctx.getAxioms().foreach(APPLY(s.add));
 
-    auto z3query = z3first && z3second;
+    s.add(z3impl::getExpr(z3first), first->toString().c_str());
+    s.add(z3impl::getExpr(z3second), second->toString().c_str());
 
-    Bool pred = z3ef.getBoolVar("$CHECK$");
-    s.add(z3impl::getExpr(implies(pred, z3query)));
-
-    z3::expr pred_e = logic::z3impl::getExpr(pred);
-    z3::check_result r = s.check(1, &pred_e);
+    z3::check_result r = s.check();
 
     if (r == z3::sat) {
         return SatResult{};
@@ -541,11 +563,9 @@ smt::Result Solver::isStronger(Predicate::Ptr first, Predicate::Ptr second) {
     auto s = tactics().mk_solver();
 
     ExecutionContext ctx(z3ef, memoryStart, memoryEnd);
-    auto z3state = z3ef.getTrue();
     auto z3first = SMT<Z3>::doit(first, z3ef, &ctx);
     auto z3second = SMT<Z3>::doit(second, z3ef, &ctx);
 
-    s.add(z3impl::asAxiom(z3state));
     ctx.getAxioms().foreach(APPLY(s.add));
 
     auto z3query = implies(z3second, z3first);
