@@ -16,4 +16,8 @@ ArgumentCountTerm::ArgumentCountTerm(Type::Ptr type):
         "<arg_count>"
     ) {};
 
+Term* ArgumentCountTerm::update() {
+    return this;
+}
+
 } // namespace borealis
