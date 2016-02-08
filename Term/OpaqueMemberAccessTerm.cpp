@@ -22,6 +22,11 @@ OpaqueMemberAccessTerm::OpaqueMemberAccessTerm(
     subterms = { lhv };
 };
 
+Term* OpaqueMemberAccessTerm::update() {
+    name = getLhv()->getName() + (isIndirect() ? "->" : ".") + getProperty();
+    return this;
+}
+
 Term::Ptr OpaqueMemberAccessTerm::getLhv() const {
     return subterms[0];
 }
