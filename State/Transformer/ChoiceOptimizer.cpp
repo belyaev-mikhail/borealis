@@ -8,19 +8,19 @@
 #include "SMT/Z3/ExprFactory.h"
 #include "SMT/Z3/Solver.h"
 
-#include "ChoiceKiller.h"
+#include "ChoiceOptimizer.h"
 
 namespace borealis {
 
-ChoiceKiller::ChoiceKiller(const FactoryNest& fn, MemInfo f) : Base(fn), FN(fn), fMemInfo(f) {}
+ChoiceOptimizer::ChoiceOptimizer(const FactoryNest& fn) : Base(fn), FN(fn) {}
 
-PredicateState::Ptr ChoiceKiller::transform(PredicateState::Ptr ps) {
+PredicateState::Ptr ChoiceOptimizer::transform(PredicateState::Ptr ps) {
     return Base::transform(ps)
             ->filter([](auto&& p) { return !!p; })
             ->simplify();
 }
 
-PredicateState::Ptr ChoiceKiller::transformPredicateStateChoice(PredicateStateChoicePtr ps) {
+PredicateState::Ptr ChoiceOptimizer::transformPredicateStateChoice(PredicateStateChoicePtr ps) {
     States choices;
     for (auto&& state : ps->getChoices()) {
         if (not containsState(choices, state)) {
@@ -32,20 +32,10 @@ PredicateState::Ptr ChoiceKiller::transformPredicateStateChoice(PredicateStateCh
        return a->size() < b->size();
     });
 
-    auto&& newChoice = FN.State->Choice(choices);
-
-    Z3::ExprFactory ef;
-    Z3::Solver s(ef, fMemInfo.first, fMemInfo.second);
-    auto res = s.isFullGroup(newChoice);
-
-    if (res.isSat()) {
-        return newChoice;
-    } else {
-        return FN.State->Basic();
-    }
+    return FN.State->Choice(choices);
 }
 
-bool ChoiceKiller::containsState(const States& states, const PredicateState::Ptr value) {
+bool ChoiceOptimizer::containsState(const States& states, const PredicateState::Ptr value) {
     for (auto&& state : states) {
         if (state->equals(value.get())) {
             return true;
