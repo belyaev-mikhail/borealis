@@ -2,12 +2,6 @@
 // Created by kivi on 30.06.15.
 //
 
-#include <unordered_map>
-
-#include "SMT/Z3/Z3.h"
-#include "SMT/Z3/ExprFactory.h"
-#include "SMT/Z3/Solver.h"
-
 #include "ChoiceOptimizer.h"
 
 namespace borealis {

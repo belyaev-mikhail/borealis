@@ -43,16 +43,15 @@ public:
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override;
     virtual bool doFinalization(llvm::Module &) override;
 
-    void addContract(llvm::Function* F, const FactoryNest& FN, const FunctionManager& FM,
-                     PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping);
+    void addContract(llvm::Function* F, const FunctionManager& FM, PredicateState::Ptr S,
+                     const std::unordered_map<int, Args>& mapping);
 
-    void addSummary(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S,
-                    const std::unordered_map<int, Args>& mapping);
+    void addSummary(llvm::Function* F, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping);
 
 private:
 
     void saveState(FunctionIdentifier::Ptr func, PredicateState::Ptr state);
-    Term::Ptr stateToTerm(FactoryNest& FN, PredicateState::Ptr state);
+    Term::Ptr stateToTerm(PredicateState::Ptr state);
 
     void printContracts() const;
     void printSummaries() const;
@@ -67,7 +66,7 @@ private:
     static FunctionSet visitedFunctions;
     static ContractStates summaries;
 
-    const llvm::DataLayout* DL;
+    FactoryNest FN;
 
 };
 
