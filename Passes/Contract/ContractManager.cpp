@@ -8,15 +8,14 @@
 #include <fstream>
 
 #include "SMT/Z3/Z3.h"
-#include "SMT/Z3/ExprFactory.h"
 #include "SMT/Z3/Solver.h"
-#include "State/Transformer/ChoiceOptimizer.h"
-#include "Protobuf/Converter.hpp"
 #include "Util/passes.hpp"
+#include "Protobuf/Converter.hpp"
 #include "State/Transformer/Retyper.h"
 #include "State/Transformer/ArgumentUnifier.h"
 #include "State/Transformer/StateOptimizer.h"
 #include "State/Transformer/MergingTransformer.h"
+#include "State/Transformer/ChoiceOptimizer.h"
 #include "ContractManager.h"
 
 namespace borealis {
@@ -29,8 +28,8 @@ bool ContractManager::doFinalization(llvm::Module&) {
 }
 
 bool ContractManager::runOnModule(llvm::Module& M) {
-    DL = M.getDataLayout();
-    FactoryNest FN = FactoryNest(DL, nullptr);
+    const llvm::DataLayout* DL = M.getDataLayout();
+    FN = FactoryNest(DL, nullptr);
     VariableInfoTracker* VI = &GetAnalysis<VariableInfoTracker>::doit(this);
     FN.Type->initialize(*VI);
 
@@ -42,8 +41,8 @@ bool ContractManager::runOnModule(llvm::Module& M) {
     return false;
 }
 
-void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, const FunctionManager& FM,
-                                  PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
+void ContractManager::addContract(llvm::Function* F, const FunctionManager& FM, PredicateState::Ptr S,
+                                  const std::unordered_map<int, Args>& mapping) {
     auto&& func = contracts->getFunctionId(F, FM.getMemoryBounds(F));
     func->called();
     visitedFunctions.insert(func);
@@ -59,8 +58,7 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, cons
     }
 }
 
-void ContractManager::addSummary(llvm::Function* F, const FactoryNest& FN, PredicateState::Ptr S,
-                                  const std::unordered_map<int, Args>& mapping) {
+void ContractManager::addSummary(llvm::Function* F, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
     if (not S->isEmpty()) {
         auto&& unifier = ArgumentUnifier(FN, mapping);
         auto&& unified = unifier.transform(S);
@@ -78,8 +76,7 @@ void ContractManager::saveState(FunctionIdentifier::Ptr func, PredicateState::Pt
     } else if (llvm::isa<BasicPredicateState>(state)) {
         contracts->at(func)->push_back(state);
     } else {
-        FactoryNest FN = FactoryNest(DL, nullptr);
-        auto&& stateTerm = stateToTerm(FN, state);
+        auto&& stateTerm = stateToTerm(state);
         if (stateTerm) {
             auto &&statePred = FN.Predicate->getEqualityPredicate(stateTerm, FN.Term->getTrueTerm(), Locus(),
                                                                   PredicateType::PATH);
@@ -96,10 +93,10 @@ void ContractManager::saveState(FunctionIdentifier::Ptr func, PredicateState::Pt
     }
 }
 
-Term::Ptr ContractManager::stateToTerm(FactoryNest& FN, PredicateState::Ptr state) {
+Term::Ptr ContractManager::stateToTerm(PredicateState::Ptr state) {
     if (auto&& chain = llvm::dyn_cast<PredicateStateChain>(state)) {
-        auto&& baseTerm = stateToTerm(FN, chain->getBase());
-        auto&& currTerm = stateToTerm(FN, chain->getCurr());
+        auto&& baseTerm = stateToTerm(chain->getBase());
+        auto&& currTerm = stateToTerm(chain->getCurr());
         if (baseTerm && currTerm) return FN.Term->getBinaryTerm(llvm::ArithType::BAND, baseTerm, currTerm);
         else return nullptr;
     } else if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(state)) {
@@ -120,7 +117,7 @@ Term::Ptr ContractManager::stateToTerm(FactoryNest& FN, PredicateState::Ptr stat
         auto&& choice = llvm::cast<PredicateStateChoice>(state);
         Term::Ptr choiceTerm = nullptr;
         for (auto&& st : choice->getChoices()) {
-            auto&& stTerm = stateToTerm(FN, st);
+            auto&& stTerm = stateToTerm(st);
             if (st) {
                 if (not choiceTerm) choiceTerm = stTerm;
                 else choiceTerm = FN.Term->getBinaryTerm(llvm::ArithType::BOR, choiceTerm, stTerm);
@@ -141,7 +138,7 @@ void ContractManager::printContracts() const {
     dbg << "Contract extraction results" << endl;
     for (auto&& F : visitedFunctions) {
         auto&& memBounds = F->memBounds();
-        auto&& merger = MergingTransformer(FactoryNest(DL, nullptr), memBounds, F->calls());
+        auto&& merger = MergingTransformer(FN, memBounds, F->calls());
 
         //magic number
         if (F->calls() < 5) continue;
@@ -190,7 +187,7 @@ ContractContainer::Ptr ContractManager::readFrom(const std::string& fname) {
     ContractContainer::ProtoPtr proto{new proto::ContractContainer{}};
     proto->ParseFromIstream(&contractsStream);
 
-    ContractContainer::Ptr container = deprotobuffy(FactoryNest(), *proto);
+    ContractContainer::Ptr container = deprotobuffy(FN, *proto);
     if (not container) {
         return nullptr;
     }

@@ -120,7 +120,7 @@ void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateS
     auto&& transformedState = extractor.transform(mappedState);
     auto&& argToTerms = extractor.getArgToTermMapping();
 
-    CM->addContract(I.getCalledFunction(), FN, *FM, transformedState, argToTerms);
+    CM->addContract(I.getCalledFunction(), *FM, transformedState, argToTerms);
 }
 
 void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
