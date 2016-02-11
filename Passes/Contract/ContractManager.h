@@ -52,6 +52,7 @@ public:
 private:
 
     void saveState(FunctionIdentifier::Ptr func, PredicateState::Ptr state);
+    Term::Ptr stateToTerm(FactoryNest& FN, PredicateState::Ptr state);
 
     void printContracts() const;
     void printSummaries() const;

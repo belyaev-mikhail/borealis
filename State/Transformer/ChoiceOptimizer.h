@@ -9,16 +9,15 @@
 
 namespace borealis {
 
-class ChoiceKiller : public Transformer<ChoiceKiller> {
+class ChoiceOptimizer : public Transformer<ChoiceOptimizer> {
 
-    using Base = Transformer<ChoiceKiller>;
-    using MemInfo = std::pair<unsigned int, unsigned int>;
+    using Base = Transformer<ChoiceOptimizer>;
 
 public:
 
     using States = std::vector<PredicateState::Ptr>;
 
-    ChoiceKiller(const FactoryNest& fn, MemInfo f);
+    ChoiceOptimizer(const FactoryNest& fn);
 
     using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
@@ -27,7 +26,6 @@ public:
 private:
 
     FactoryNest FN;
-    MemInfo fMemInfo;
 
     bool containsState(const States& states, const PredicateState::Ptr value);
 

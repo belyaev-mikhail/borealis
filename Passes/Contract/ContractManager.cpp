@@ -7,13 +7,16 @@
 
 #include <fstream>
 
+#include "SMT/Z3/Z3.h"
+#include "SMT/Z3/ExprFactory.h"
+#include "SMT/Z3/Solver.h"
+#include "State/Transformer/ChoiceOptimizer.h"
 #include "Protobuf/Converter.hpp"
 #include "Util/passes.hpp"
 #include "State/Transformer/Retyper.h"
 #include "State/Transformer/ArgumentUnifier.h"
 #include "State/Transformer/StateOptimizer.h"
 #include "State/Transformer/MergingTransformer.h"
-#include "State/Transformer/ChoiceKiller.h"
 #include "ContractManager.h"
 
 namespace borealis {
@@ -48,9 +51,9 @@ void ContractManager::addContract(llvm::Function* F, const FactoryNest& FN, cons
         auto&& unifier = ArgumentUnifier(FN, mapping);
         auto&& unified = unifier.transform(S);
         auto&& retyped = Retyper(FN).transform(unified);
-        auto&& choiceKilled = ChoiceKiller(FN, func->memBounds()).transform(retyped);
-        if (not choiceKilled->isEmpty()) {
-            auto&& optimized = StateOptimizer(FN).transform(choiceKilled);
+        auto&& choiceOptimized = ChoiceOptimizer(FN).transform(retyped);
+        auto&& optimized = StateOptimizer(FN).transform(choiceOptimized);
+        if (not optimized->isEmpty()) {
             saveState(func, optimized);
         }
     }
@@ -72,8 +75,58 @@ void ContractManager::saveState(FunctionIdentifier::Ptr func, PredicateState::Pt
     if (auto&& chain = llvm::dyn_cast<PredicateStateChain>(state)) {
         saveState(func, chain->getBase());
         saveState(func, chain->getCurr());
-    } else {
+    } else if (llvm::isa<BasicPredicateState>(state)) {
         contracts->at(func)->push_back(state);
+    } else {
+        FactoryNest FN = FactoryNest(DL, nullptr);
+        auto&& stateTerm = stateToTerm(FN, state);
+        if (stateTerm) {
+            auto &&statePred = FN.Predicate->getEqualityPredicate(stateTerm, FN.Term->getTrueTerm(), Locus(),
+                                                                  PredicateType::PATH);
+            auto &&newState = FN.State->Basic({statePred});
+
+            Z3::ExprFactory ef;
+            Z3::Solver s(ef, func->memBounds().first, func->memBounds().second);
+            auto res = s.isFullGroup(newState);
+
+            if (res.isSat()) {
+                contracts->at(func)->push_back(newState);
+            }
+        }
+    }
+}
+
+Term::Ptr ContractManager::stateToTerm(FactoryNest& FN, PredicateState::Ptr state) {
+    if (auto&& chain = llvm::dyn_cast<PredicateStateChain>(state)) {
+        auto&& baseTerm = stateToTerm(FN, chain->getBase());
+        auto&& currTerm = stateToTerm(FN, chain->getCurr());
+        if (baseTerm && currTerm) return FN.Term->getBinaryTerm(llvm::ArithType::BAND, baseTerm, currTerm);
+        else return nullptr;
+    } else if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(state)) {
+        Term::Ptr stateTerm = nullptr;
+        for (auto&& pred : basic->getData()) {
+            if (auto&& eq = llvm::cast<EqualityPredicate>(pred)) {
+                auto &&predTerm = eq->getRhv()->equals(FN.Term->getFalseTerm().get()) ?
+                                  FN.Term->getUnaryTerm(llvm::UnaryArithType::NOT, eq->getLhv()) :
+                                  eq->getLhv();
+                if (not stateTerm) stateTerm = predTerm;
+                else stateTerm = FN.Term->getBinaryTerm(llvm::ArithType::BAND, stateTerm, predTerm);
+            } else {
+                return nullptr;
+            }
+        }
+        return stateTerm;
+    } else {
+        auto&& choice = llvm::cast<PredicateStateChoice>(state);
+        Term::Ptr choiceTerm = nullptr;
+        for (auto&& st : choice->getChoices()) {
+            auto&& stTerm = stateToTerm(FN, st);
+            if (st) {
+                if (not choiceTerm) choiceTerm = stTerm;
+                else choiceTerm = FN.Term->getBinaryTerm(llvm::ArithType::BOR, choiceTerm, stTerm);
+            }
+        }
+        return choiceTerm;
     }
 }
 
@@ -88,8 +141,6 @@ void ContractManager::printContracts() const {
     dbg << "Contract extraction results" << endl;
     for (auto&& F : visitedFunctions) {
         auto&& memBounds = F->memBounds();
-        std::vector<std::pair<PredicateState::Ptr, int>> choices;
-        std::vector<PredicateState::Ptr> result;
         auto&& merger = MergingTransformer(FactoryNest(DL, nullptr), memBounds, F->calls());
 
         //magic number
@@ -97,41 +148,15 @@ void ContractManager::printContracts() const {
 
         //analyze each state
         for (auto&& st : *contracts->at(F)) {
-            if (llvm::isa<PredicateStateChoice>(st)) {
-                bool added = false;
-                for (auto&& it_choice : choices) {
-                    if (it_choice.first->equals(st.get())) {
-                        ++it_choice.second;
-                        added = true;
-                        break;
-                    }
-                }
-                if (not added) {
-                    choices.push_back({st, 1});
-                }
-            } else {
-                merger.transform(st);
-            }
+            merger.transform(st);
         }
 
         //collect results
         auto&& mergedState = merger.getMergedState();
-        if (not mergedState->isEmpty()) result.push_back(mergedState);
-        for (auto&& choice : choices) {
-            if ((double)choice.second / F->calls() >= ContractManager::mergingConstant) {
-                result.push_back(choice.first);
-            }
-        }
-
-        //print results
-        if (not result.empty()) {
+        if (not mergedState->isEmpty()) {
             dbg << "---" << "Function " << F->name() << "---" << endl;
-
-            for (auto&& state : result) {
-                dbg << "State:" << endl;
-                dbg << state << endl;
-            }
-
+            dbg << "State:" << endl;
+            dbg << mergedState << endl;
             dbg << endl;
         }
     }
