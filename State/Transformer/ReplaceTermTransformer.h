@@ -15,15 +15,14 @@ namespace borealis {
 class ReplaceTermTransformer : public Transformer<ReplaceTermTransformer> {
 
     using Base = Transformer<ReplaceTermTransformer>;
-    using TermMap = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
+
     public:
 
-        ReplaceTermTransformer(const FactoryNest& fn,TermMap& chM);
-
+        ReplaceTermTransformer(const FactoryNest& fn,const std::string& funName);
         Term::Ptr transformValueTerm(Term::Ptr term);
-    private:
 
-        TermMap chMap;
+    private:
+        std::string fName;
 };
 
 
