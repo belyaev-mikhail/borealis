@@ -47,8 +47,7 @@ void ContractManager::addContract(llvm::Function* F, const FunctionManager& FM, 
     func->called();
     visitedFunctions.insert(func);
     if (not S->isEmpty()) {
-        auto&& unifier = ArgumentUnifier(FN, mapping);
-        auto&& unified = unifier.transform(S);
+        auto&& unified = ArgumentUnifier(FN, mapping).transform(S);
         auto&& retyped = Retyper(FN).transform(unified);
         auto&& choiceOptimized = ChoiceOptimizer(FN).transform(retyped);
         auto&& optimized = StateOptimizer(FN).transform(choiceOptimized);
@@ -70,39 +69,30 @@ void ContractManager::addSummary(llvm::Function* F, PredicateState::Ptr S, const
 }
 
 void ContractManager::saveState(FunctionIdentifier::Ptr func, PredicateState::Ptr state) {
-    if (auto&& chain = llvm::dyn_cast<PredicateStateChain>(state)) {
+    if (llvm::isa<BasicPredicateState>(state)) {
+        contracts->at(func)->push_back(state);
+    } else if (auto&& chain = llvm::dyn_cast<PredicateStateChain>(state)) {
         saveState(func, chain->getBase());
         saveState(func, chain->getCurr());
-    } else if (llvm::isa<BasicPredicateState>(state)) {
-        contracts->at(func)->push_back(state);
-    } else {
-        auto&& stateTerm = stateToTerm(state);
-        if (stateTerm) {
-            auto &&statePred = FN.Predicate->getEqualityPredicate(stateTerm, FN.Term->getTrueTerm(), Locus(),
-                                                                  PredicateType::PATH);
-            auto &&newState = FN.State->Basic({statePred});
+    } else if (auto&& stateTerm = stateToTerm(state)) {
+        auto&& statePred = FN.Predicate->getEqualityPredicate(stateTerm, FN.Term->getTrueTerm(), Locus(), PredicateType::PATH);
+        auto&& newState = FN.State->Basic({statePred});
 
-            Z3::ExprFactory ef;
-            Z3::Solver s(ef, func->memBounds().first, func->memBounds().second);
-            auto res = s.isFullGroup(newState);
+        Z3::ExprFactory ef;
+        Z3::Solver s(ef, func->memBounds().first, func->memBounds().second);
+        auto res = s.isFullGroup(newState);
 
-            if (res.isSat()) {
-                contracts->at(func)->push_back(newState);
-            }
+        if (res.isSat()) {
+            contracts->at(func)->push_back(newState);
         }
     }
 }
 
 Term::Ptr ContractManager::stateToTerm(PredicateState::Ptr state) {
-    if (auto&& chain = llvm::dyn_cast<PredicateStateChain>(state)) {
-        auto&& baseTerm = stateToTerm(chain->getBase());
-        auto&& currTerm = stateToTerm(chain->getCurr());
-        if (baseTerm && currTerm) return FN.Term->getBinaryTerm(llvm::ArithType::BAND, baseTerm, currTerm);
-        else return nullptr;
-    } else if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(state)) {
+    if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(state)) {
         Term::Ptr stateTerm = nullptr;
         for (auto&& pred : basic->getData()) {
-            if (auto&& eq = llvm::cast<EqualityPredicate>(pred)) {
+            if (auto&& eq = llvm::dyn_cast<EqualityPredicate>(pred)) {
                 auto &&predTerm = eq->getRhv()->equals(FN.Term->getFalseTerm().get()) ?
                                   FN.Term->getUnaryTerm(llvm::UnaryArithType::NOT, eq->getLhv()) :
                                   eq->getLhv();
@@ -113,14 +103,20 @@ Term::Ptr ContractManager::stateToTerm(PredicateState::Ptr state) {
             }
         }
         return stateTerm;
+    } else if (auto&& chain = llvm::dyn_cast<PredicateStateChain>(state)) {
+        auto&& baseTerm = stateToTerm(chain->getBase());
+        auto&& currTerm = stateToTerm(chain->getCurr());
+        if (baseTerm && currTerm) return FN.Term->getBinaryTerm(llvm::ArithType::BAND, baseTerm, currTerm);
+        else return nullptr;
     } else {
         auto&& choice = llvm::cast<PredicateStateChoice>(state);
         Term::Ptr choiceTerm = nullptr;
         for (auto&& st : choice->getChoices()) {
-            auto&& stTerm = stateToTerm(st);
-            if (st) {
+            if (auto&& stTerm = stateToTerm(st)) {
                 if (not choiceTerm) choiceTerm = stTerm;
                 else choiceTerm = FN.Term->getBinaryTerm(llvm::ArithType::BOR, choiceTerm, stTerm);
+            } else {
+                return nullptr;
             }
         }
         return choiceTerm;
@@ -134,6 +130,19 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
 
 void ContractManager::printContracts() const {
     auto&& dbg = dbgs();
+
+    dbg << "Found contracts dump" << endl;
+    for (auto&& it : contracts->data()) {
+        auto&& F = it.first;
+
+        dbg << "---" << "Function " << F->name() << "---" << endl;
+        for (auto&& state : *contracts->at(F)) {
+            dbg << "State:" << endl;
+            dbg << state << endl;
+            dbg << endl;
+        }
+        dbg << endl;
+    }
 
     dbg << "Contract extraction results" << endl;
     for (auto&& F : visitedFunctions) {
