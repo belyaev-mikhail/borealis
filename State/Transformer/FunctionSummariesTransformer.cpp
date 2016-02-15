@@ -33,10 +33,9 @@ namespace borealis{
         if (pred->getType() == PredicateType::PATH) {
             ++count;
             int k=choiceInfo.size();
-            if (curPredi < k-1) {
+            if (curPredi < k) {
                 ++curPredi;
                 if (choiceInfo[curPredi].size() == 2) {
-
                     bool isEq=true;
                     auto&& pred2=llvm::dyn_cast<EqualityPredicate>(choiceInfo[curPredi][1]);
                     auto&& pred3=llvm::dyn_cast<StorePredicate>(choiceInfo[curPredi][1]);
@@ -61,15 +60,23 @@ namespace borealis{
                         for (auto&& t : Term::getFullTermSet(op)) {
                             if(!isOpaqueTerm(t)&&t->getNumSubterms()==0){
                                 TS.insert(t);
-                                protStates.push_back(pred);
+                                if(!util::contains(protPreds,pred))
+                                    protPreds.push_back(pred);
+                                if(isEq){
+                                    protPredMapping.insert(std::make_pair(pred,pred2->getRhv()));
+                                }
+                                else{
+                                    protPredMapping.insert(std::make_pair(pred,pred3->getRhv()));
+                                }
                             }
                         }
+                        if(TS.size()!=0)
+                            ter.push_back(TS);
+                        TS.clear();
                     }
                 }
             }
         }
-
-        //return nullptr;
         return pred;
     }
 

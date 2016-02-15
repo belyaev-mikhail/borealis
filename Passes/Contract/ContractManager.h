@@ -31,6 +31,14 @@ class ContractManager : public llvm::ModulePass {
 
 public:
 
+    struct Summary{
+        llvm::Function* func;
+        PredicateState::Ptr state;
+        Term::Ptr retval;
+        Term::Ptr impTo;
+        Summary(llvm::Function* F, PredicateState::Ptr S, const Term::Ptr ret, const Term::Ptr implyTo):func(F),state(S),retval(ret),impTo(implyTo){}
+    };
+
     static char ID;
     constexpr static double mergingConstant = 0.9;  //magic number
     const std::string PROTOBUF_FILE = "contracts.out";
@@ -46,7 +54,8 @@ public:
     void addContract(llvm::Function* F, const FunctionManager& FM, PredicateState::Ptr S,
                      const std::unordered_map<int, Args>& mapping);
 
-    void addSummary(llvm::Function* F, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping);
+    void addSummary(llvm::Function* F, PredicateState::Ptr S,
+                    const Term::Ptr ret, const Term::Ptr implyTo);
 
 private:
 
@@ -64,7 +73,7 @@ private:
 
     static ContractContainer::Ptr contracts;
     static FunctionSet visitedFunctions;
-    static ContractStates summaries;
+    static std::vector<Summary> summaries;
 
     FactoryNest FN;
 

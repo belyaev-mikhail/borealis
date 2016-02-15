@@ -3,15 +3,16 @@
 //
 
 #include "ReplaceTermTransformer.h"
+#include <algorithm>
+#include <string>
 
 namespace borealis {
 
-    ReplaceTermTransformer::ReplaceTermTransformer(const FactoryNest& FN,TermMap& chM) : Base(FN), chMap(chM) {}
+    ReplaceTermTransformer::ReplaceTermTransformer(const FactoryNest& FN,const std::string& funName) : Base(FN), fName(funName) {}
 
     Term::Ptr ReplaceTermTransformer::transformValueTerm(Term::Ptr term){
-        if(auto&& k = util::at(chMap,term)){
-            term=k.getUnsafe();
-        }
-        return term;
+        std::string newName="$$";
+        newName=newName+fName+"_"+term->getName();
+        return FN.Term->getValueTerm(term->getType(),newName);
     }
 }

@@ -57,15 +57,9 @@ void ContractManager::addContract(llvm::Function* F, const FunctionManager& FM, 
     }
 }
 
-void ContractManager::addSummary(llvm::Function* F, PredicateState::Ptr S, const std::unordered_map<int, Args>& mapping) {
-    if (not S->isEmpty()) {
-        auto&& unifier = ArgumentUnifier(FN, mapping);
-        auto&& unified = unifier.transform(S);
-        auto&& optimized = StateOptimizer(FN).transform(unified);
-        if (not optimized->isEmpty()) {
-            summaries[F].insert(optimized);
-        }
-    }
+void ContractManager::addSummary(llvm::Function* F, PredicateState::Ptr S,
+                                 const Term::Ptr ret, const Term::Ptr implyTo) {
+    summaries.push_back(Summary(F,S,ret,implyTo));
 }
 
 void ContractManager::saveState(FunctionIdentifier::Ptr func, PredicateState::Ptr state) {
@@ -172,19 +166,22 @@ void ContractManager::printContracts() const {
 
 void ContractManager::printSummaries() const {
     auto&& dbg = dbgs();
-
+    llvm::Function* prev = nullptr;
     dbg << "Summary extraction results" << endl;
     for (auto&& it : summaries) {
-        dbg << "---" << "Function " << it.first->getName() << "---" << endl;
-
-        for (auto&& state : it.second) {
-            dbg << "State:" << endl;
-            dbg << state << endl;
+        if (prev == nullptr) {
+            dbg << "---" << "Function " << it.func->getName() << "---" << endl;
+        } else {
+            if (prev->getName() != it.func->getName()) {
+                dbg << "---" << "Function " << it.func->getName() << "---" << endl;
+            }
         }
-
-        dbg << endl;
+        dbg << it.state;
+        dbg << " imply " << it.retval << " to ";
+        dbg << it.impTo << "\n\n\n\n";
+        prev = it.func;
     }
-    dbg << end;
+    dbg << endl;
 }
 
 ContractContainer::Ptr ContractManager::readFrom(const std::string& fname) {
@@ -220,7 +217,7 @@ char ContractManager::ID = 0;
 ContractContainer::Ptr ContractManager::contracts;
 ContractManager::FunctionSet ContractManager::visitedFunctions;
 
-ContractManager::ContractStates ContractManager::summaries;
+std::vector<ContractManager::Summary> ContractManager::summaries;
 
 static llvm::RegisterPass<ContractManager>
 X("contract-manager", "Contract manager pass", false, false);
