@@ -20,10 +20,10 @@ class FunctionSummariesTransformer : public borealis::Transformer<FunctionSummar
 
     using TermSet = std::unordered_set<Term::Ptr,TermHash, TermEquals>;
     using TermMap = std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>;
-    using TermToArg = std::unordered_map<Term::Ptr, int, TermHash, TermEquals>;
-    using ArgToTerms = std::unordered_map<int, TermSet>;
+    using PredTermMap = std::unordered_map<Predicate::Ptr, Term::Ptr, PredicateHash, PredicateEquals>;
     using ChoiceInfo = std::vector<std::vector<Predicate::Ptr>>;
     using PrVector = std::vector<Predicate::Ptr>;
+    using VecTermSet = std::vector<std::unordered_set<Term::Ptr,TermHash, TermEquals>>;
 
 
 public:
@@ -35,15 +35,15 @@ public:
     Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
     const PrVector& getProtectedPredicates() const{
-        return protStates;
+        return protPreds;
     }
 
-    const ArgToTerms& getArgToTermMapping() const {
-        return argToTerms;
+    VecTermSet& getTermSet() {
+        return ter;
     }
 
-    TermSet& getTermSet() {
-        return TS;
+    const PredTermMap& getProtPredMapping() const {
+        return protPredMapping;
     }
 
 private:
@@ -52,18 +52,15 @@ private:
 
 private:
 
-    TermSet arguments;
     TermMap mapping;
     TermSet TS;
-    PrVector protStates;
-
-    TermToArg termToArg;
-    ArgToTerms argToTerms;
+    VecTermSet ter;
+    PrVector protPreds;
 
     ChoiceInfo choiceInfo;
     Term::Ptr rtv;
     int curPredi;
-
+    PredTermMap protPredMapping;
 };
 
 } /*namespace borealis*/

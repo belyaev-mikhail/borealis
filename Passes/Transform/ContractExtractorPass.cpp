@@ -5,15 +5,18 @@
  *      Author: kivi
  */
 #include <llvm/Analysis/AliasAnalysis.h>
-#include <State/Transformer/UnnecesPredDeleter.h>
 
+#include "Util/util.h"
+#include "Codegen/llvm.h"
+#include "State/Transformer/ReplaceTermTransformer.h"
+#include "State/Transformer/StateRipper.h"
 #include "Passes/Tracker/SlotTrackerPass.h"
 #include "State/Transformer/EqualityMapper.h"
 #include "State/Transformer/ChoiceInfoCollector.h"
 #include "State/Transformer/ContractExtractorTransformer.h"
-#include "State/Transformer/EqualityMapper.h"
 #include "State/Transformer/FunctionSummariesTransformer.h"
 #include "State/Transformer/StateSlicer.h"
+#include "State/Transformer/UnexpPathPrDeleter.h"
 #include "ContractExtractorPass.h"
 
 
@@ -36,76 +39,44 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         processCallInstruction(*I, PSA->getInstructionState(I));
 	}
 
-	/*if (not F.getName().equals("main")) {
-        PredicateState::Ptr S;
-        for (auto &&I : util::viewContainer(F)
-                        .flatten()
-                        .map(ops::take_pointer)
-                        .filter()) {
-            if (I->isTerminator()) {
-                S = PSA->getInstructionState(I);
-            }
-        }
-        auto&& mapper = EqualityMapper(FN);
-        auto&& mappedState = mapper.transform(S);
-        auto&& mapping = mapper.getMappedValues();
-        TermSet TS;
-        TS.insert(FN.Term->getReturnValueTerm(&F));
-        auto&& sliced1 = StateSlicer(FN, TS, &AA).transform(mappedState);
-        auto&& choiceInfo = ChoiceInfoCollector(FN);
-        choiceInfo.transform(sliced1);
-        choiceInfo.pushBackTemp();//add last path
-        auto&& vec = choiceInfo.getChoiceInfo();
-        auto&& rtv = FN.Term->getReturnValueTerm(&F);
-        auto&& extractor = FunctionSummariesTransformer(FN, mapping, vec, rtv);
-        extractor.transform(sliced1);
-        auto&& terms = extractor.getTermSet();
-        if (terms.size() == 0)
-            return false;
-        auto&& sliced = StateSlicer(FN, terms, &AA).transform(mappedState);
-        auto&& protStates = extractor.getProtectedPredicates();
-        //auto&& protTerms=extractor.getProtTerms();
-        auto&& choiceInfo2 = ChoiceInfoCollector(FN);
-        choiceInfo2.transform(sliced);
-        vec = choiceInfo.getChoiceInfo();
-        auto&& deleter = UnnecesPredDeleter(FN, protStates, terms, F.getArgumentList());
-        auto&& del=deleter.transform(sliced);
-        auto&& rightTerms=deleter.getRightTerms();
-        auto&& resVec=deleter.getResultVec();
-        int i=0;
-        for(auto&& it:rightTerms){
-            errs()<<resVec[i]<<"\n";
-            errs()<<"imply "<<rtv<<" to ";
-            if(auto&& m=util::at(protTerms,it)){
-                errs()<<m.getUnsafe()<<"\n\n\n\n";
-            }
-            ++i;
-        }
-        errs()<<"\n\n\n";
-        errs()<<"RESVEC="<<resVec<<"\n";
-
-       // errs()<<"rees="<<resVec<<"\n\n\n";
-       // auto&& stat=FN.State->Choice(it);
-       // errs()<<"stat="<<stat<<"\n\n\n";
-       // auto&& stat=FN.State->Basic(resVec[i]);
-        //auto&& res = StateSlicer(FN, rightTerms[i] , &AA).transform(stat);
-       // errs()<<"RESUUULT="<<res<<"\n\n\n\n\n\n";
-        //}
-
-        //auto&& result2 = StateSlicer(FN, rightTerms , &AA).transform(result);
-        errs()<<"Right answ="<<rightTerms<<"\n";
-        if(!result2->isEmpty()){
-            errs()<<result2<<"\n";
-            errs()<<"imply "<<rtv<<" to ";
-            for(auto&& it:rightTerms){
-                 errs()<<protTerms.at(it)<<"\n";
-            }
-        }*/
-
-        //if (not argToTerms.empty()) {
-        //    CM->addSummary(&F, FN, transformedState, argToTerms);
-        //}
-    //}
+   if (!F.doesNotReturn()) {
+       PredicateState::Ptr S;
+       auto&& ret=llvm::getAllRets(&F);
+       if(ret.size()==0)
+           return false;
+       assert(ret.size()==1);
+       S = PSA->getInstructionState(*ret.begin());
+       auto&& fName=std::string(F.getName());
+       auto &&mapper = EqualityMapper(FN);
+       auto &&mappedState = mapper.transform(S);
+       auto &&mapping = mapper.getMappedValues();;
+       auto &&sliced = StateSlicer(FN, TermSet({FN.Term->getReturnValueTerm(&F)}), &AA).transform(mappedState);
+       auto &&choiceInfo = ChoiceInfoCollector(FN);
+       choiceInfo.transform(sliced);
+       choiceInfo.pushBackTemp();//add last path
+       auto &&vec = choiceInfo.getChoiceInfo();
+       if(vec.size()==0)
+           return false;
+       auto &&rtv = FN.Term->getReturnValueTerm(&F);
+       auto &&extractor = FunctionSummariesTransformer(FN, mapping, vec, rtv);
+       extractor.transform(sliced);
+       auto &&terms = extractor.getTermSet();
+       auto &&protPredsMapping = extractor.getProtPredMapping();
+       auto &&protPreds = extractor.getProtectedPredicates();
+       if (terms.size() == 0)
+           return false;
+       for (auto &&i = 0U; i < terms.size(); ++i) {
+           auto &&deleter = StateRipper(FN, protPreds[i]);
+           auto &&del = deleter.transform(sliced);
+           auto &&sliced1 = StateSlicer(FN, terms[i], &AA).transform(del);
+           auto &&del2 = UnexpPathPrDeleter(FN, protPreds[i]).transform(sliced1);
+           auto &&sliced2 = StateSlicer(FN, terms[i], &AA).transform(del2);
+           auto &&result = ReplaceTermTransformer(FN, fName).transform(sliced2);
+           if (auto &&k = util::at(protPredsMapping, protPreds[i])) {
+               CM->addSummary(&F,result,rtv,k.getUnsafe());
+           }
+       }
+   }
     return false;
 }
 

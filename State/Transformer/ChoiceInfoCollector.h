@@ -23,7 +23,6 @@ public:
 
     ChoiceInfo getChoiceInfo() {return choiceInfo;}
 
-    Predicate::Ptr transformPredicate(Predicate::Ptr pred);
     PredicateState::Ptr transformChoice(PredicateStateChoicePtr pred);
     Predicate::Ptr transformBase(Predicate::Ptr pred);
     PredicateState::Ptr transformPredicateStateChoice(PredicateStateChoicePtr pred);
@@ -38,6 +37,7 @@ private:
     unsigned int choiceCounter;
     ChoiceInfo choiceInfo;
     std::vector <Predicate::Ptr> temp;
+    int k;
 
 };
 
