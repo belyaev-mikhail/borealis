@@ -536,7 +536,7 @@ smt::Result Solver::isPossible(Predicate::Ptr first, Predicate::Ptr second) {
 
     using namespace logic;
 
-    auto s = tactics().mk_solver();
+    auto s = z3::solver(z3ef.unwrap());
 
     ExecutionContext ctx(z3ef, memoryStart, memoryEnd);
     auto z3first = SMT<Z3>::doit(first, z3ef, &ctx);
@@ -560,7 +560,7 @@ smt::Result Solver::isStronger(Predicate::Ptr first, Predicate::Ptr second) {
 
     using namespace logic;
 
-    auto s = tactics().mk_solver();
+    auto s = z3::solver(z3ef.unwrap());
 
     ExecutionContext ctx(z3ef, memoryStart, memoryEnd);
     auto z3first = SMT<Z3>::doit(first, z3ef, &ctx);

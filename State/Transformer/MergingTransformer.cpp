@@ -26,6 +26,8 @@ PredicateState::Ptr MergingTransformer::getMergedState() {
         state.push_back(it.first);
     }
 
+    if (state.empty()) return FN.State->Basic();
+
     deleteOppositePredicates(state);
     mergePredicates(state);
 
@@ -101,7 +103,7 @@ void MergingTransformer::mergePredicates(std::vector<Predicate::Ptr> &state) {
     PredicateSet forDelete;
 
     for (auto&& i = state.begin(); i != state.end(); ++i) {
-        for (auto&& j = i + 1; j != state.end() ; ++j) {
+        for (auto&& j = i + 1; j != state.end(); ++j) {
             if (s.isStronger(*i, *j).isUnsat()) {
                 forDelete.insert(*j);
                 contracts[*i] += contracts[*j];
@@ -116,7 +118,7 @@ void MergingTransformer::mergePredicates(std::vector<Predicate::Ptr> &state) {
         if (util::contains(forDelete, *i)) {
             state.erase(i);
             --i;
-        } else if ((double)contracts[*i] / functionCalls < ContractManager::mergingConstant) {
+        } else if ((double)contracts[*i] / functionCalls < ContractManager::MERGING_CONSTANT) {
             state.erase(i);
             --i;
         }
