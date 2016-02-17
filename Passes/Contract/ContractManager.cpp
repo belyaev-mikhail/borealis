@@ -6,6 +6,7 @@
  */
 
 #include <fstream>
+#include <Codegen/intrinsics_manager.h>
 
 #include "SMT/Z3/Z3.h"
 #include "SMT/Z3/Solver.h"
@@ -43,6 +44,8 @@ bool ContractManager::runOnModule(llvm::Module& M) {
 
 void ContractManager::addContract(llvm::Function* F, const FunctionManager& FM, PredicateState::Ptr S,
                                   const std::unordered_map<int, Args>& mapping) {
+    if (IntrinsicsManager::getInstance().getIntrinsicType(F) != function_type::UNKNOWN)
+        return;
     auto&& func = contracts->getFunctionId(F, FM.getMemoryBounds(F));
     func->called();
     visitedFunctions.insert(func);
@@ -144,7 +147,7 @@ void ContractManager::printContracts() const {
         auto&& merger = MergingTransformer(FN, memBounds, F->calls());
 
         //magic number
-        if (F->calls() < 5) continue;
+        if (F->calls() < MIN_FUNCTION_CALLS) continue;
 
         //analyze each state
         for (auto&& st : *contracts->at(F)) {

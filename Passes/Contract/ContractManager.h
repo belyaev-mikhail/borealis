@@ -40,7 +40,9 @@ public:
     };
 
     static char ID;
-    constexpr static double mergingConstant = 0.9;  //magic number
+    //magic numbers
+    constexpr static double MERGING_CONSTANT = 0.9;
+    constexpr static int MIN_FUNCTION_CALLS = 5;
     const std::string PROTOBUF_FILE = "contracts.out";
 
     ContractManager();
