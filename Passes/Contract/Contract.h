@@ -66,6 +66,10 @@ public:
         return data_;
     }
 
+    size_t size() const {
+        return data_.size();
+    }
+
 };
 
 }   /* namespace borealis */

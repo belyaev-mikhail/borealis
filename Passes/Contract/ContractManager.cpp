@@ -132,7 +132,8 @@ void ContractManager::printContracts() const {
     for (auto&& it : contracts->data()) {
         auto&& F = it.first;
 
-        dbg << "---" << "Function " << F->name() << "---" << endl;
+        dbg << "---" << "Function " << F->name() << "---" << "called " << F->calls() << endl;
+        dbg << (*contracts->at(F)).size() << endl;
         for (auto&& state : *contracts->at(F)) {
             dbg << "State:" << endl;
             dbg << state << endl;

@@ -36,7 +36,8 @@ public:
         PredicateState::Ptr state;
         Term::Ptr retval;
         Term::Ptr impTo;
-        Summary(llvm::Function* F, PredicateState::Ptr S, const Term::Ptr ret, const Term::Ptr implyTo):func(F),state(S),retval(ret),impTo(implyTo){}
+        Summary(llvm::Function* F, PredicateState::Ptr S, const Term::Ptr ret, const Term::Ptr implyTo)
+                : func(F), state(S), retval(ret), impTo(implyTo) {}
     };
 
     static char ID;
