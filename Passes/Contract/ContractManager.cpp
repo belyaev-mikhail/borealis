@@ -133,7 +133,7 @@ void ContractManager::printContracts() const {
         auto&& F = it.first;
 
         dbg << "---" << "Function " << F->name() << "---" << "called " << F->calls() << endl;
-        dbg << (*contracts->at(F)).size() << endl;
+        dbg << "Found " << contracts->at(F)->size() << " states" << endl;
         for (auto&& state : *contracts->at(F)) {
             dbg << "State:" << endl;
             dbg << state << endl;
@@ -147,7 +147,6 @@ void ContractManager::printContracts() const {
         auto&& memBounds = F->memBounds();
         auto&& merger = MergingTransformer(FN, memBounds, F->calls());
 
-        //magic number
         if (F->calls() < MIN_FUNCTION_CALLS) continue;
 
         //analyze each state
