@@ -445,7 +445,9 @@ PredicateState::Ptr Solver::probeModels(
     auto z3divers = t2e(diversifiers);
     auto z3collects = t2e(collectibles);
 
-    auto solver = tactics().mk_solver();
+    static config::ConfigEntry<int> timeout("z3", "force-timeout");
+
+    auto solver = tactics(timeout.get(0)).mk_solver();
     solver.add(logic::z3impl::asAxiom(z3body));
     solver.add(logic::z3impl::asAxiom(z3query));
     ctx.getAxioms().foreach(APPLY(solver.add));
@@ -467,7 +469,7 @@ PredicateState::Ptr Solver::probeModels(
             auto z3model = model2expr(model, z3collects);
             auto stateModel = model2state(model, collectibles, z3collects);
 
-            auto usolver = tactics().mk_solver();
+            auto usolver = tactics(timeout.get(0)).mk_solver();
             usolver.add(logic::z3impl::asAxiom(z3body));
             usolver.add(logic::z3impl::asAxiom(not z3query));
             usolver.add( z3model );
