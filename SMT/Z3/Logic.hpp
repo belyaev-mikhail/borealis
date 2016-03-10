@@ -13,6 +13,7 @@
 #include <functional>
 
 #include "Util/util.h"
+#include "Util/functional.hpp"
 
 #include "Config/config.h"
 
@@ -35,29 +36,39 @@ struct ConversionException: public std::exception {
 };
 
 namespace z3impl {
-inline z3::expr defaultAxiom(z3::context& ctx) {
-    return ctx.bool_val(true);
-}
-inline z3::expr defaultAxiom(z3::expr& e) {
-    return defaultAxiom(e.ctx());
-}
-inline z3::expr spliceAxioms(z3::expr e0, z3::expr e1) {
-    return (e0 && e1);
-}
-inline z3::expr spliceAxioms(std::initializer_list<z3::expr> il) {
-    util::copyref<z3::expr> accum{ util::head(il) };
-    for (const auto& e : util::tail(il)) {
-        accum = (accum && e);
+    inline z3::expr defaultAxiom(z3::context& ctx) {
+        return ctx.bool_val(true);
     }
-    return accum;
-}
-inline z3::expr spliceAxioms(const std::vector<z3::expr>& v) {
-    util::copyref<z3::expr> accum{ util::head(v) };
-    for (const auto& e : util::tail(v)) {
-        accum = (accum && e);
+    inline z3::expr defaultAxiom(z3::expr& e) {
+        return defaultAxiom(e.ctx());
     }
-    return accum;
-}
+    inline z3::expr spliceAxiomsImpl(z3::expr e0, z3::expr e1) {
+        if(z3::eq(e0, defaultAxiom(e0))) return e1;
+        if(z3::eq(e1, defaultAxiom(e1))) return e0;
+        return (e0 && e1);
+    }
+    inline z3::expr spliceAxiomsImpl(z3::expr e0, z3::expr e1, z3::expr e2) {
+        if(z3::eq(e0, defaultAxiom(e0))) return spliceAxiomsImpl(e1, e2);
+        if(z3::eq(e1, defaultAxiom(e1))) return spliceAxiomsImpl(e0, e2);
+        if(z3::eq(e2, defaultAxiom(e2))) return spliceAxiomsImpl(e0, e1);
+        return (e0 && e1 && e2);
+    }
+    inline z3::expr spliceAxiomsImpl(std::initializer_list<z3::expr> il) {
+        auto&& ctx = util::head(il).ctx();
+        auto res = util::viewContainer(il).map(ops::static_caster<Z3_ast>()).toVector();
+
+        return z3::expr(ctx, Z3_mk_and(ctx, res.size(), res.data()));
+//        util::copyref<z3::expr> accum{ util::head(il) };
+//        for (const auto& e : util::tail(il)) {
+//            accum = (accum && e);
+//        }
+//        return accum;
+    }
+    inline z3::expr spliceAxiomsImpl(const std::vector<z3::expr>& v) {
+        auto&& ctx = util::head(v).ctx();
+        auto res = util::viewContainer(v).map(ops::static_caster<Z3_ast>()).toVector();
+        return z3::expr(ctx, Z3_mk_and(ctx, res.size(), res.data()));
+    }
 } // namespace z3impl
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -65,40 +76,47 @@ inline z3::expr spliceAxioms(const std::vector<z3::expr>& v) {
 class ValueExpr;
 
 namespace z3impl {
-z3::expr getExpr(const ValueExpr& a);
-z3::expr getAxiom(const ValueExpr& a);
-z3::sort getSort(const ValueExpr& a);
-z3::context& getContext(const ValueExpr& a);
-std::string getName(const ValueExpr& e);
-z3::expr asAxiom(const ValueExpr& e);
-std::string asSmtLib(const ValueExpr& e);
+    z3::expr getExpr(const ValueExpr& a);
+    z3::expr getAxiom(const ValueExpr& a);
+    z3::sort getSort(const ValueExpr& a);
+    z3::context& getContext(const ValueExpr& a);
+    std::string getName(const ValueExpr& e);
+    size_t getHash(const ValueExpr& e);
+    z3::expr asAxiom(const ValueExpr& e);
+    std::string asSmtLib(const ValueExpr& e);
 
-inline z3::expr getExpr(const ValueExpr* a) {
-    ASSERTC(a != nullptr); return getExpr(*a);
-}
-inline z3::expr getAxiom(const ValueExpr* a) {
-    ASSERTC(a != nullptr); return getAxiom(*a);
-}
-inline z3::sort getSort(const ValueExpr* a) {
-    ASSERTC(a != nullptr); return getSort(*a);
-}
-inline z3::context& getContext(const ValueExpr* a) {
-    ASSERTC(a != nullptr); return getContext(*a);
-}
-inline std::string getName(const ValueExpr* e) {
-    ASSERTC(e != nullptr); return getName(*e);
-}
-inline z3::expr asAxiom(const ValueExpr* e) {
-    ASSERTC(e != nullptr); return asAxiom(*e);
-}
-inline std::string asSmtLib(const ValueExpr* e) {
-    ASSERTC(e != nullptr); return asSmtLib(*e);
-}
+    inline z3::expr getExpr(const ValueExpr* a) {
+        ASSERTC(a != nullptr); return getExpr(*a);
+    }
+    inline z3::expr getAxiom(const ValueExpr* a) {
+        ASSERTC(a != nullptr); return getAxiom(*a);
+    }
+    inline z3::sort getSort(const ValueExpr* a) {
+        ASSERTC(a != nullptr); return getSort(*a);
+    }
+    inline z3::context& getContext(const ValueExpr* a) {
+        ASSERTC(a != nullptr); return getContext(*a);
+    }
+    inline std::string getName(const ValueExpr* e) {
+        ASSERTC(e != nullptr); return getName(*e);
+    }
+    inline size_t getHash(const ValueExpr* e) {
+        ASSERTC(e != nullptr); return getHash(*e);
+    }
+    inline z3::expr asAxiom(const ValueExpr* e) {
+        ASSERTC(e != nullptr); return asAxiom(*e);
+    }
+    inline std::string asSmtLib(const ValueExpr* e) {
+        ASSERTC(e != nullptr); return asSmtLib(*e);
+    }
 } // namespace z3impl
 
 class ValueExpr: public Expr {
-    struct Impl;
-    std::unique_ptr<Impl> pimpl;
+    struct Impl {
+        z3::expr inner;
+        z3::expr axiomatic;
+    } impl;
+    //std::unique_ptr<Impl> pimpl;
 
 public:
     ValueExpr(const ValueExpr&);
@@ -116,29 +134,47 @@ public:
     friend z3::sort z3impl::getSort(const ValueExpr& a);
     friend z3::context& z3impl::getContext(const ValueExpr& a);
     friend std::string z3impl::getName(const ValueExpr& a);
+    friend size_t z3impl::getHash(const ValueExpr& a);
 
     void swap(ValueExpr&);
 
     std::string getName() const;
     std::string toSmtLib() const;
 
+    size_t getHash() const;
+
+    static bool eq(const ValueExpr& a, const ValueExpr& b);
+
     ValueExpr simplify() const;
 };
 
 namespace z3impl {
+
+// FIXME: this overload is genuinly stupid, but optimizes smth
+template<class Expr0, class Expr1>
+inline z3::expr spliceAxioms(const Expr0& e0, const Expr1& e1) {
+    return spliceAxiomsImpl(getAxiom(e0), getAxiom(e1));
+};
+
+template<class Expr0, class Expr1, class Expr2>
+inline z3::expr spliceAxioms(const Expr0& e0, const Expr1& e1, const Expr2& e2) {
+    return spliceAxiomsImpl(getAxiom(e0), getAxiom(e1), getAxiom(e2));
+};
+
 template<class ...Exprs>
 inline z3::expr spliceAxioms(const Exprs&... exprs) {
-    return spliceAxioms(
-            { getAxiom(exprs)... }
+    return spliceAxiomsImpl(
+        { getAxiom(exprs)... }
     );
 }
+
 } // namespace z3impl
 
 template<class ExprClass>
 ExprClass addAxiom(const ExprClass& expr, const ValueExpr& axiom) {
     return ExprClass{
-            z3impl::getExpr(expr),
-            z3impl::spliceAxioms(z3impl::getAxiom(expr), z3impl::asAxiom(axiom))
+        z3impl::getExpr(expr),
+        z3impl::spliceAxiomsImpl(z3impl::getAxiom(expr), z3impl::asAxiom(axiom))
     };
 }
 
@@ -188,7 +224,7 @@ struct generator;
             CLASS nav = mkVar(ctx, name); \
             return CLASS{ \
                 z3impl::getExpr(nav), \
-                z3impl::spliceAxioms( \
+                z3impl::spliceAxiomsImpl( \
                     z3impl::getAxiom(nav), \
                     z3impl::asAxiom(daAxiom(nav)) \
                 ) \
@@ -207,7 +243,7 @@ struct generator;
             CLASS nav = mkFreshVar(ctx, name); \
             return CLASS{ \
                 z3impl::getExpr(nav), \
-                z3impl::spliceAxioms( \
+                z3impl::spliceAxiomsImpl( \
                     z3impl::getAxiom(nav), \
                     z3impl::asAxiom(daAxiom(nav)) \
                 ) \
@@ -290,8 +326,8 @@ grow(BitVector<N1> bv) {
     z3::context& ctx = z3impl::getContext(bv);
 
     return BitVector<N0>{
-            z3::to_expr(ctx, Z3_mk_sign_ext(ctx, N0-N1, z3impl::getExpr(bv))),
-            z3impl::getAxiom(bv)
+        z3::to_expr(ctx, Z3_mk_sign_ext(ctx, N0-N1, z3impl::getExpr(bv))),
+        z3impl::getAxiom(bv)
     };
 }
 
@@ -460,16 +496,16 @@ struct ifer {
             auto tb = merger<E,E2>::app(tbranch);
             auto fb = merger<E,E2>::app(fbranch);
             return typename merger<E, E2>::type{
-                    z3::to_expr(
-                            ctx,
-                            Z3_mk_ite(
-                                    ctx,
-                                    z3impl::getExpr(cond),
-                                    z3impl::getExpr(tb),
-                                    z3impl::getExpr(fb)
-                            )
-                    ),
-                    z3impl::spliceAxioms(cond, tb, fb)
+                   z3::to_expr(
+                       ctx,
+                       Z3_mk_ite(
+                           ctx,
+                           z3impl::getExpr(cond),
+                           z3impl::getExpr(tb),
+                           z3impl::getExpr(fb)
+                       )
+                   ),
+                   z3impl::spliceAxioms(cond, tb, fb)
             };
         }
     };
@@ -497,27 +533,28 @@ T switch_(
         U cond,
         const std::vector<std::pair<U, T>>& cases,
         T default_
-) {
+    ) {
 
     auto mkIte = [cond](T b, const std::pair<U, T>& a) {
         return if_(cond == a.first)
-                .then_(a.second)
-                .else_(b);
+               .then_(a.second)
+               .else_(b);
     };
 
     return std::accumulate(cases.begin(), cases.end(), default_, mkIte);
+
 }
 
 template<class T>
 T switch_(
         const std::vector<std::pair<Bool, T>>& cases,
         T default_
-) {
+    ) {
 
     auto mkIte = [](T b, const std::pair<Bool, T>& a) {
         return if_(a.first)
-                .then_(a.second)
-                .else_(b);
+               .then_(a.second)
+               .else_(b);
     };
 
     return std::accumulate(cases.begin(), cases.end(), default_, mkIte);
@@ -531,7 +568,7 @@ template<class Tl, size_t ...N>
 std::tuple< util::index_in_type_list_q<N, Tl>... >
 mkbounds_step_1(z3::context& ctx, Tl, util::indexer<N...>) {
     return std::tuple< util::index_in_type_list_q<N, Tl>... > {
-            util::index_in_type_list_q<N, Tl>::mkBound(ctx, N)...
+        util::index_in_type_list_q<N, Tl>::mkBound(ctx, N)...
     };
 }
 
@@ -600,7 +637,7 @@ z3::expr forAll(
         z3::context& ctx,
         std::function<Res(Args...)> func,
         std::function<Patterns(Args...)> patternGenerator
-) {
+    ) {
 
     using borealis::util::toString;
     using borealis::util::view;
@@ -654,12 +691,12 @@ ASPECT(ComparableExpr)
 #define REDEF_OP(OP) \
     Bool operator OP(const ComparableExpr& lhv, const ComparableExpr& rhv);
 
-REDEF_OP(<)
-REDEF_OP(>)
-REDEF_OP(>=)
-REDEF_OP(<=)
-REDEF_OP(==)
-REDEF_OP(!=)
+    REDEF_OP(<)
+    REDEF_OP(>)
+    REDEF_OP(>=)
+    REDEF_OP(<=)
+    REDEF_OP(==)
+    REDEF_OP(!=)
 
 #undef REDEF_OP
 
@@ -685,8 +722,8 @@ public:
         auto& ctx = z3impl::getContext(this);
         if (m < n)
             return DynBitVectorExpr{
-                    z3::to_expr(ctx, Z3_mk_sign_ext(ctx, n-m, z3impl::getExpr(this))),
-                    z3impl::getAxiom(this)
+                z3::to_expr(ctx, Z3_mk_sign_ext(ctx, n-m, z3impl::getExpr(this))),
+                z3impl::getAxiom(this)
             };
         else return DynBitVectorExpr{ *this };
     }
@@ -696,8 +733,8 @@ public:
         auto& ctx = z3impl::getContext(this);
         if (m < n)
             return DynBitVectorExpr{
-                    z3::to_expr(ctx, Z3_mk_zero_ext(ctx, n-m, z3impl::getExpr(this))),
-                    z3impl::getAxiom(this)
+                z3::to_expr(ctx, Z3_mk_zero_ext(ctx, n-m, z3impl::getExpr(this))),
+                z3impl::getAxiom(this)
             };
         else return DynBitVectorExpr{ *this };
     }
@@ -709,8 +746,8 @@ public:
 
         auto& ctx = z3impl::getContext(this);
         return DynBitVectorExpr{
-                z3::to_expr(ctx, Z3_mk_extract(ctx, high, low, z3impl::getExpr(this))),
-                z3impl::getAxiom(this)
+            z3::to_expr(ctx, Z3_mk_extract(ctx, high, low, z3impl::getExpr(this))),
+            z3impl::getAxiom(this)
         };
     }
 
@@ -757,16 +794,16 @@ ASPECT_END
 #define BIN_OP(OP) \
     DynBitVectorExpr operator OP(const DynBitVectorExpr& lhv, const DynBitVectorExpr& rhv);
 
-BIN_OP(+)
-BIN_OP(-)
-BIN_OP(*)
-BIN_OP(/)
-BIN_OP(|)
-BIN_OP(&)
-BIN_OP(^)
-BIN_OP(%)
-BIN_OP(>>)
-BIN_OP(<<)
+    BIN_OP(+)
+    BIN_OP(-)
+    BIN_OP(*)
+    BIN_OP(/)
+    BIN_OP(|)
+    BIN_OP(&)
+    BIN_OP(^)
+    BIN_OP(%)
+    BIN_OP(>>)
+    BIN_OP(<<)
 
 #undef BIN_OP
 
@@ -776,10 +813,10 @@ BIN_OP(<<)
         return BitVector<N>(lhv.adapt(N)) OP rhv; \
     }
 
-BIN_OP(+)
-BIN_OP(-)
-BIN_OP(*)
-BIN_OP(/)
+    BIN_OP(+)
+    BIN_OP(-)
+    BIN_OP(*)
+    BIN_OP(/)
 
 #undef BIN_OP
 
@@ -789,50 +826,50 @@ BIN_OP(/)
         return lhv OP BitVector<N>(rhv.adapt(N)); \
     }
 
-BIN_OP(+)
-BIN_OP(-)
-BIN_OP(*)
-BIN_OP(/)
+    BIN_OP(+)
+    BIN_OP(-)
+    BIN_OP(*)
+    BIN_OP(/)
 
 #undef BIN_OP
 
 #define BIN_OP(OP) \
     DynBitVectorExpr operator OP(const DynBitVectorExpr& lhv, int rhv);
 
-BIN_OP(+)
-BIN_OP(-)
-BIN_OP(*)
-BIN_OP(/)
+    BIN_OP(+)
+    BIN_OP(-)
+    BIN_OP(*)
+    BIN_OP(/)
 
 #undef BIN_OP
 
 #define BIN_OP(OP) \
     DynBitVectorExpr operator OP(int lhv, const DynBitVectorExpr& rhv);
 
-BIN_OP(+)
-BIN_OP(-)
-BIN_OP(*)
-BIN_OP(/)
+    BIN_OP(+)
+    BIN_OP(-)
+    BIN_OP(*)
+    BIN_OP(/)
 
 #undef BIN_OP
 
 #define BOOL_OP(OP) \
     Bool operator OP(const DynBitVectorExpr& lhv, const DynBitVectorExpr& rhv);
 
-BOOL_OP(==)
-BOOL_OP(!=)
-BOOL_OP(>)
-BOOL_OP(>=)
-BOOL_OP(<)
-BOOL_OP(<=)
+    BOOL_OP(==)
+    BOOL_OP(!=)
+    BOOL_OP(>)
+    BOOL_OP(>=)
+    BOOL_OP(<)
+    BOOL_OP(<=)
 
 #undef BOOL_OP
 
 #define UN_OP(OP) \
     DynBitVectorExpr operator OP(const DynBitVectorExpr& lhv);
 
-UN_OP(-)
-UN_OP(~)
+    UN_OP(-)
+    UN_OP(~)
 
 #undef UN_OP
 
@@ -972,15 +1009,15 @@ public:
     // equality comparison operators are the most general ones
     Bool operator==(const SomeExpr& that) {
         return Bool{
-                z3impl::getExpr(this) == z3impl::getExpr(that),
-                z3impl::spliceAxioms(*this, that)
+            z3impl::getExpr(this) == z3impl::getExpr(that),
+            z3impl::spliceAxioms(*this, that)
         };
     }
 
     Bool operator!=(const SomeExpr& that) {
         return Bool{
-                z3impl::getExpr(this) != z3impl::getExpr(that),
-                z3impl::spliceAxioms(*this, that)
+            z3impl::getExpr(this) != z3impl::getExpr(that),
+            z3impl::spliceAxioms(*this, that)
         };
     }
 };
@@ -1040,7 +1077,7 @@ Bool distinct(z3::context& ctx, const std::vector<Elem>& elems) {
 
     z3::expr axiom = z3impl::getAxiom(elems[0]);
     for (const auto& elem : elems) {
-        axiom = z3impl::spliceAxioms(axiom, z3impl::getAxiom(elem));
+        axiom = z3impl::spliceAxiomsImpl(axiom, z3impl::getAxiom(elem));
     }
 
     return Bool{ ret, axiom };
@@ -1050,7 +1087,7 @@ template<class ...Args>
 Bool forAll(
         z3::context& ctx,
         std::function<Bool(Args...)> func
-) {
+    ) {
     return Bool{ z3impl::forAll(ctx, func) };
 }
 
@@ -1065,7 +1102,7 @@ Bool forAll(
         z3::context& ctx,
         std::function<Bool(Args...)> func,
         std::function<std::vector<SomeExpr>(Args...)> patternGen
-) {
+    ) {
     return Bool{ z3impl::forAll(ctx, func, patternGen) };
 }
 
@@ -1082,7 +1119,7 @@ class Function<Res(Args...)> : public Expr {
     template<class ...CArgs>
     inline static z3::expr massAxiomAnd(CArgs... args) {
         static_assert(sizeof...(args) > 0, "Trying to massAxiomAnd zero axioms");
-        return z3impl::spliceAxioms({ z3impl::getAxiom(args)... });
+        return z3impl::spliceAxioms(args...);
     }
 
     static z3::func_decl constructFunc(z3::context& ctx, const std::string& name) {
@@ -1118,22 +1155,22 @@ public:
 
     Function(const Function&) = default;
     Function(z3::func_decl inner, z3::expr axiomatic):
-            inner(inner), axiomatic(axiomatic) {};
+        inner(inner), axiomatic(axiomatic) {};
     explicit Function(z3::func_decl inner):
-            inner(inner), axiomatic(z3impl::defaultAxiom(inner.ctx())) {};
+        inner(inner), axiomatic(z3impl::defaultAxiom(inner.ctx())) {};
     Function(z3::context& ctx, const std::string& name, std::function<Res(Args...)> f):
-            inner(constructFunc(ctx, name)), axiomatic(constructAxiomatic(ctx, inner, f)){}
+        inner(constructFunc(ctx, name)), axiomatic(constructAxiomatic(ctx, inner, f)){}
 
     z3::func_decl get() const { return inner; }
     z3::expr axiom() const { return axiomatic; }
     z3::context& ctx() const { return inner.ctx(); }
 
     Self withAxiom(const ValueExpr& ax) const {
-        return Self{ inner, z3impl::spliceAxioms(axiom(), z3impl::asAxiom(ax)) };
+        return Self{ inner, z3impl::spliceAxiomsImpl(axiom(), z3impl::asAxiom(ax)) };
     }
 
     Res operator()(Args... args) const {
-        return Res(inner(z3impl::getExpr(args)...), z3impl::spliceAxioms(axiom(), massAxiomAnd(args...)));
+        return Res(inner(z3impl::getExpr(args)...), z3impl::spliceAxiomsImpl(axiom(), massAxiomAnd(args...)));
     }
 
     static z3::sort range(z3::context& ctx) {
@@ -1172,7 +1209,7 @@ public:
             std::function<Res(Args...)> body) {
         z3::func_decl f = constructFreshFunc(ctx, name);
         z3::expr ax = constructAxiomatic(ctx, f, body);
-        return Self{ f, z3impl::spliceAxioms(oldFunc.axiom(), ax) };
+        return Self{ f, z3impl::spliceAxiomsImpl(oldFunc.axiom(), ax) };
     }
 
     static Self mkDerivedFunc(
@@ -1185,10 +1222,10 @@ public:
         std::vector<z3::expr> axs;
         axs.reserve(oldFuncs.size() + 1);
         std::transform(oldFuncs.begin(), oldFuncs.end(), std::back_inserter(axs),
-                       [](const Self& oldFunc) { return oldFunc.axiom(); });
+            [](const Self& oldFunc) { return oldFunc.axiom(); });
         axs.push_back(constructAxiomatic(ctx, f, body));
 
-        return Self{ f, z3impl::spliceAxioms(axs) };
+        return Self{ f, z3impl::spliceAxiomsImpl(axs) };
     }
 };
 
@@ -1208,17 +1245,17 @@ class FuncArray {
     inner_t inner;
 
     FuncArray(const std::string& name, inner_t inner):
-            name(std::make_shared<std::string>(name)), inner(inner) {};
+        name(std::make_shared<std::string>(name)), inner(inner) {};
     FuncArray(std::shared_ptr<std::string> name, inner_t inner):
-            name(name), inner(inner) {};
+        name(name), inner(inner) {};
 
 public:
 
     FuncArray(const FuncArray&) = default;
     FuncArray(z3::context& ctx, const std::string& name):
-            FuncArray(name, inner_t::mkFreshFunc(ctx, name)) {}
+        FuncArray(name, inner_t::mkFreshFunc(ctx, name)) {}
     FuncArray(z3::context& ctx, const std::string& name, std::function<Elem(Index)> f):
-            FuncArray(name, inner_t::mkFreshFunc(ctx, name, f)) {}
+        FuncArray(name, inner_t::mkFreshFunc(ctx, name, f)) {}
 
     Elem select    (Index i) const { return inner(i);  }
     Elem operator[](Index i) const { return select(i); }
@@ -1257,21 +1294,21 @@ public:
         std::vector<inner_t> inners;
         inners.reserve(arrays.size() + 1);
         std::transform(arrays.begin(), arrays.end(), std::back_inserter(inners),
-                       [](const std::pair<Bool, Self>& e) { return e.second.inner; });
+            [](const std::pair<Bool, Self>& e) { return e.second.inner; });
         inners.push_back(defaultArray.inner);
 
         inner_t nf = inner_t::mkDerivedFunc(defaultArray.ctx(), name, inners,
-                                            [=](Index j) -> Elem {
-                                                std::vector<std::pair<Bool, Elem>> selected;
-                                                selected.reserve(arrays.size());
-                                                std::transform(arrays.begin(), arrays.end(), std::back_inserter(selected),
-                                                               [&j](const std::pair<Bool, Self>& e) {
-                                                                   return std::make_pair(e.first, e.second.select(j));
-                                                               }
-                                                );
+            [=](Index j) -> Elem {
+                std::vector<std::pair<Bool, Elem>> selected;
+                selected.reserve(arrays.size());
+                std::transform(arrays.begin(), arrays.end(), std::back_inserter(selected),
+                    [&j](const std::pair<Bool, Self>& e) {
+                        return std::make_pair(e.first, e.second.select(j));
+                    }
+                );
 
-                                                return switch_(selected, defaultArray.select(j));
-                                            }
+                return switch_(selected, defaultArray.select(j));
+            }
         );
 
         return Self{ name, nf };
@@ -1320,12 +1357,12 @@ public:
 
     static TheoryArray mkFree(z3::context& ctx, const std::string& name) {
         return z3::to_expr(ctx, Z3_mk_fresh_const(
-                ctx,
-                name.c_str(),
-                ctx.array_sort(
-                        impl::generator<Index>::sort(ctx),
-                        impl::generator<Elem>::sort(ctx)
-                )
+            ctx,
+            name.c_str(),
+            ctx.array_sort(
+                impl::generator<Index>::sort(ctx),
+                impl::generator<Elem>::sort(ctx)
+            )
         ));
     }
 
@@ -1358,9 +1395,9 @@ public:
 
     InlinedFuncArray(const InlinedFuncArray&) = default;
     InlinedFuncArray(z3::context& ctx, const std::string& name, std::function<Elem(Index)> f):
-            context(&ctx), name(std::make_shared<std::string>(name)), inner(f) {}
+        context(&ctx), name(std::make_shared<std::string>(name)), inner(f) {}
     InlinedFuncArray(z3::context& ctx, const std::string& name):
-            context(&ctx), name(std::make_shared<std::string>(name)) {
+        context(&ctx), name(std::make_shared<std::string>(name)) {
 
         // XXX akhin this is as fucked up as before, but also works for now
 
@@ -1412,9 +1449,9 @@ public:
             std::vector<std::pair<Bool, Elem>> selected;
             selected.reserve(arrays.size());
             std::transform(arrays.begin(), arrays.end(), std::back_inserter(selected),
-                           [&j](const std::pair<Bool, Self>& e) {
-                               return std::make_pair(e.first, e.second.select(j));
-                           }
+                [&j](const std::pair<Bool, Self>& e) {
+                    return std::make_pair(e.first, e.second.select(j));
+                }
             );
 
             return switch_(selected, defaultArray.select(j));
@@ -1483,7 +1520,7 @@ BitVector<N> concatBytes(const std::vector<BitVector<ElemSize>>& bytes) {
 
     ASSERT(bytes.size() * ElemSize == N,
            "concatBytes failed to merge the resulting BitVector: "
-                   "expected vector of size " + toString(N/ElemSize) +
+           "expected vector of size " + toString(N/ElemSize) +
            ", got vector of size " + toString(bytes.size()));
 
     z3::expr head = z3impl::getExpr(bytes[0]);
@@ -1495,7 +1532,7 @@ BitVector<N> concatBytes(const std::vector<BitVector<ElemSize>>& bytes) {
 
     z3::expr axiom = z3impl::getAxiom(bytes[0]);
     for (size_t i = 1; i < bytes.size(); ++i) {
-        axiom = z3impl::spliceAxioms(z3impl::getAxiom(bytes[i]), axiom);
+        axiom = z3impl::spliceAxiomsImpl(z3impl::getAxiom(bytes[i]), axiom);
     }
 
     return BitVector<N>{ head, axiom };
@@ -1516,7 +1553,7 @@ SomeExpr concatBytesDynamic(const std::vector<BitVector<ElemSize>>& bytes, size_
 
     z3::expr axiom = z3impl::getAxiom(bytes[0]);
     for (size_t i = 1; i < bytes.size(); ++i) {
-        axiom = z3impl::spliceAxioms(z3impl::getAxiom(bytes[i]), axiom);
+        axiom = z3impl::spliceAxiomsImpl(z3impl::getAxiom(bytes[i]), axiom);
     }
 
     return DynBitVectorExpr{ head, axiom }.adapt(bitSize);
@@ -1604,14 +1641,14 @@ public:
             const std::string& name,
             ScatterArray defaultArray,
             const std::vector<std::pair<Bool, ScatterArray>>& arrays
-    ) {
+        ) {
 
         std::vector<std::pair<Bool, Inner>> inners;
         inners.reserve(arrays.size());
         std::transform(arrays.begin(), arrays.end(), std::back_inserter(inners),
-                       [](const std::pair<Bool, ScatterArray>& p) {
-                           return std::make_pair(p.first, p.second.inner);
-                       }
+            [](const std::pair<Bool, ScatterArray>& p) {
+                return std::make_pair(p.first, p.second.inner);
+            }
         );
 
         Inner merged = Inner::merge(name, defaultArray.inner, inners);

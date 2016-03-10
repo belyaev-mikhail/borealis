@@ -32,14 +32,14 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
     AA = GetAnalysis<llvm::AliasAnalysis>::doit(this,F);
 
     for (auto&& I : util::viewContainer(F)
-                    .flatten()
-                    .map(ops::take_pointer)
-                    .map(llvm::dyn_caster<llvm::CallInst>())
-                    .filter()) {
+            .flatten()
+            .map(ops::take_pointer)
+            .map(llvm::dyn_caster<llvm::CallInst>())
+            .filter()) {
         processCallInstruction(*I, PSA->getInstructionState(I));
-	}
+    }
 
-   if (!F.doesNotReturn()) {
+    if (!F.doesNotReturn()) {
        PredicateState::Ptr S;
        auto&& ret=llvm::getAllRets(&F);
        if(ret.size()==0)
@@ -76,7 +76,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
                CM->addSummary(&F,result,rtv,k.getUnsafe());
            }
        }
-   }
+    }
     return false;
 }
 

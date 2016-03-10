@@ -72,6 +72,10 @@ public:
         return data_;
     }
 
+    size_t size() const {
+        return data_.size();
+    }
+
     FunctionIdentifier::Ptr getFunctionId(llvm::Function* F, std::pair<unsigned int, unsigned int> mem);
 
 private:
