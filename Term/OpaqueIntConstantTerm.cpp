@@ -9,7 +9,7 @@
 
 namespace borealis {
 
-OpaqueIntConstantTerm::OpaqueIntConstantTerm(Type::Ptr type, long long value):
+OpaqueIntConstantTerm::OpaqueIntConstantTerm(Type::Ptr type, int64_t value):
     Term(
         class_tag(*this),
         type,
@@ -21,7 +21,7 @@ Term* OpaqueIntConstantTerm::update() {
     return this;
 }
 
-long long OpaqueIntConstantTerm::getValue() const {
+int64_t OpaqueIntConstantTerm::getValue() const {
     return value;
 }
 
