@@ -43,7 +43,7 @@ public:
     static char ID;
     //magic numbers
     constexpr static double MERGING_CONSTANT = 0.9;
-    constexpr static int MIN_FUNCTION_CALLS = 5;
+    constexpr static int MIN_FUNCTION_CALLS = 3;
     const std::string PROTOBUF_FILE = "contracts.out";
 
     ContractManager();

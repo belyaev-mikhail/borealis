@@ -39,7 +39,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         processCallInstruction(*I, PSA->getInstructionState(I));
     }
 
-    if (!F.doesNotReturn()) {
+    /*if (!F.doesNotReturn()) {
        PredicateState::Ptr S;
        auto&& ret=llvm::getAllRets(&F);
        if(ret.size()==0)
@@ -76,7 +76,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
                CM->addSummary(&F,result,rtv,k.getUnsafe());
            }
        }
-    }
+    }*/
     return false;
 }
 
