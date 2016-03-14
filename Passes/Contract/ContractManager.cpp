@@ -60,9 +60,12 @@ void ContractManager::addContract(llvm::Function* F, const FunctionManager& FM, 
     }
 }
 
-void ContractManager::addSummary(llvm::Function* F, PredicateState::Ptr S,
-                                 const Term::Ptr ret, const Term::Ptr implyTo) {
-    summaries.push_back(Summary(F,S,ret,implyTo));
+void ContractManager::addSummary(llvm::Function* F, PredicateState::Ptr S, FunctionManager& FM) {
+    auto&& retyped = Retyper(FN).transform(S);
+    auto&& choiceOptimized = ChoiceOptimizer(FN).transform(retyped);
+    auto&& optimized = StateOptimizer(FN).transform(choiceOptimized);
+    FM.update(F,choiceOptimized);
+    summaries.push_back(Summary(F,choiceOptimized));
 }
 
 void ContractManager::saveState(FunctionIdentifier::Ptr func, PredicateState::Ptr state) {
@@ -170,7 +173,7 @@ void ContractManager::printContracts() const {
 void ContractManager::printSummaries() const {
     auto&& dbg = dbgs();
     llvm::Function* prev = nullptr;
-    dbg << "Summary extraction results" << endl;
+    dbg << "\nSummary extraction results" << endl;
     for (auto&& it : summaries) {
         if (prev == nullptr) {
             dbg << "---" << "Function " << it.func->getName() << "---" << endl;
@@ -179,9 +182,7 @@ void ContractManager::printSummaries() const {
                 dbg << "---" << "Function " << it.func->getName() << "---" << endl;
             }
         }
-        dbg << it.state;
-        dbg << " imply " << it.retval << " to ";
-        dbg << it.impTo << endl << endl;
+        dbg << it.state<< endl << endl << endl;
         prev = it.func;
     }
     dbg << endl;

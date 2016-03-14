@@ -31,11 +31,8 @@ public:
 
     struct Summary{
         llvm::Function* func;
-        PredicateState::Ptr state;
-        Term::Ptr retval;
-        Term::Ptr impTo;
-        Summary(llvm::Function* F, PredicateState::Ptr S, const Term::Ptr ret, const Term::Ptr implyTo)
-                : func(F), state(S), retval(ret), impTo(implyTo) {}
+        PredicateStateImply::Ptr state;
+        Summary(llvm::Function* F, PredicateStateImply::Ptr S):func(F),state(S){}
     };
 
     static char ID;
@@ -55,8 +52,8 @@ public:
     void addContract(llvm::Function* F, const FunctionManager& FM, PredicateState::Ptr S,
                      const std::unordered_map<int, Args>& mapping);
 
-    void addSummary(llvm::Function* F, PredicateState::Ptr S,
-                    const Term::Ptr ret, const Term::Ptr implyTo);
+    void addSummary(llvm::Function* F, PredicateStateImply::Ptr S, FunctionManager& FM);
+
 
 private:
 
