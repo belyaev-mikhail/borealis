@@ -25,7 +25,7 @@ namespace borealis {
 ContractExtractorPass::ContractExtractorPass() : ProxyFunctionPass(ID) {}
 
 bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
-    FN = FactoryNest(F.getDataLayout(),GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(&F));
+    FN = FactoryNest(F.getDataLayout(), GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(&F));
     FM = &GetAnalysis<FunctionManager>::doit(this, F);
     CM = &GetAnalysis<ContractManager>::doit(this, F);
     PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, F);
