@@ -181,7 +181,7 @@ void ContractManager::printSummaries() const {
         }
         dbg << it.state;
         dbg << " imply " << it.retval << " to ";
-        dbg << it.impTo << "\n\n\n\n";
+        dbg << it.impTo << endl << endl;
         prev = it.func;
     }
     dbg << endl;
