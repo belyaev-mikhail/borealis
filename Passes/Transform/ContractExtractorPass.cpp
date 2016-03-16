@@ -39,7 +39,6 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         processCallInstruction(*I, PSA->getInstructionState(I));
     }
 
-        //if (!F.doesNotReturn() && F.getName()=="recv_pack") {
         if (!F.doesNotReturn()) {
             PredicateState::Ptr S;
             auto&& ret=llvm::getAllRets(&F);
