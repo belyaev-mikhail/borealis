@@ -12,11 +12,11 @@
 #include "State/Transformer/StateRipper.h"
 #include "Passes/Tracker/SlotTrackerPass.h"
 #include "State/Transformer/EqualityMapper.h"
-#include "State/Transformer/ChoiceInfoCollector.h"
 #include "State/Transformer/ContractExtractorTransformer.h"
 #include "State/Transformer/FunctionSummariesTransformer.h"
 #include "State/Transformer/StateSlicer.h"
 #include "State/Transformer/UnexpPathPrDeleter.h"
+#include "State/Transformer/UnusedGlobalsDeleter.h"
 #include "ContractExtractorPass.h"
 
 
@@ -40,7 +40,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
     }
 
         //if (!F.doesNotReturn() && F.getName()=="recv_pack") {
-        if (!F.doesNotReturn() && F.getName()!="main") {
+        if (!F.doesNotReturn()) {
             PredicateState::Ptr S;
             auto&& ret=llvm::getAllRets(&F);
             if(ret.size()==0)
@@ -52,14 +52,12 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
             auto&& mappedState = mapper.transform(S);
             auto&& mapping = mapper.getMappedValues();
             auto&& sliced = StateSlicer(FN, TermSet({FN.Term->getReturnValueTerm(&F)}), &AA).transform(mappedState);
-            auto&& choiceInfo = ChoiceInfoCollector(FN);
-            choiceInfo.transform(sliced);
-            choiceInfo.pushBackTemp();//add last path
-            auto&& vec = choiceInfo.getChoiceInfo();
-            if(vec.size()==0)
-                return false;
             auto&& rtv = FN.Term->getReturnValueTerm(&F);
-            auto&& extractor = FunctionSummariesTransformer(FN, mapping, vec, rtv);
+            if(mapping.find(rtv)==mapping.end()){
+                return false;
+            }
+            Term::Ptr rtvMap=mapping.at(rtv);
+            auto&& extractor = FunctionSummariesTransformer(FN, mapping.at(rtv));
             extractor.transform(sliced);
             auto&& terms = extractor.getTermSet();
             auto&& protPredsMapping = extractor.getProtPredMapping();
@@ -77,6 +75,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
                 if (auto&& k = util::at(protPredsMapping, protPreds[i])) {
                     auto&& eq=FN.Predicate->getEqualityPredicate(rtv,k.getUnsafe());
                     auto&& pr=FN.State->Imply(result,eq);
+                    //errs()<<"pr="<<pr<<"\n";
                     CM->addSummary(&F,pr,*FM);
                 }
             }
