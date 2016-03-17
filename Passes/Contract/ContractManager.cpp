@@ -173,7 +173,7 @@ void ContractManager::printContracts() const {
 void ContractManager::printSummaries() const {
     auto&& dbg = dbgs();
     llvm::Function* prev = nullptr;
-    dbg << "\nSummary extraction results" << endl;
+    dbg << "Summary extraction results" << endl;
     for (auto&& it : summaries) {
         if (prev == nullptr) {
             dbg << "---" << "Function " << it.func->getName() << "---" << endl;

@@ -15,13 +15,15 @@ namespace borealis {
 AtomicInstLifting::AtomicInstLifting() : llvm::FunctionPass(ID) { }
 
 bool AtomicInstLifting::runOnFunction(llvm::Function& F) {
+    // Clear stuff in case we've been invoked several times in a row
+    deleted_instructions.clear();
+
     if (not F.isDeclaration()) {
         for (auto &&I : util::viewContainer(F)
                 .flatten()
                 .map(ops::take_pointer)
                 .map(llvm::dyn_caster<llvm::AtomicRMWInst>())
-                .filter()
-                .toVector()) {
+                .filter()) {
             processAtomicRMWInst(*I);
         }
 
@@ -29,17 +31,16 @@ bool AtomicInstLifting::runOnFunction(llvm::Function& F) {
                 .flatten()
                 .map(ops::take_pointer)
                 .map(llvm::dyn_caster<llvm::AtomicCmpXchgInst>())
-                .filter()
-                .toVector()) {
+                .filter()) {
             processAtomicCmpXchgInst(*I);
         }
 
         for (auto&& i : util::viewContainer(deleted_instructions)
                 .map(llvm::dyn_caster<llvm::Instruction>())
                 .filter()) {
-            for (auto&& it: i->users()) {
-                if (auto&& use = llvm::dyn_cast<llvm::Instruction>(it)) {
-                    if (use->getParent()) use->eraseFromParent();
+            for (auto&& user: util::viewContainer(i->users()).toVector()) {
+                if (auto&& use = llvm::dyn_cast<llvm::Instruction>(user)) {
+                    use->eraseFromParent();
                 }
             }
             i->eraseFromParent();
@@ -56,21 +57,22 @@ void AtomicInstLifting::processAtomicRMWInst(llvm::AtomicRMWInst& i) {
         auto* store = new llvm::StoreInst(val, ptr);
         copyMetadata(i, {store});
         store->insertBefore(&i);
+        i.replaceAllUsesWith(val);
 
     } else if (isBinary(i.getOperation())) {
         auto* load = new llvm::LoadInst(ptr);
-        auto* bin = llvm::BinaryOperator::Create(fromBinaryAtomic(i.getOperation()), load, val);
+        auto* bin = llvm::BinaryOperator::Create(fromAtomicToBinary(i.getOperation()), load, val);
         auto* store = new llvm::StoreInst(bin, ptr);
 
         copyMetadata(i, {load, bin, store});
         load->insertBefore(&i);
         bin->insertBefore(&i);
         store->insertBefore(&i);
+        i.replaceAllUsesWith(bin);
 
     } else if (i.getOperation() == atomicOps::Nand) {
         auto* load = new llvm::LoadInst(ptr);
         auto* bin = llvm::BinaryOperator::Create(llvmOps::And, load, val);
-
         ASSERTC(llvm::isa<llvm::IntegerType>(bin->getType()));
         auto allOnes = ~llvm::APInt::getNullValue(bin->getType()->getIntegerBitWidth());
 
@@ -84,11 +86,14 @@ void AtomicInstLifting::processAtomicRMWInst(llvm::AtomicRMWInst& i) {
         copyMetadata(i, {load, bin, notBin, store});
         load->insertBefore(&i);
         bin->insertBefore(&i);
+        notBin->insertBefore(&i);
         store->insertBefore(&i);
+        i.replaceAllUsesWith(notBin);
 
-    } else if (isSelect(i.getOperation())) {
+    } else if (isCmp(i.getOperation())) {
         auto* load = new llvm::LoadInst(ptr);
-        auto* cmp = llvm::CmpInst::Create(llvm::CmpInst::OtherOps::ICmp, fromSelectAtomic(i.getOperation()), load, val);
+        ASSERTC(llvm::isa<llvm::IntegerType>(load->getType()));
+        auto* cmp = llvm::CmpInst::Create(llvm::CmpInst::OtherOps::ICmp, fromAtomicToCmp(i.getOperation()), load, val);
         auto* select = llvm::SelectInst::Create(cmp, load, val);
         auto* store = new llvm::StoreInst(select, ptr);
 
@@ -97,6 +102,9 @@ void AtomicInstLifting::processAtomicRMWInst(llvm::AtomicRMWInst& i) {
         cmp->insertBefore(&i);
         select->insertBefore(&i);
         store->insertBefore(&i);
+        i.replaceAllUsesWith(select);
+    } else {
+        errs() << "Unsupported type of operation in atomicrmw inst:" << i << endl;
     }
 
     deleted_instructions.insert(&i);
@@ -122,6 +130,8 @@ void AtomicInstLifting::processAtomicCmpXchgInst(llvm::AtomicCmpXchgInst& i) {
         if (auto&& extract = llvm::dyn_cast<llvm::ExtractValueInst>(it)) {
             if (extract->getIndices()[0] == 0) extract->replaceAllUsesWith(select);
             else extract->replaceAllUsesWith(cmpInst);
+        } else {
+            errs() << "Unexpected user of cmpxchg inst: " << *it << endl;
         }
     }
 
@@ -133,7 +143,7 @@ bool AtomicInstLifting::isBinary(AtomicInstLifting::atomicOps op) {
            op == atomicOps::Or || op == atomicOps::Xor || op == atomicOps::And;
 }
 
-AtomicInstLifting::llvmOps AtomicInstLifting::fromBinaryAtomic(AtomicInstLifting::atomicOps op) {
+AtomicInstLifting::llvmOps AtomicInstLifting::fromAtomicToBinary(AtomicInstLifting::atomicOps op) {
     if (op == atomicOps::And) return llvmOps::And;
     else if (op == atomicOps::Xor) return llvmOps::Xor;
     else if (op == atomicOps::Or) return llvmOps::Or;
@@ -141,31 +151,32 @@ AtomicInstLifting::llvmOps AtomicInstLifting::fromBinaryAtomic(AtomicInstLifting
     else return llvmOps::Sub;
 }
 
-bool AtomicInstLifting::isSelect(AtomicInstLifting::atomicOps op) {
+bool AtomicInstLifting::isCmp(AtomicInstLifting::atomicOps op) {
     return op == atomicOps::Min || op == atomicOps::Max ||
            op == atomicOps::UMax || op == atomicOps::UMin;
 }
 
-AtomicInstLifting::cmpOps AtomicInstLifting::fromSelectAtomic(AtomicInstLifting::atomicOps op) {
+AtomicInstLifting::cmpOps AtomicInstLifting::fromAtomicToCmp(AtomicInstLifting::atomicOps op) {
     if (op == atomicOps::Min) return cmpOps::ICMP_SLT;
     else if (op == atomicOps::Max) return cmpOps::ICMP_SGT;
     else if (op == atomicOps::UMin) return cmpOps::ICMP_ULT;
     else return cmpOps::ICMP_UGT;
 }
 
-void AtomicInstLifting::copyMetadata(llvm::Instruction &i, std::vector<llvm::Instruction *> vector) {
+void AtomicInstLifting::copyMetadata(const llvm::Instruction &i, const std::vector<llvm::Instruction*>& newInsts) {
     llvm::SmallVector<std::pair<unsigned, llvm::MDNode*>, 0> metadata;
     i.getAllMetadata(metadata);
 
     for (auto&& it: metadata) {
-        for (auto&& inst: vector)
-            inst->setMetadata(it.first, it.second);
+        for (auto&& newInst: newInsts) {
+            newInst->setMetadata(it.first, it.second);
+        }
     }
 }
 
 char AtomicInstLifting::ID = 0;
 static llvm::RegisterPass<AtomicInstLifting>
-        X("atomic-lifting", "Pass that replaces atomic instructions with non-atomic equivalents", false, false);
+X("atomic-lifting", "Pass that replaces atomic instructions with non-atomic equivalents", false, false);
 
 }   /* namespace borealis */
 

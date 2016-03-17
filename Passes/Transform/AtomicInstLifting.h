@@ -33,11 +33,11 @@ private:
     void processAtomicCmpXchgInst(llvm::AtomicCmpXchgInst& i);
 
     bool isBinary(atomicOps op);
-    bool isSelect(atomicOps op);
-    llvmOps fromBinaryAtomic(atomicOps op);
-    cmpOps fromSelectAtomic(atomicOps op);
+    bool isCmp(atomicOps op);
+    llvmOps fromAtomicToBinary(atomicOps op);
+    cmpOps fromAtomicToCmp(atomicOps op);
 
-    void copyMetadata(llvm::Instruction& i, std::vector<llvm::Instruction*> newInsts);
+    void copyMetadata(const llvm::Instruction& i, const std::vector<llvm::Instruction*>& newInsts);
 
     trash_set deleted_instructions;
 
