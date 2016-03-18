@@ -24,7 +24,8 @@ namespace borealis {
 class ContractManager : public llvm::ModulePass {
 
     using Args = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
-    using FunctionSet = std::unordered_set<FunctionIdentifier::Ptr, FunctionIdHash, FunctionIdEquals>;
+    using FunctionInfo = std::unordered_map<FunctionIdentifier::Ptr, std::pair<llvm::Function*, FunctionManager*>,
+                                            FunctionIdHash, FunctionIdEquals>;
     using MemInfo = std::pair<unsigned int, unsigned int>;
 
 public:
@@ -32,7 +33,7 @@ public:
     struct Summary{
         llvm::Function* func;
         PredicateStateImply::Ptr state;
-        Summary(llvm::Function* F, PredicateStateImply::Ptr S):func(F),state(S){}
+        Summary(llvm::Function* F, PredicateStateImply::Ptr S): func(F), state(S) {}
     };
 
     static char ID;
@@ -49,7 +50,7 @@ public:
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override;
     virtual bool doFinalization(llvm::Module &) override;
 
-    void addContract(llvm::Function* F, const FunctionManager& FM, PredicateState::Ptr S,
+    void addContract(llvm::Function* F, FunctionManager& FM, PredicateState::Ptr S,
                      const std::unordered_map<int, Args>& mapping);
 
     void addSummary(llvm::Function* F, PredicateStateImply::Ptr S, FunctionManager& FM);
@@ -58,7 +59,7 @@ public:
 private:
 
     void saveState(FunctionIdentifier::Ptr func, PredicateState::Ptr state);
-    Term::Ptr stateToTerm(PredicateState::Ptr state);
+    Term::Ptr stateToTerm(PredicateState::Ptr state) const;
 
     void printContracts() const;
     void printSummaries() const;
@@ -70,7 +71,7 @@ private:
 private:
 
     static ContractContainer::Ptr contracts;
-    static FunctionSet visitedFunctions;
+    static FunctionInfo visitedFunctions;
     static std::vector<Summary> summaries;
 
     FactoryNest FN;

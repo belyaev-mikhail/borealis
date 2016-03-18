@@ -39,48 +39,48 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         processCallInstruction(*I, PSA->getInstructionState(I));
     }
 
-        if (!F.doesNotReturn()) {
-            PredicateState::Ptr S;
-            auto&& ret=llvm::getAllRets(&F);
-            if(ret.size()==0)
-                return false;
-            assert(ret.size()==1);
-            S = PSA->getInstructionState(*ret.begin());
-            auto&& fName=std::string(F.getName());
-            auto&& mapper = EqualityMapper(FN);
-            auto&& mappedState = mapper.transform(S);
-            auto&& mapping = mapper.getMappedValues();
-            auto&& sliced = StateSlicer(FN, TermSet({FN.Term->getReturnValueTerm(&F)}), &AA).transform(mappedState);
-            auto&& rtv = FN.Term->getReturnValueTerm(&F);
-            if(mapping.find(rtv)==mapping.end()){
-                return false;
-            }
-            Term::Ptr rtvMap=mapping.at(rtv);
-            auto&& extractor = FunctionSummariesTransformer(FN, mapping.at(rtv));
-            extractor.transform(sliced);
-            auto&& terms = extractor.getTermSet();
-            auto&& protPredsMapping = extractor.getProtPredMapping();
-            auto&& protPreds = extractor.getProtectedPredicates();
-            if (terms.size() == 0)
-                return false;
-            for (auto&& i = 0U; i < terms.size(); ++i) {
-                auto&& deleter = StateRipper(FN, protPreds[i]);
-                auto&& del = deleter.transform(sliced);
-                auto&& sliced1 = StateSlicer(FN, terms[i], &AA).transform(del);
-                auto&& del2 = UnexpPathPrDeleter(FN, protPreds[i]).transform(sliced1);
-                auto&& withoutGlob=UnusedGlobalsDeleter(FN,terms[i]).transform(del2);
-                auto&& sliced2 = StateSlicer(FN, terms[i], &AA).transform(withoutGlob);
-                auto&& result = ReplaceTermTransformer(FN, fName).transform(sliced2);
-                if (auto&& k = util::at(protPredsMapping, protPreds[i])) {
-                    auto&& eq=FN.Predicate->getEqualityPredicate(rtv,k.getUnsafe());
-                    auto&& pr=FN.State->Imply(result,eq);
-                    //errs()<<"pr="<<pr<<"\n";
-                    CM->addSummary(&F,pr,*FM);
-                }
+    if (!F.doesNotReturn()) {
+        PredicateState::Ptr S;
+        auto&& ret=llvm::getAllRets(&F);
+        if(ret.size()==0)
+            return false;
+        assert(ret.size()==1);
+        S = PSA->getInstructionState(*ret.begin());
+        auto&& fName=std::string(F.getName());
+        auto&& mapper = EqualityMapper(FN);
+        auto&& mappedState = mapper.transform(S);
+        auto&& mapping = mapper.getMappedValues();
+        auto&& sliced = StateSlicer(FN, TermSet({FN.Term->getReturnValueTerm(&F)}), &AA).transform(mappedState);
+        auto&& rtv = FN.Term->getReturnValueTerm(&F);
+        if(mapping.find(rtv)==mapping.end()){
+            return false;
+        }
+        Term::Ptr rtvMap=mapping.at(rtv);
+        auto&& extractor = FunctionSummariesTransformer(FN, mapping.at(rtv));
+        extractor.transform(sliced);
+        auto&& terms = extractor.getTermSet();
+        auto&& protPredsMapping = extractor.getProtPredMapping();
+        auto&& protPreds = extractor.getProtectedPredicates();
+        if (terms.size() == 0)
+            return false;
+        for (auto&& i = 0U; i < terms.size(); ++i) {
+            auto&& deleter = StateRipper(FN, protPreds[i]);
+            auto&& del = deleter.transform(sliced);
+            auto&& sliced1 = StateSlicer(FN, terms[i], &AA).transform(del);
+            auto&& del2 = UnexpPathPrDeleter(FN, protPreds[i]).transform(sliced1);
+            auto&& withoutGlob=UnusedGlobalsDeleter(FN,terms[i]).transform(del2);
+            auto&& sliced2 = StateSlicer(FN, terms[i], &AA).transform(withoutGlob);
+            auto&& result = ReplaceTermTransformer(FN, fName).transform(sliced2);
+            if (auto&& k = util::at(protPredsMapping, protPreds[i])) {
+                auto&& eq=FN.Predicate->getEqualityPredicate(rtv,k.getUnsafe());
+                auto&& pr=FN.State->Imply(result,eq);
+                //errs()<<"pr="<<pr<<"\n";
+                CM->addSummary(&F,pr,*FM);
             }
         }
-        return false;
     }
+    return false;
+}
 
 void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateState::Ptr S) {
     if (I.getCalledFunction() == nullptr) return;

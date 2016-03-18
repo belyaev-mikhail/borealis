@@ -23,7 +23,6 @@ public:
     ArgumentUnifier(const FactoryNest& fn, const ArgToTerms& a);
 
     Term::Ptr transformTerm(Term::Ptr term);
-    Term::Ptr transformCmpTerm(CmpTermPtr term);
     const TermSet& getArguments();
 
 private:
