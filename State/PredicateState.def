@@ -8,6 +8,7 @@
 #include "State/BasicPredicateState.h"
 #include "State/PredicateStateChain.h"
 #include "State/PredicateStateChoice.h"
+#include "State/PredicateStateImply.h"
 
 #define HANDLE_STATE(NAME, CLASS)
 
@@ -15,6 +16,7 @@
 
 HANDLE_STATE(Basic, BasicPredicateState)
 HANDLE_STATE(Chain, PredicateStateChain)
+HANDLE_STATE(Imply, PredicateStateImply)
 HANDLE_STATE(Choice, PredicateStateChoice)
 
 #ifdef HANDLE_STATE
