@@ -16,6 +16,11 @@ ValueTerm::ValueTerm(Type::Ptr type, const std::string& vname, bool global) :
         vname + (global ? ".global" : "")
     ), vname(vname), global(global) {};
 
+Term* ValueTerm::update() {
+    name = getVName() + (isGlobal() ? ".global" : "");
+    return this;
+}
+
 const std::string& ValueTerm::getVName() const {
     return vname;
 }

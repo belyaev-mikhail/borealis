@@ -83,6 +83,8 @@ protected:
 
 public:
 
+    // FIXME akhin Remove raw pointers here - switch to Predicate::Ptr
+
     virtual ~Predicate() = default;
 
     PredicateType getType() const;
@@ -105,6 +107,10 @@ public:
 
     virtual Predicate* clone() const;
 
+    virtual Predicate* update();
+
+    virtual Predicate* replaceOperands(const std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>& map) const;
+
 protected:
 
     PredicateType type;
@@ -114,6 +120,18 @@ protected:
     std::string asString;
     Operands ops;
 
+};
+
+struct PredicateHash {
+    size_t operator()(Predicate::Ptr pred) const noexcept {
+        return pred->hashCode();
+    }
+};
+
+struct PredicateEquals {
+    bool operator()(Predicate::Ptr lhv, Predicate::Ptr rhv) const noexcept {
+        return lhv->equals(rhv.get());
+    }
 };
 
 bool operator==(const Predicate& a, const Predicate& b);
@@ -146,7 +164,8 @@ public: \
     } \
     virtual Predicate* clone() const override { \
         return new Self{ *this }; \
-    }
+    } \
+    virtual Predicate* update() override;
 
 #define PREDICATE_ON_CHANGED(COND, CTOR) \
     if (COND) return Predicate::Ptr{ CTOR }; \
