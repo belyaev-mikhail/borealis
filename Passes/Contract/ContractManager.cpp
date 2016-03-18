@@ -89,38 +89,35 @@ void ContractManager::saveState(FunctionIdentifier::Ptr func, PredicateState::Pt
 }
 
 Term::Ptr ContractManager::stateToTerm(PredicateState::Ptr state) {
+    Term::Ptr stateTerm = nullptr;
     if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(state)) {
-        Term::Ptr stateTerm = nullptr;
-        for (auto&& pred : basic->getData()) {
-            if (auto&& eq = llvm::dyn_cast<EqualityPredicate>(pred)) {
-                auto &&predTerm = eq->getRhv()->equals(FN.Term->getFalseTerm().get()) ?
-                                  FN.Term->getUnaryTerm(llvm::UnaryArithType::NOT, eq->getLhv()) :
-                                  eq->getLhv();
-                if (not stateTerm) stateTerm = predTerm;
-                else stateTerm = FN.Term->getBinaryTerm(llvm::ArithType::BAND, stateTerm, predTerm);
-            } else {
-                return nullptr;
-            }
+        for (auto&& pred: util::viewContainer(basic->getData())
+                .map(llvm::dyn_caster<EqualityPredicate>())
+                .filter()) {
+            auto&& predTerm = pred->getRhv()->equals(FN.Term->getFalseTerm().get()) ?
+                              FN.Term->getUnaryTerm(llvm::UnaryArithType::NOT, pred->getLhv()) :
+                              pred->getLhv();
+            stateTerm = (not stateTerm) ?
+                        predTerm :
+                        FN.Term->getBinaryTerm(llvm::ArithType::BAND, stateTerm, predTerm);
         }
-        return stateTerm;
     } else if (auto&& chain = llvm::dyn_cast<PredicateStateChain>(state)) {
         auto&& baseTerm = stateToTerm(chain->getBase());
         auto&& currTerm = stateToTerm(chain->getCurr());
-        if (baseTerm && currTerm) return FN.Term->getBinaryTerm(llvm::ArithType::BAND, baseTerm, currTerm);
-        else return nullptr;
+        stateTerm = (baseTerm && currTerm) ?
+                    FN.Term->getBinaryTerm(llvm::ArithType::BAND, baseTerm, currTerm) :
+                    nullptr;
     } else {
         auto&& choice = llvm::cast<PredicateStateChoice>(state);
-        Term::Ptr choiceTerm = nullptr;
         for (auto&& st : choice->getChoices()) {
-            if (auto&& stTerm = stateToTerm(st)) {
-                if (not choiceTerm) choiceTerm = stTerm;
-                else choiceTerm = FN.Term->getBinaryTerm(llvm::ArithType::BOR, choiceTerm, stTerm);
-            } else {
-                return nullptr;
-            }
+            if (auto&&choiceTerm = stateToTerm(st)) {
+                stateTerm = (not stateTerm) ?
+                            choiceTerm :
+                            FN.Term->getBinaryTerm(llvm::ArithType::BOR, stateTerm, choiceTerm);
+            } else return nullptr;
         }
-        return choiceTerm;
     }
+    return stateTerm;
 }
 
 void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
