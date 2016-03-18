@@ -42,13 +42,13 @@ bool ContractManager::runOnModule(llvm::Module& M) {
     return false;
 }
 
-void ContractManager::addContract(llvm::Function* F, const FunctionManager& FM, PredicateState::Ptr S,
+void ContractManager::addContract(llvm::Function* F, FunctionManager& FM, PredicateState::Ptr S,
                                   const std::unordered_map<int, Args>& mapping) {
     if (IntrinsicsManager::getInstance().getIntrinsicType(F) != function_type::UNKNOWN)
         return;
     auto&& func = contracts->getFunctionId(F, FM.getMemoryBounds(F));
     func->called();
-    visitedFunctions.insert(func);
+    visitedFunctions[func] = {F, &FM};
     if (not S->isEmpty()) {
         auto&& unified = ArgumentUnifier(FN, mapping).transform(S);
         auto&& retyped = Retyper(FN).transform(unified);
@@ -85,10 +85,12 @@ void ContractManager::saveState(FunctionIdentifier::Ptr func, PredicateState::Pt
         if (res.isSat()) {
             contracts->at(func)->push_back(newState);
         }
+    } else {
+        errs() << "Unable to save state:" << state << endl;
     }
 }
 
-Term::Ptr ContractManager::stateToTerm(PredicateState::Ptr state) {
+Term::Ptr ContractManager::stateToTerm(PredicateState::Ptr state) const {
     Term::Ptr stateTerm = nullptr;
     if (auto&& basic = llvm::dyn_cast<BasicPredicateState>(state)) {
         for (auto&& pred: util::viewContainer(basic->getData())
@@ -143,7 +145,8 @@ void ContractManager::printContracts() const {
     }
 
     dbg << "Contract extraction results" << endl;
-    for (auto&& F : visitedFunctions) {
+    for (auto&& it : visitedFunctions) {
+        auto&& F = it.first;
         auto&& memBounds = F->memBounds();
         auto&& merger = MergingTransformer(FN, memBounds, F->calls());
 
@@ -160,6 +163,16 @@ void ContractManager::printContracts() const {
             dbg << "---" << "Function " << F->name() << "---" << endl;
             dbg << "State:" << endl;
             dbg << mergedState << endl;
+
+            if (auto&& contract = stateToTerm(mergedState)) {
+                auto&& function = it.second.first;
+                auto&& fm = it.second.second;
+                auto&& contractPredicate = FN.Predicate->getEqualityPredicate(contract, FN.Term->getTrueTerm(), Locus(), PredicateType::REQUIRES);
+                fm->update(function, FN.State->Basic({contractPredicate}));
+                dbg << "Contract predicate:" << endl;
+                dbg << contractPredicate << endl;
+            }
+
             dbg << endl;
         }
     }
@@ -191,7 +204,7 @@ ContractContainer::Ptr ContractManager::readFrom(const std::string& fname) {
         return nullptr;
     }
 
-    ContractContainer::ProtoPtr proto{new proto::ContractContainer{}};
+    ContractContainer::ProtoPtr proto{ new proto::ContractContainer{} };
     proto->ParseFromIstream(&contractsStream);
 
     ContractContainer::Ptr container = deprotobuffy(FN, *proto);
@@ -216,7 +229,7 @@ void ContractManager::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
 
 char ContractManager::ID = 0;
 ContractContainer::Ptr ContractManager::contracts;
-ContractManager::FunctionSet ContractManager::visitedFunctions;
+ContractManager::FunctionInfo ContractManager::visitedFunctions;
 
 std::vector<ContractManager::Summary> ContractManager::summaries;
 
