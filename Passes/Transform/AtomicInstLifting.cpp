@@ -139,28 +139,33 @@ void AtomicInstLifting::processAtomicCmpXchgInst(llvm::AtomicCmpXchgInst& i) {
 }
 
 bool AtomicInstLifting::isBinary(AtomicInstLifting::atomicOps op) {
-    return op == atomicOps::Add || op == atomicOps::Sub ||
-           op == atomicOps::Or || op == atomicOps::Xor || op == atomicOps::And;
+    return op == atomicOps::Add ||
+           op == atomicOps::Sub ||
+           op == atomicOps::Or  ||
+           op == atomicOps::Xor ||
+           op == atomicOps::And;
 }
 
 AtomicInstLifting::llvmOps AtomicInstLifting::fromAtomicToBinary(AtomicInstLifting::atomicOps op) {
-    if (op == atomicOps::And) return llvmOps::And;
-    else if (op == atomicOps::Xor) return llvmOps::Xor;
-    else if (op == atomicOps::Or) return llvmOps::Or;
-    else if (op == atomicOps::Add) return llvmOps::Add;
-    else return llvmOps::Sub;
+    if      (op == atomicOps::Add)  return llvmOps::Add;
+    else if (op == atomicOps::Sub)  return llvmOps::Sub;
+    else if (op == atomicOps::Or)   return llvmOps::Or;
+    else if (op == atomicOps::Xor)  return llvmOps::Xor;
+    else                            return llvmOps::And;
 }
 
 bool AtomicInstLifting::isCmp(AtomicInstLifting::atomicOps op) {
-    return op == atomicOps::Min || op == atomicOps::Max ||
-           op == atomicOps::UMax || op == atomicOps::UMin;
+    return op == atomicOps::Min  ||
+           op == atomicOps::Max  ||
+           op == atomicOps::UMax ||
+           op == atomicOps::UMin;
 }
 
 AtomicInstLifting::cmpOps AtomicInstLifting::fromAtomicToCmp(AtomicInstLifting::atomicOps op) {
-    if (op == atomicOps::Min) return cmpOps::ICMP_SLT;
-    else if (op == atomicOps::Max) return cmpOps::ICMP_SGT;
-    else if (op == atomicOps::UMin) return cmpOps::ICMP_ULT;
-    else return cmpOps::ICMP_UGT;
+    if      (op == atomicOps::Min)  return cmpOps::ICMP_SLT;
+    else if (op == atomicOps::Max)  return cmpOps::ICMP_SGT;
+    else if (op == atomicOps::UMax) return cmpOps::ICMP_UGT;
+    else                            return cmpOps::ICMP_ULT;
 }
 
 void AtomicInstLifting::copyMetadata(const llvm::Instruction &i, const std::vector<llvm::Instruction*>& newInsts) {
