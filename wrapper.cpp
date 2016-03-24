@@ -6,6 +6,7 @@
  */
 
 #include <iostream>
+#include <unistd.h>
 
 #define BACKWARD_HAS_UNWIND 1
 #define BACKWARD_HAS_BACKTRACE 0
@@ -15,7 +16,7 @@
 #include <backward.hpp>
 
 #include <z3/z3++.h>
-
+#include "leveldb-mp/include/DB.hpp"
 #include "Driver/gestalt.h"
 
 static backward::SignalHandling sh{std::vector<int>{ SIGABRT, SIGSEGV, SIGILL, SIGINT }};
@@ -31,6 +32,16 @@ void on_terminate(void) {
 static bool th = !!std::set_terminate(on_terminate);
 
 int main(int argc, const char** argv) {
+    if (not leveldb_daemon::DB::isDaemonStarted()) {
+        auto pid = fork();
+        if (pid == 0) {
+            system("/home/abdullin/workspace/borealis/lib/leveldb-mp/leveldb_daemon /tmp/leveldb-testbase /tmp/leveldb-test-server-socket.soc");
+            return 0;
+        }
+    }
+    auto&& db = leveldb_daemon::DB::getInstance();
+    db->setSocket("/tmp/leveldb-test-server-socket.soc");
+
     using namespace borealis::driver;
     gestalt gestalt{ "wrapper" };
     return gestalt.main(argc, argv);
