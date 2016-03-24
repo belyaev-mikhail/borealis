@@ -244,6 +244,7 @@ LIBS := \
 	-lgmpxx \
 	-lgmp \
 	-luuid \
+	-Wl,-rpath,'$$ORIGIN'/lib/leveldb-mp/libsocket/C++ ./lib/leveldb-mp/libsocket/C++/libsocket++.so \
 	$(LLVMSYSTEMLIBS)
 
 ################################################################################
