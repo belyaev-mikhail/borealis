@@ -6,6 +6,7 @@
  */
 
 #include <iostream>
+#include <linux/limits.h>
 #include <unistd.h>
 
 #define BACKWARD_HAS_UNWIND 1
@@ -14,9 +15,9 @@
 #define BACKWARD_HAS_BFD 0
 #define BACKWARD_HAS_BACKTRACE_SYMBOL 1
 #include <backward.hpp>
+#include <DB.hpp>
 
 #include <z3/z3++.h>
-#include "leveldb-mp/include/DB.hpp"
 #include "Driver/gestalt.h"
 
 static backward::SignalHandling sh{std::vector<int>{ SIGABRT, SIGSEGV, SIGILL, SIGINT }};
@@ -31,11 +32,22 @@ void on_terminate(void) {
 
 static bool th = !!std::set_terminate(on_terminate);
 
+std::string getexepath() {
+    char result[ PATH_MAX ];
+    ssize_t count = readlink( "/proc/self/exe", result, PATH_MAX );
+    auto found = std::string(result).find_last_of("/");
+    return(std::string(result).substr(0, found) + "/");
+}
+
 int main(int argc, const char** argv) {
     if (not leveldb_daemon::DB::isDaemonStarted()) {
+        std::string exePath = getexepath();
         auto pid = fork();
         if (pid == 0) {
-            system("/home/abdullin/workspace/borealis/lib/leveldb-mp/leveldb_daemon /tmp/leveldb-testbase /tmp/leveldb-test-server-socket.soc");
+            std::string db_name = "/tmp/leveldb-testbase";
+            std::string socket_name = "/tmp/leveldb-test-server-socket.soc";
+            std::string runCmd = exePath + "lib/leveldb-mp/leveldb_daemon " + db_name + " " + socket_name;
+            system(runCmd.c_str());
             return 0;
         }
     }
