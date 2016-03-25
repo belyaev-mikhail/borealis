@@ -22,12 +22,16 @@ public:
 
     ArgumentUnifier(const FactoryNest& fn, const ArgToTerms& a);
 
+    using Base::transform;
+    PredicateState::Ptr transform(PredicateState::Ptr ps);
     Term::Ptr transformTerm(Term::Ptr term);
+    Predicate::Ptr transformPredicate(Predicate::Ptr pred);
     const TermSet& getArguments();
 
 private:
 
-    bool isSigned(llvm::ConditionType cond);
+    bool allowedInContract(Term::Ptr term) const;
+    bool isOpaqueTerm(Term::Ptr term) const;
 
 private:
 
