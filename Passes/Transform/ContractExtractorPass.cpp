@@ -19,6 +19,8 @@
 #include "State/Transformer/UnusedGlobalsDeleter.h"
 #include "ContractExtractorPass.h"
 
+#include "Database/SerialTemplateSpec.hpp"
+
 
 namespace borealis {
 
@@ -74,7 +76,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
             if (auto&& k = util::at(protPredsMapping, protPreds[i])) {
                 auto&& eq=FN.Predicate->getEqualityPredicate(rtv,k.getUnsafe());
                 auto&& pr=FN.State->Imply(result,eq);
-                //errs()<<"pr="<<pr<<"\n";
+                errs()<<"pr="<<pr<<"\n";
                 CM->addSummary(&F,pr,*FM);
             }
         }
