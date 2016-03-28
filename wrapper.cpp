@@ -35,7 +35,7 @@ int main(int argc, const char** argv) {
     if (not leveldb_daemon::DB::isDaemonStarted()) {
         auto pid = fork();
         if (pid == 0) {
-            system("/home/abdullin/workspace/borealis/lib/leveldb-mp/leveldb_daemon /tmp/leveldb-testbase /tmp/leveldb-test-server-socket.soc");
+            system("./lib/leveldb-mp/leveldb_daemon /tmp/leveldb-testbase /tmp/leveldb-test-server-socket.soc");
             return 0;
         }
     }

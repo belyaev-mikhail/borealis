@@ -11,6 +11,8 @@
 #include <string>
 #include <memory>
 
+#include "leveldb-mp/include/DB.hpp"
+
 #include "Protobuf/Gen/Passes/Contract/FunctionIdentifier.pb.h"
 
 namespace borealis {
@@ -54,6 +56,7 @@ public:
     FunctionIdentifier(const FunctionIdentifier&) = default;
     FunctionIdentifier(FunctionIdentifier&&)      = default;
     ~FunctionIdentifier()                         = default;
+
 
     const std::string& name() const {
         return name_;

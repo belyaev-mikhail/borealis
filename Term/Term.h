@@ -79,6 +79,8 @@ public:
     size_t getNumSubterms() const;
     const Subterms& getSubterms() const;
 
+
+
     virtual bool equals(const Term* other) const;
     virtual size_t hashCode() const;
 
