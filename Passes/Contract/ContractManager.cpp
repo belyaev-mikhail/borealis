@@ -7,17 +7,19 @@
 
 #include <fstream>
 #include <Codegen/intrinsics_manager.h>
+#include <DB.hpp>
 
+#include "ContractManager.h"
+#include "Database/SerialTemplateSpec.hpp"
+#include "Protobuf/Converter.hpp"
 #include "SMT/Z3/Z3.h"
 #include "SMT/Z3/Solver.h"
-#include "Util/passes.hpp"
-#include "Protobuf/Converter.hpp"
 #include "State/Transformer/Retyper.h"
 #include "State/Transformer/ArgumentUnifier.h"
 #include "State/Transformer/StateOptimizer.h"
 #include "State/Transformer/MergingTransformer.h"
 #include "State/Transformer/ChoiceOptimizer.h"
-#include "ContractManager.h"
+#include "Util/passes.hpp"
 
 namespace borealis {
 
