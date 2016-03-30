@@ -12,11 +12,11 @@
 
 #include <unordered_map>
 
-#include "Term/Term.h"
-#include "State/PredicateState.h"
+#include "ContractContainer.h"
 #include "Factory/Nest.h"
 #include "Passes/Manager/FunctionManager.h"
-#include "ContractContainer.h"
+#include "State/PredicateState.h"
+#include "Term/Term.h"
 
 
 namespace borealis {

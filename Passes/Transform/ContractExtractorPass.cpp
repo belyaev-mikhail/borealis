@@ -6,18 +6,19 @@
  */
 #include <llvm/Analysis/AliasAnalysis.h>
 
-#include "Util/util.h"
 #include "Codegen/llvm.h"
+#include "ContractExtractorPass.h"
+#include "Database/SerialTemplateSpec.hpp"
+#include "Passes/Tracker/SlotTrackerPass.h"
 #include "State/Transformer/ReplaceTermTransformer.h"
 #include "State/Transformer/StateRipper.h"
-#include "Passes/Tracker/SlotTrackerPass.h"
 #include "State/Transformer/EqualityMapper.h"
 #include "State/Transformer/ContractExtractorTransformer.h"
 #include "State/Transformer/FunctionSummariesTransformer.h"
 #include "State/Transformer/StateSlicer.h"
 #include "State/Transformer/UnexpPathPrDeleter.h"
 #include "State/Transformer/UnusedGlobalsDeleter.h"
-#include "ContractExtractorPass.h"
+#include "Util/util.h"
 
 
 namespace borealis {
@@ -74,7 +75,6 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
             if (auto&& k = util::at(protPredsMapping, protPreds[i])) {
                 auto&& eq=FN.Predicate->getEqualityPredicate(rtv,k.getUnsafe());
                 auto&& pr=FN.State->Imply(result,eq);
-                //errs()<<"pr="<<pr<<"\n";
                 CM->addSummary(&F,pr,*FM);
             }
         }

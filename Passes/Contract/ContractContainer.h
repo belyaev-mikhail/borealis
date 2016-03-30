@@ -8,10 +8,10 @@
 #include <vector>
 #include <string>
 
-#include "State/PredicateState.h"
-#include "Protobuf/Gen/Passes/Contract/ContractContainer.pb.h"
-#include "FunctionIdentifier.h"
 #include "Contract.h"
+#include "FunctionIdentifier.h"
+#include "Protobuf/Gen/Passes/Contract/ContractContainer.pb.h"
+#include "State/PredicateState.h"
 
 namespace borealis {
 
