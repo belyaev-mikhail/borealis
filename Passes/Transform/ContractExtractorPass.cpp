@@ -8,7 +8,6 @@
 
 #include "Codegen/llvm.h"
 #include "ContractExtractorPass.h"
-#include "Database/SerialTemplateSpec.hpp"
 #include "Passes/Tracker/SlotTrackerPass.h"
 #include "State/Transformer/ReplaceTermTransformer.h"
 #include "State/Transformer/StateRipper.h"
