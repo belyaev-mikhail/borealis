@@ -64,8 +64,11 @@ private:
     void printContracts() const;
     void printSummaries() const;
 
-    ContractContainer::Ptr readFrom(const std::string& fname);
-    void writeTo(const std::string& fname) const;
+    ContractContainer::Ptr readFromDB();
+    ContractContainer::Ptr readFromFile(const std::string &fname);
+
+    void writeToDB() const;
+    void writeToFile(const std::string &fname) const;
 
 
 private:
