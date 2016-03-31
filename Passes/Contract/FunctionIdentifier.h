@@ -31,13 +31,14 @@ message FunctionIdentifier {
 
 **/
 
-class FunctionIdentifier {
+class FunctionIdentifier : public std::enable_shared_from_this<const FunctionIdentifier> {
 
     using MemInfo = std::pair<unsigned int, unsigned int>;
 
 public:
 
     using Ptr = std::shared_ptr<FunctionIdentifier>;
+    using ConstPtr = std::shared_ptr<FunctionIdentifier>;
     using ProtoPtr = std::unique_ptr<borealis::proto::FunctionIdentifier>;
 
     FunctionIdentifier(const std::string& fname,

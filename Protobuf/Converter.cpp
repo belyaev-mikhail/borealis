@@ -49,7 +49,7 @@ AnnotationContainer::Ptr deprotobuffy(FactoryNest fn, const proto::AnnotationCon
     return protobuf_traits<AnnotationContainer>::fromProtobuf(fn, p);
 }
 
-Contract::ProtoPtr protobuffy(Contract::Ptr p) {
+Contract::ProtoPtr protobuffy(Contract::ConstPtr p) {
     return protobuf_traits<Contract>::toProtobuf(*p);
 }
 
@@ -57,7 +57,7 @@ Contract::Ptr deprotobuffy(FactoryNest fn, const proto::Contract& p) {
     return protobuf_traits<Contract>::fromProtobuf(fn, p);
 }
 
-FunctionIdentifier::ProtoPtr protobuffy(FunctionIdentifier::Ptr p) {
+FunctionIdentifier::ProtoPtr protobuffy(FunctionIdentifier::ConstPtr p) {
     return protobuf_traits<FunctionIdentifier>::toProtobuf(*p);
 }
 
@@ -65,7 +65,7 @@ FunctionIdentifier::Ptr deprotobuffy(const proto::FunctionIdentifier& p) {
     return protobuf_traits<FunctionIdentifier>::fromProtobuf(p);
 }
 
-ContractContainer::ProtoPtr protobuffy(ContractContainer::Ptr p) {
+ContractContainer::ProtoPtr protobuffy(ContractContainer::ConstPtr p) {
     return protobuf_traits<ContractContainer>::toProtobuf(*p);
 }
 

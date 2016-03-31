@@ -19,6 +19,7 @@
 #include "State/Transformer/ChoiceOptimizer.h"
 #include "ContractManager.h"
 
+
 namespace borealis {
 
 ContractManager::ContractManager() : ModulePass(ID) {}
@@ -145,7 +146,6 @@ void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
 
 void ContractManager::printContracts() const {
     auto&& dbg = dbgs();
-
     dbg << "Found contracts dump" << endl;
     for (auto&& it : contracts->data()) {
         auto&& F = it.first;
