@@ -29,13 +29,14 @@ message ContractContainer {
 
 **/
 
-class ContractContainer {
+class ContractContainer: public std::enable_shared_from_this<ContractContainer>{
 
     using Data = std::unordered_map<FunctionIdentifier::Ptr, Contract::Ptr, FunctionIdHash, FunctionIdEquals>;
 
 public:
 
     using Ptr = std::shared_ptr<ContractContainer>;
+    using ConstPtr = std::shared_ptr<const ContractContainer>;
     using ProtoPtr = std::unique_ptr<borealis::proto::ContractContainer>;
 
     ContractContainer()                         = default;
