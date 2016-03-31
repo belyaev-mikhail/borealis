@@ -11,7 +11,6 @@
 
 #include "ContractManager.h"
 #include "Database/SerialTemplateSpec.hpp"
-#include "Protobuf/Converter.hpp"
 #include "SMT/Z3/Z3.h"
 #include "SMT/Z3/Solver.h"
 #include "State/Transformer/Retyper.h"
@@ -27,7 +26,7 @@ namespace borealis {
 ContractManager::ContractManager() : ModulePass(ID) {}
 
 bool ContractManager::doFinalization(llvm::Module&) {
-    writeTo(PROTOBUF_FILE);
+    writeToDB();
     return false;
 }
 
@@ -37,7 +36,7 @@ bool ContractManager::runOnModule(llvm::Module& M) {
     VariableInfoTracker* VI = &GetAnalysis<VariableInfoTracker>::doit(this);
     FN.Type->initialize(*VI);
 
-    contracts = readFrom(PROTOBUF_FILE);
+    contracts = readFromDB();
     if (not contracts) {
         contracts = ContractContainer::Ptr{new ContractContainer()};
     }
@@ -216,7 +215,7 @@ void ContractManager::printSummaries() const {
     dbg << endl;
 }
 
-ContractContainer::Ptr ContractManager::readFrom(const std::string& fname) {
+ContractContainer::Ptr ContractManager::readFromFile(const std::string &fname) {
     std::ifstream contractsStream(fname, std::iostream::in | std::iostream::binary);
     if (not contractsStream) {
         return nullptr;
@@ -233,7 +232,17 @@ ContractContainer::Ptr ContractManager::readFrom(const std::string& fname) {
     return container;
 }
 
-void ContractManager::writeTo(const std::string& fname) const {
+ContractContainer::Ptr ContractManager::readFromDB() {
+    auto&& db = leveldb_daemon::DB::getInstance();
+    return db->read<ContractContainer, FactoryNest>(PROTOBUF_FILE, FN);
+}
+
+void ContractManager::writeToDB() const {
+    auto&& db = leveldb_daemon::DB::getInstance();
+    db->write(PROTOBUF_FILE, *contracts);
+}
+
+void ContractManager::writeToFile(const std::string &fname) const {
     ContractContainer::ProtoPtr proto = protobuffy(contracts);
     std::ofstream contractsStream(fname, std::iostream::out | std::iostream::binary);
     proto->SerializeToOstream(&contractsStream);
