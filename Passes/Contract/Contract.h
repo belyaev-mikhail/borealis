@@ -27,7 +27,7 @@ message Contract {
 **/
 
 
-class Contract {
+class Contract : public std::enable_shared_from_this<const Contract> {
 
     using Data = std::vector<PredicateState::Ptr>;
     Data data_;
@@ -35,6 +35,7 @@ class Contract {
 public:
 
     using Ptr = std::shared_ptr<Contract>;
+    using ConstPtr = std::shared_ptr<const Contract>;
     using ProtoPtr = std::unique_ptr<borealis::proto::Contract>;
 
     Contract(const Data& data) : data_(data) {}
