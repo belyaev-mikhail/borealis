@@ -9,11 +9,9 @@ namespace borealis {
 
 ContractSummaryPass::ContractSummaryPass() : ModulePass(ID) {}
 
-bool ContractSummaryPass::runOnModule(llvm::Module& M) {
-    std::string temp = "";
-    llvm::raw_string_ostream rs(temp);
+bool ContractSummaryPass::runOnModule(llvm::Module&) {
     CM = &GetAnalysis<ContractManager>::doit(this);
-    CM->print(rs, &M);
+    CM->printResults();
     return false;
 }
 

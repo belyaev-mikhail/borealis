@@ -16,4 +16,8 @@ size_t FunctionIdentifier::hashCode() {
     return util::hash::defaultHasher()(name_, rettype_);
 }
 
+void FunctionIdentifier::add(FunctionIdentifier* other) {
+    this->calls_ += other->calls_;
+}
+
 }   /* namespace borealis */

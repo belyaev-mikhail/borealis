@@ -46,6 +46,12 @@ FunctionIdentifier::Ptr    deprotobuffy(const proto::FunctionIdentifier& p);
 ContractContainer::ProtoPtr protobuffy(ContractContainer::ConstPtr p);
 ContractContainer::Ptr    deprotobuffy(FactoryNest FN, const proto::ContractContainer& p);
 
+Contract::ProtoPtr protobuffy(Contract::ConstPtr p);
+Contract::Ptr    deprotobuffy(FactoryNest FN, const proto::Contract& p);
+
+FunctionIdentifier::ProtoPtr protobuffy(FunctionIdentifier::ConstPtr p);
+FunctionIdentifier::Ptr    deprotobuffy(FactoryNest, const proto::FunctionIdentifier& p);
+
 PredicateState::ProtoPtr protobuffy(PredicateState::Ptr p);
 PredicateState::Ptr    deprotobuffy(FactoryNest FN, const proto::PredicateState& p);
 

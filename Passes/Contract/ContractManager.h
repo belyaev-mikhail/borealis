@@ -24,8 +24,8 @@ namespace borealis {
 class ContractManager : public llvm::ModulePass {
 
     using Args = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
-    using FunctionInfo = std::unordered_map<FunctionIdentifier::Ptr, std::pair<llvm::Function*, FunctionManager*>,
-                                            FunctionIdHash, FunctionIdEquals>;
+    using FunctionInfo = std::unordered_map<FunctionIdentifier::Ptr, std::pair<llvm::Function*, FunctionManager*>
+                                           , FunctionIdHash, FunctionIdEquals>;
     using MemInfo = std::pair<unsigned int, unsigned int>;
 
 public:
@@ -46,9 +46,10 @@ public:
     virtual ~ContractManager()  = default;
 
     virtual bool runOnModule(llvm::Module&) override;
-    virtual void print(llvm::raw_ostream&, const llvm::Module*) const override;
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override;
     virtual bool doFinalization(llvm::Module &) override;
+
+    void printResults();
 
     void addContract(llvm::Function* F, FunctionManager& FM, PredicateState::Ptr S,
                      const std::unordered_map<int, Args>& mapping);
@@ -61,9 +62,11 @@ private:
     void saveState(FunctionIdentifier::Ptr func, PredicateState::Ptr state);
     Term::Ptr stateToTerm(PredicateState::Ptr state) const;
 
+    void printContractsDump() const;
     void printContracts() const;
     void printSummaries() const;
 
+    void syncWithDB();
     ContractContainer::Ptr readFromDB();
     ContractContainer::Ptr readFromFile(const std::string &fname);
 
@@ -74,7 +77,7 @@ private:
 private:
 
     static ContractContainer::Ptr contracts;
-    static FunctionInfo visitedFunctions;
+    static FunctionInfo functionInfo;
     static std::vector<Summary> summaries;
 
     FactoryNest FN;

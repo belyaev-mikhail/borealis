@@ -61,7 +61,7 @@ FunctionIdentifier::ProtoPtr protobuffy(FunctionIdentifier::ConstPtr p) {
     return protobuf_traits<FunctionIdentifier>::toProtobuf(*p);
 }
 
-FunctionIdentifier::Ptr deprotobuffy(const proto::FunctionIdentifier& p) {
+FunctionIdentifier::Ptr deprotobuffy(FactoryNest, const proto::FunctionIdentifier& p) {
     return protobuf_traits<FunctionIdentifier>::fromProtobuf(p);
 }
 
