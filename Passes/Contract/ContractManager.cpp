@@ -25,10 +25,6 @@ namespace borealis {
 
 ContractManager::ContractManager() : ModulePass(ID) {}
 
-bool ContractManager::doFinalization(llvm::Module&) {
-    return false;
-}
-
 bool ContractManager::runOnModule(llvm::Module& M) {
     const llvm::DataLayout* DL = M.getDataLayout();
     FN = FactoryNest(DL, nullptr);
@@ -234,6 +230,7 @@ void ContractManager::syncWithDB() {
         std::string idKey = F->name() + F->rettype() + "_id";
         std::string contactKey = F->name() + F->rettype() + "_contract";
 
+        db->lock();
         auto&& dbF = db->read<FunctionIdentifier, FactoryNest>(idKey, FN);
         auto&& dbContract = db->read<Contract, FactoryNest>(contactKey, FN);
 
@@ -242,6 +239,7 @@ void ContractManager::syncWithDB() {
 
         db->write(idKey, *F);
         db->write(contactKey, *contract);
+        db->unlock();
     }
 }
 
