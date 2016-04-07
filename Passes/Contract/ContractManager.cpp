@@ -26,7 +26,6 @@ namespace borealis {
 ContractManager::ContractManager() : ModulePass(ID) {}
 
 bool ContractManager::doFinalization(llvm::Module&) {
-    writeToDB();
     return false;
 }
 
@@ -36,7 +35,6 @@ bool ContractManager::runOnModule(llvm::Module& M) {
     VariableInfoTracker* VI = &GetAnalysis<VariableInfoTracker>::doit(this);
     FN.Type->initialize(*VI);
 
-    contracts = readFromDB();
     if (not contracts) {
         contracts = ContractContainer::Ptr{new ContractContainer()};
     }
@@ -50,7 +48,7 @@ void ContractManager::addContract(llvm::Function* F, FunctionManager& FM, Predic
         return;
     auto&& func = contracts->getFunctionId(F, FM.getMemoryBounds(F));
     func->called();
-    visitedFunctions[func] = {F, &FM};
+    functionInfo[func] = {F, &FM};
     if (not S->isEmpty()) {
         auto&& unified = ArgumentUnifier(FN, mapping).transform(S);
         auto&& retyped = Retyper(FN).transform(unified);
@@ -140,29 +138,41 @@ Term::Ptr ContractManager::stateToTerm(PredicateState::Ptr state) const {
     return stateTerm;
 }
 
-void ContractManager::print(llvm::raw_ostream&, const llvm::Module*) const {
+void ContractManager::printResults() {
+    syncWithDB();
     printContracts();
     printSummaries();
+    //dump all found contracts
+    printContractsDump();
 }
 
-void ContractManager::printContracts() const {
+void ContractManager::printContractsDump() const {
     auto&& dbg = dbgs();
-    dbg << "Found contracts dump" << endl;
+
+    dbg << "Contracts dump" << endl;
     for (auto&& it : contracts->data()) {
         auto&& F = it.first;
+        auto&& contracts = it.second;
 
-        dbg << "---" << "Function " << F->name() << "---" << "called " << F->calls() << endl;
-        dbg << "Found " << contracts->at(F)->size() << " states" << endl;
-        for (auto&& state : *contracts->at(F)) {
+        dbg << "---" << "Function " << F->name() << "---" << endl;
+        dbg << "Called " << F->calls() << " times, found " << contracts->size() << " states" << endl;
+        for (auto&& state : *contracts) {
             dbg << "State:" << endl;
             dbg << state << endl;
             dbg << endl;
         }
+
         dbg << endl;
     }
 
+    dbg << end;
+}
+
+void ContractManager::printContracts() const {
+    auto&& dbg = dbgs();
+
     dbg << "Contract extraction results" << endl;
-    for (auto&& it : visitedFunctions) {
+    for (auto&& it : contracts->data()) {
         auto&& F = it.first;
         auto&& memBounds = F->memBounds();
         auto&& merger = MergingTransformer(FN, memBounds, F->calls());
@@ -182,8 +192,8 @@ void ContractManager::printContracts() const {
             dbg << mergedState << endl;
 
             if (auto&& contract = stateToTerm(mergedState)) {
-                auto&& function = it.second.first;
-                auto&& fm = it.second.second;
+                auto&& function = functionInfo[F].first;
+                auto&& fm = functionInfo[F].second;
                 auto&& contractPredicate = FN.Predicate->getEqualityPredicate(contract, FN.Term->getTrueTerm(), Locus(), PredicateType::REQUIRES);
                 fm->update(function, FN.State->Basic({contractPredicate}));
                 dbg << "Contract predicate:" << endl;
@@ -212,7 +222,37 @@ void ContractManager::printSummaries() const {
         dbg << it.state<< endl << endl << endl;
         prev = it.func;
     }
-    dbg << endl;
+    dbg << end;
+}
+
+void ContractManager::syncWithDB() {
+    auto&& db = leveldb_daemon::DB::getInstance();
+    for (auto&& it : contracts->data()) {
+        auto&& F = it.first;
+        auto&& contract = it.second;
+
+        std::string idKey = F->name() + F->rettype() + "_id";
+        std::string contactKey = F->name() + F->rettype() + "_contract";
+
+        auto&& dbF = db->read<FunctionIdentifier, FactoryNest>(idKey, FN);
+        auto&& dbContract = db->read<Contract, FactoryNest>(contactKey, FN);
+
+        if (dbF) F->add(dbF.get());
+        if (dbContract) contract->add(dbContract.get());
+
+        db->write(idKey, *F);
+        db->write(contactKey, *contract);
+    }
+}
+
+ContractContainer::Ptr ContractManager::readFromDB() {
+    auto&& db = leveldb_daemon::DB::getInstance();
+    return db->read<ContractContainer, FactoryNest>(PROTOBUF_FILE, FN);
+}
+
+void ContractManager::writeToDB() const {
+    auto&& db = leveldb_daemon::DB::getInstance();
+    db->write(PROTOBUF_FILE, *contracts);
 }
 
 ContractContainer::Ptr ContractManager::readFromFile(const std::string &fname) {
@@ -232,16 +272,6 @@ ContractContainer::Ptr ContractManager::readFromFile(const std::string &fname) {
     return container;
 }
 
-ContractContainer::Ptr ContractManager::readFromDB() {
-    auto&& db = leveldb_daemon::DB::getInstance();
-    return db->read<ContractContainer, FactoryNest>(PROTOBUF_FILE, FN);
-}
-
-void ContractManager::writeToDB() const {
-    auto&& db = leveldb_daemon::DB::getInstance();
-    db->write(PROTOBUF_FILE, *contracts);
-}
-
 void ContractManager::writeToFile(const std::string &fname) const {
     ContractContainer::ProtoPtr proto = protobuffy(contracts);
     std::ofstream contractsStream(fname, std::iostream::out | std::iostream::binary);
@@ -256,7 +286,7 @@ void ContractManager::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
 
 char ContractManager::ID = 0;
 ContractContainer::Ptr ContractManager::contracts;
-ContractManager::FunctionInfo ContractManager::visitedFunctions;
+ContractManager::FunctionInfo ContractManager::functionInfo;
 
 std::vector<ContractManager::Summary> ContractManager::summaries;
 

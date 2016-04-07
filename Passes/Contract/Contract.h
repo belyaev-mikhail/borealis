@@ -71,6 +71,8 @@ public:
         return data_.size();
     }
 
+    void add(Contract* other);
+
 };
 
 }   /* namespace borealis */

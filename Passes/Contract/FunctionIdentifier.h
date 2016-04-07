@@ -36,7 +36,7 @@ class FunctionIdentifier : public std::enable_shared_from_this<const FunctionIde
 public:
 
     using Ptr = std::shared_ptr<FunctionIdentifier>;
-    using ConstPtr = std::shared_ptr<FunctionIdentifier>;
+    using ConstPtr = std::shared_ptr<const FunctionIdentifier>;
     using ProtoPtr = std::unique_ptr<borealis::proto::FunctionIdentifier>;
 
     FunctionIdentifier(const std::string& fname,
@@ -77,6 +77,7 @@ public:
     }
 
     bool equals(FunctionIdentifier* other);
+    void add(FunctionIdentifier* other);
     size_t hashCode();
 
 private:
