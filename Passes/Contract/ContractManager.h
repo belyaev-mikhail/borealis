@@ -47,7 +47,6 @@ public:
 
     virtual bool runOnModule(llvm::Module&) override;
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override;
-    virtual bool doFinalization(llvm::Module &) override;
 
     void printResults();
 
@@ -55,7 +54,6 @@ public:
                      const std::unordered_map<int, Args>& mapping);
 
     void addSummary(llvm::Function* F, PredicateStateImply::Ptr S, FunctionManager& FM);
-
 
 private:
 
@@ -72,7 +70,6 @@ private:
 
     void writeToDB() const;
     void writeToFile(const std::string &fname) const;
-
 
 private:
 
