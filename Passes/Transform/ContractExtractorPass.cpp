@@ -14,10 +14,8 @@
 #include "State/Transformer/EqualityMapper.h"
 #include "State/Transformer/ContractExtractorTransformer.h"
 #include "State/Transformer/FunctionSummariesTransformer.h"
-#include "State/Transformer/StateSlicer.h"
 #include "State/Transformer/UnexpPathPrDeleter.h"
 #include "State/Transformer/UnusedGlobalsDeleter.h"
-#include "Util/util.h"
 
 
 namespace borealis {
@@ -75,6 +73,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
                 auto&& eq=FN.Predicate->getEqualityPredicate(rtv,k.getUnsafe());
                 auto&& pr=FN.State->Imply(result,eq);
                 CM->addSummary(&F,pr,*FM);
+                //errs()<<"pr="<<pr<<"\n";
             }
         }
     }
@@ -108,7 +107,7 @@ void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
 char ContractExtractorPass::ID = 0;
 
 static llvm::RegisterPass<ContractExtractorPass>
-X("contract-extractor", "Contract extractor pass", false, false);
+        X("contract-extractor", "Contract extractor pass", false, false);
 
 
 } /* namespace borealis */
