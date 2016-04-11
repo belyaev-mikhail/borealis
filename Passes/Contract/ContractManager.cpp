@@ -183,19 +183,17 @@ void ContractManager::printContracts() const {
         //collect results
         auto&& mergedState = merger.getMergedState();
         if (not mergedState->isEmpty()) {
-            dbg << "---" << "Function " << F->name() << "---" << endl;
-            dbg << "State:" << endl;
-            dbg << mergedState << endl;
 
             if (auto&& contract = stateToTerm(mergedState)) {
                 auto&& function = functionInfo[F].first;
                 auto&& fm = functionInfo[F].second;
                 auto&& contractPredicate = FN.Predicate->getEqualityPredicate(contract, FN.Term->getTrueTerm(), Locus(), PredicateType::REQUIRES);
                 fm->update(function, FN.State->Basic({contractPredicate}));
-                dbg << "Contract predicate:" << endl;
-                dbg << contractPredicate << endl;
             }
 
+            dbg << "---" << "Function " << F->name() << "---" << endl;
+            dbg << "State:" << endl;
+            dbg << mergedState << endl;
             dbg << endl;
         }
     }
@@ -262,12 +260,7 @@ ContractContainer::Ptr ContractManager::readFromFile(const std::string &fname) {
     ContractContainer::ProtoPtr proto{ new proto::ContractContainer{} };
     proto->ParseFromIstream(&contractsStream);
 
-    ContractContainer::Ptr container = deprotobuffy(FN, *proto);
-    if (not container) {
-        return nullptr;
-    }
-
-    return container;
+    return deprotobuffy(FN, *proto);
 }
 
 void ContractManager::writeToFile(const std::string &fname) const {
