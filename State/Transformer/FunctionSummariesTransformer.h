@@ -61,4 +61,3 @@ private:
 
 } /*namespace borealis*/
 #endif /* STATE_TRANSFORMER_FUNCTIONSUMMARIESTRANSFORMER_H_ */
-
