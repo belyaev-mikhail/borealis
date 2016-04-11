@@ -66,9 +66,9 @@ private:
 
     void syncWithDB();
     ContractContainer::Ptr readFromDB();
-    ContractContainer::Ptr readFromFile(const std::string &fname);
-
     void writeToDB() const;
+
+    ContractContainer::Ptr readFromFile(const std::string &fname);
     void writeToFile(const std::string &fname) const;
 
 private:
