@@ -33,10 +33,10 @@ void on_terminate(void) {
 static bool th = !!std::set_terminate(on_terminate);
 
 std::string getexepath() {
-    char result[ PATH_MAX ];
-    readlink( "/proc/self/exe", result, PATH_MAX );
+    char result[PATH_MAX];
+    readlink("/proc/self/exe", result, PATH_MAX);
     auto found = std::string(result).find_last_of("/");
-    return(std::string(result).substr(0, found) + "/");
+    return (std::string(result).substr(0, found) + "/");
 }
 
 int main(int argc, const char** argv) {
