@@ -73,7 +73,6 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
                 auto&& eq=FN.Predicate->getEqualityPredicate(rtv,k.getUnsafe());
                 auto&& pr=FN.State->Imply(result,eq);
                 CM->addSummary(&F,pr,*FM);
-                //errs()<<"pr="<<pr<<"\n";
             }
         }
     }
@@ -107,7 +106,7 @@ void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
 char ContractExtractorPass::ID = 0;
 
 static llvm::RegisterPass<ContractExtractorPass>
-        X("contract-extractor", "Contract extractor pass", false, false);
+X("contract-extractor", "Contract extractor pass", false, false);
 
 
 } /* namespace borealis */
