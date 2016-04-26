@@ -26,6 +26,7 @@ Protobuf/Gen/*
 
 lib/yaml-cpp/build
 lib/andersen
+lib/backward-cpp
 lib/cfgparser
 lib/dbglog
 lib/leveldb-mp
