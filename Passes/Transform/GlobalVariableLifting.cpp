@@ -31,7 +31,7 @@ void GlobalVariableLifting::collectGlobals(llvm::Function& F) {
         for (auto&& op : inst->operand_values()) {
             if (llvm::isa<llvm::GlobalVariable>(op) &&
                 not op->getType()->getPointerElementType()->isAggregateType())
-                    globals[op->getName()] = op;
+                globals[op->getName()] = op;
         }
     }
 }
@@ -157,8 +157,8 @@ bool GlobalVariableLifting::runOnFunction(llvm::Function& F) {
 
     // deleting unused instructions
     for (auto&& i : util::viewContainer(deleted_instructions)
-                    .map(llvm::dyn_caster<llvm::Instruction>())
-                    .filter()) {
+            .map(llvm::dyn_caster<llvm::Instruction>())
+            .filter()) {
         i->eraseFromParent();
     }
 
@@ -168,6 +168,6 @@ bool GlobalVariableLifting::runOnFunction(llvm::Function& F) {
 char GlobalVariableLifting::ID = 0;
 
 static llvm::RegisterPass<GlobalVariableLifting>
-X("gvl", "global variable lifting pass", false, false);
+        X("gvl", "global variable lifting pass", false, false);
 
 }  /* namespace borealis */

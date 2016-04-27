@@ -34,8 +34,6 @@ class CastTerm: public borealis::Term {
 
     bool signExtend;
 
-    void update();
-
 public:
 
     MK_COMMON_TERM_IMPL(CastTerm);

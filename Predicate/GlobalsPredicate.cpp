@@ -15,13 +15,15 @@ GlobalsPredicate::GlobalsPredicate(
         PredicateType type) :
             Predicate(class_tag(*this), type, loc) {
 
-    auto&& a = util::viewContainer(globals)
-                .map([](auto&& g) { return g->getName(); })
-                .reduce("", [](auto&& acc, auto&& e) { return acc + "," + e; });
-
-    asString = "globals(" + a + ")";
-
     ops.insert(ops.end(), globals.begin(), globals.end());
+    update();
+}
+
+Predicate* GlobalsPredicate::update() {
+    asString = "globals(" + getGlobals()
+                        .map([](auto&& g) { return g->getName(); })
+                        .reduce("", [](auto&& acc, auto&& e) { return acc + "," + e; }) + ")";
+    return this;
 }
 
 auto GlobalsPredicate::getGlobals() const -> decltype(util::viewContainer(ops)) {
