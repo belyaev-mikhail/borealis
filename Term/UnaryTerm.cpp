@@ -18,6 +18,11 @@ UnaryTerm::UnaryTerm(Type::Ptr type, llvm::UnaryArithType opcode, Term::Ptr rhv)
     subterms = { rhv };
 };
 
+Term* UnaryTerm::update() {
+    name = llvm::unaryArithString(getOpcode()) + "(" + getRhv()->getName() + ")";
+    return this;
+}
+
 
 llvm::UnaryArithType UnaryTerm::getOpcode() const {
     return opcode;

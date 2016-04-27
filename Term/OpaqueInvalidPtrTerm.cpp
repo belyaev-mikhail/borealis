@@ -16,4 +16,8 @@ OpaqueInvalidPtrTerm::OpaqueInvalidPtrTerm(Type::Ptr type):
         "<invalid>"
     ) {};
 
+Term* OpaqueInvalidPtrTerm::update() {
+    return this;
+}
+
 } // namespace borealis

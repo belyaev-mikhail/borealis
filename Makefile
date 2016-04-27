@@ -109,6 +109,8 @@ ADDITIONAL_INCLUDE_DIRS := \
 	$(PWD)/lib/yaml-cpp/include \
 	$(PWD)/lib/cfgparser/include \
 	$(PWD)/lib/backward-cpp \
+	$(PWD)/lib/leveldb-mp/include \
+	$(PWD)/lib/leveldb-mp/libsocket/headers/ \
 
 
 CXXFLAGS += $(foreach dir,$(ADDITIONAL_INCLUDE_DIRS),-I"$(dir)")
@@ -169,6 +171,15 @@ YAML_CPP_DIR := $(PWD)/lib/yaml-cpp
 
 YAML_CPP_LIB := $(YAML_CPP_DIR)/build/libyaml-cpp.a
 ARCHIVES += $(YAML_CPP_LIB)
+
+################################################################################
+# leveldb-mp
+################################################################################
+
+LEVELDB_MP_DIR := $(PWD)/lib/leveldb-mp
+
+LEVELDB_MP_LIB := $(LEVELDB_MP_DIR)/libleveldb_client.a
+ARCHIVES += $(LEVELDB_MP_LIB)
 
 ################################################################################
 # cfgparser
@@ -233,6 +244,7 @@ LIBS := \
 	-lgmpxx \
 	-lgmp \
 	-luuid \
+	-Wl,-rpath,'$$ORIGIN'/lib/leveldb-mp/libsocket/C++ ./lib/leveldb-mp/libsocket/C++/libsocket++.so \
 	$(LLVMSYSTEMLIBS)
 
 ################################################################################
@@ -344,7 +356,16 @@ clean.cfgparser: clean.dbglog
 	$(MAKE) CXX=$(CXX) -C $(ANDERSEN_CPP_DIR)
 	touch $@
 
-wrapper: $(PWD)/wrapper.o $(OBJECTS_WITHOUT_MAIN) .protobuf .yaml-cpp .cfgparser .andersen
+.leveldb-mp:
+	cd $(LEVELDB_MP_DIR) && cmake .
+	$(MAKE) CXX=$(CXX) -C $(LEVELDB_MP_DIR)
+	touch $@
+
+clean.leveldb-mp:
+	cd $(LEVELDB_MP_DIR) && make clean
+	touch $@
+
+wrapper: $(PWD)/wrapper.o $(OBJECTS_WITHOUT_MAIN) .protobuf .yaml-cpp .cfgparser .andersen .leveldb-mp
 	$(CXX) -fuse-ld=gold -rdynamic -g -o $@ $(PWD)/wrapper.o $(OBJECTS_WITHOUT_MAIN) $(LLVMLDFLAGS) $(LIBS) $(ARCHIVES)
 
 ar_wrapper: $(PWD)/ar_wrapper.o $(OBJECTS_WITHOUT_MAIN) .protobuf .yaml-cpp .cfgparser .andersen
