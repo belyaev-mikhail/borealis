@@ -57,7 +57,7 @@ public:
             Predicate::Ptr first,
             Predicate::Ptr second);
 
-    smt::Result isStronger(
+    smt::Result isWeaker(
             Predicate::Ptr first,
             Predicate::Ptr second);
 

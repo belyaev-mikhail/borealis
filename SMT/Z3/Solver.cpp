@@ -576,7 +576,7 @@ smt::Result Solver::isPossible(Predicate::Ptr first, Predicate::Ptr second) {
     return UnsatResult{};
 }
 
-smt::Result Solver::isStronger(Predicate::Ptr first, Predicate::Ptr second) {
+smt::Result Solver::isWeaker(Predicate::Ptr first, Predicate::Ptr second) {
     TRACE_FUNC
 
     using namespace logic;
