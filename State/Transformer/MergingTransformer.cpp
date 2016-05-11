@@ -104,10 +104,10 @@ void MergingTransformer::mergePredicates(std::vector<Predicate::Ptr> &state) {
 
     for (auto&& i = state.begin(); i != state.end(); ++i) {
         for (auto&& j = i + 1; j != state.end(); ++j) {
-            if (s.isStronger(*i, *j).isUnsat()) {
+            if (s.isWeaker(*i, *j).isUnsat()) {
                 forDelete.insert(*j);
                 contracts[*i] += contracts[*j];
-            } else if (s.isStronger(*j, *i).isUnsat()) {
+            } else if (s.isWeaker(*j, *i).isUnsat()) {
                 forDelete.insert(*i);
                 contracts[*j] += contracts[*i];
             }
