@@ -52,12 +52,7 @@ public:
     }
 
     Contract::Ptr operator[](FunctionIdentifier::Ptr func) {
-        if (auto&& op = util::at(data_, func)) {
-            return op.getUnsafe();
-        } else {
-            data_[func] = Contract::Ptr{ new Contract({}) };
-            return data_[func];
-        }
+        return this->at(func);
     }
 
     Contract::Ptr at(FunctionIdentifier::Ptr func) {

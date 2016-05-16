@@ -61,7 +61,7 @@ void ContractManager::addSummary(llvm::Function* F, PredicateState::Ptr S, Funct
     auto&& choiceOptimized = ChoiceOptimizer(FN).transform(retyped);
     auto&& optimized = StateOptimizer(FN).transform(choiceOptimized);
     FM.update(F, optimized);
-    summaries.push_back(Summary(F, optimized));
+    summaries.push_back({F, optimized});
 }
 
 void ContractManager::saveState(FunctionIdentifier::Ptr func, PredicateState::Ptr state) {
