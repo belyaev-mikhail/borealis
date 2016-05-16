@@ -33,7 +33,6 @@ public:
     struct Summary{
         llvm::Function* func;
         PredicateStateImply::Ptr state;
-        Summary(llvm::Function* F, PredicateStateImply::Ptr S): func(F), state(S) {}
     };
 
     static char ID;

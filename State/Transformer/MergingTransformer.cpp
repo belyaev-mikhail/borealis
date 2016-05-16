@@ -41,7 +41,7 @@ void MergingTransformer::deleteOppositePredicates(std::vector<Predicate::Ptr>& s
     PredicateSet unsatCore;
 
     //simple unsat core extraction
-    while(true) {
+    while (true) {
         auto&& uc = s.getUnsatCore(state);
         if (uc.empty()) break;
 
