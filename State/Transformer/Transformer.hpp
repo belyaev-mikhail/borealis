@@ -103,6 +103,11 @@ protected:
         return ps->fmap([&](auto&& e) { return CALL(Base, e); });
     }
 
+    PredicateState::Ptr transformImply(PredicateStateImplyPtr ps) {
+        TRACE_FUNC;
+        return ps->fmap([&](auto&& e) { return CALL(Base, e); });
+    }
+
     PredicateState::Ptr transformChoice(PredicateStateChoicePtr ps) {
         TRACE_FUNC;
         return ps->fmap([&](auto&& e) { return CALL(Base, e); });

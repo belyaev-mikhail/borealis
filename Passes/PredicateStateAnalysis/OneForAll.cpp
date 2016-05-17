@@ -163,7 +163,6 @@ void OneForAll::processBasicBlock(llvm::BasicBlock* BB) {
                 FM->getBdy(CI, FN) +
                 FM->getEns(CI, FN)
             ).apply();
-
             auto&& instantiatedCallState =
                     CallSiteInitializer(&CI, FN).transform(callState);
 

@@ -9,6 +9,14 @@
 
 namespace borealis {
 
+
+PredicateState::Ptr PredicateStateFactory::Imply(
+        PredicateState::Ptr base,
+        Predicate::Ptr implyTo) {
+    return PredicateState::Simplified<PredicateStateImply>(
+            base, Basic() + implyTo
+    );
+}
 PredicateState::Ptr PredicateStateFactory::Chain(
         PredicateState::Ptr base,
         PredicateState::Ptr curr) {
