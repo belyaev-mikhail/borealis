@@ -9,6 +9,7 @@
 #define STATE_TRANSFORMER_FUNCTIONSUMMARIESTRANSFORMER_H_
 
 #include <unordered_set>
+#include <stack>
 
 #include "State/Transformer/Transformer.hpp"
 #include "State/Transformer/StateSlicer.h"
@@ -28,11 +29,15 @@ class FunctionSummariesTransformer : public borealis::Transformer<FunctionSummar
 
 
 public:
-    FunctionSummariesTransformer(const FactoryNest& FN, const Term::Ptr rtvMap);
+    FunctionSummariesTransformer(const FactoryNest& FN, const TermSet rtvMap);
 
     using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
     Predicate::Ptr transformPredicate(Predicate::Ptr pred);
+
+
+    PredicateState::Ptr transformChoice(PredicateStateChoicePtr ps);
+    PredicateState::Ptr transformPredicateStateChoice(PredicateStateChoicePtr ps);
 
     const PrVector& getProtectedPredicates() const{
         return protPreds;
@@ -55,8 +60,9 @@ private:
     VecTermSet ter;
     PrVector protPreds;
     PredTermMap protPredMapping;
-    Predicate::Ptr curPathPr;
-    Term::Ptr rtvMapping;
+    TermSet rtvEquiv;
+    std::stack<Predicate::Ptr> prStack;
+
 };
 
 } /*namespace borealis*/

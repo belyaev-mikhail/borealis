@@ -12,10 +12,12 @@
 #include "State/Transformer/ReplaceTermTransformer.h"
 #include "State/Transformer/StateRipper.h"
 #include "State/Transformer/EqualityMapper.h"
+#include "State/Transformer/FindRTVEquiv.h"
 #include "State/Transformer/ContractExtractorTransformer.h"
 #include "State/Transformer/FunctionSummariesTransformer.h"
 #include "State/Transformer/UnexpPathPrDeleter.h"
 #include "State/Transformer/UnusedGlobalsDeleter.h"
+#include "State/Transformer/TerTermToPathPredTransf.h"
 
 
 namespace borealis {
@@ -45,16 +47,21 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         assert(ret.size()==1);
         S = PSA->getInstructionState(*ret.begin());
         auto&& fName=std::string(F.getName());
+        auto&& ttTransf= TerTermToPathPredTransf(FN);
+        auto&& onlyPath = ttTransf.transform(S);
         auto&& mapper = EqualityMapper(FN);
-        auto&& mappedState = mapper.transform(S);
+        auto&& mappedState = mapper.transform(onlyPath);
         auto&& mapping = mapper.getMappedValues();
         auto&& sliced = StateSlicer(FN, TermSet({FN.Term->getReturnValueTerm(&F)}), &AA).transform(mappedState);
         auto&& rtv = FN.Term->getReturnValueTerm(&F);
         if(mapping.find(rtv)==mapping.end()){
             return false;
         }
+        auto&& rtvmap=FindRTVEquiv(FN,rtv);
+        rtvmap.transform(sliced->reverse());
+        auto&& rtvEq = rtvmap.getRtvEquiv();
         Term::Ptr rtvMap=mapping.at(rtv);
-        auto&& extractor = FunctionSummariesTransformer(FN, mapping.at(rtv));
+        auto&& extractor = FunctionSummariesTransformer(FN, rtvEq);
         extractor.transform(sliced);
         auto&& terms = extractor.getTermSet();
         auto&& protPredsMapping = extractor.getProtPredMapping();
@@ -80,7 +87,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
 }
 
 void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateState::Ptr S) {
-    if (I.getCalledFunction() == nullptr) return;
+    /*if (I.getCalledFunction() == nullptr) return;
 
     auto&& mapper = EqualityMapper(FN);
     auto&& mappedState = mapper.transform(S);
@@ -90,7 +97,7 @@ void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateS
     auto&& transformedState = extractor.transform(mappedState);
     auto&& argToTerms = extractor.getArgToTermMapping();
 
-    CM->addContract(I.getCalledFunction(), *FM, transformedState, argToTerms);
+    CM->addContract(I.getCalledFunction(), *FM, transformedState, argToTerms);*/
 }
 
 void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
