@@ -18,6 +18,11 @@ TernaryTerm::TernaryTerm(Type::Ptr type, Term::Ptr cnd, Term::Ptr tru, Term::Ptr
     subterms = { cnd, tru, fls };
 };
 
+Term* TernaryTerm::update() {
+    name = "(" + getCnd()->getName() + " ? " + getTru()->getName() + " : " + getFls()->getName() + ")";
+    return this;
+}
+
 Term::Ptr TernaryTerm::getCnd() const {
     return subterms[0];
 }

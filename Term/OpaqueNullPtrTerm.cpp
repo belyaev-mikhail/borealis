@@ -16,4 +16,8 @@ OpaqueNullPtrTerm::OpaqueNullPtrTerm(Type::Ptr type):
         "<nullptr>"
     ) {};
 
+Term* OpaqueNullPtrTerm::update() {
+    return this;
+}
+
 } // namespace borealis

@@ -15,9 +15,15 @@ StorePredicate::StorePredicate(
         const Locus& loc,
         PredicateType type) :
             Predicate(class_tag(*this), type, loc) {
-    asString = "*" + lhv->getName() + "=" + rhv->getName();
     ops = { lhv, rhv };
+    update();
 }
+
+Predicate* StorePredicate::update() {
+    asString = "*" + getLhv()->getName() + "=" + getRhv()->getName();
+    return this;
+}
+
 
 Term::Ptr StorePredicate::getLhv() const {
     return ops[0];

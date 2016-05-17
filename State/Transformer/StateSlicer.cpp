@@ -17,6 +17,8 @@ namespace borealis {
 StateSlicer::StateSlicer(FactoryNest FN, PredicateState::Ptr query, llvm::AliasAnalysis* AA) :
     Base(FN), query(query), AA(AA), AST(nullptr == AA ? nullptr : new llvm::AliasSetTracker(*AA)) { init(); }
 
+StateSlicer::StateSlicer(FactoryNest FN, TermSet TS, llvm::AliasAnalysis* AA) :
+    Base(FN), AA(AA), AST(nullptr == AA ? nullptr : new llvm::AliasSetTracker(*AA)) { filterTerms(TS); }
 static struct {
     using argument_type = Term::Ptr;
 
@@ -40,12 +42,14 @@ static struct {
 void StateSlicer::init() {
     auto&& tc = TermCollector(FN);
     tc.transform(query);
+    filterTerms(tc.getTerms());
+}
 
-    util::viewContainer(tc.getTerms())
+void StateSlicer::filterTerms(TermSet ts){
+    util::viewContainer(ts)
         .filter(isInterestingTerm)
         .foreach(APPLY(this->addSliceTerm));
 }
-
 void StateSlicer::addSliceTerm(Term::Ptr term) {
     if (isPointerTerm(term)) {
         slicePtrs.insert(term);

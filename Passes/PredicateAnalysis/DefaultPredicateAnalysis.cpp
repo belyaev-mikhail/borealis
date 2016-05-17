@@ -113,12 +113,13 @@ public:
 
         for (auto c = I.case_begin(); c != I.case_end(); ++c) {
             Term::Ptr caseTerm = pass->FN.Term->getConstTerm(c.getCaseValue());
+            Term::Ptr cmpTerm = pass->FN.Term->getCmpTerm(llvm::ConditionType::EQ, condTerm, caseTerm);
             const BasicBlock* caseSucc = c.getCaseSuccessor();
 
             pass->TPM[{&I, caseSucc}] =
                 pass->FN.Predicate->getEqualityPredicate(
-                    condTerm,
-                    caseTerm,
+                    cmpTerm,
+                    pass->FN.Term->getTrueTerm(),
                     pass->SLT->getLocFor(&I),
                     PredicateType::PATH
                 );

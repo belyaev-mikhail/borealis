@@ -12,6 +12,7 @@
 
 #include "Protobuf/Gen/State/BasicPredicateState.pb.h"
 #include "Protobuf/Gen/State/PredicateStateChain.pb.h"
+#include "Protobuf/Gen/State/PredicateStateImply.pb.h"
 #include "Protobuf/Gen/State/PredicateStateChoice.pb.h"
 
 #include "Predicate/ProtobufConverterImpl.hpp"
@@ -83,6 +84,31 @@ struct protobuf_traits_impl<PredicateStateChain> {
         auto&& base = PredicateStateConverter::fromProtobuf(fn, ps.base());
         auto&& curr = PredicateStateConverter::fromProtobuf(fn, ps.curr());
         return PredicateState::Ptr{ PredicateStateChain::Uniquified(base, curr) };
+    }
+};
+
+template<>
+struct protobuf_traits_impl<PredicateStateImply> {
+
+    using PredicateStateConverter = protobuf_traits<PredicateState>;
+
+    static std::unique_ptr<proto::PredicateStateImply> toProtobuf(const PredicateStateImply& ps) {
+        auto&& res = std::make_unique<proto::PredicateStateImply>();
+        res->set_allocated_base(
+                PredicateStateConverter::toProtobuf(*ps.getBase()).release()
+        );
+        res->set_allocated_curr(
+                PredicateStateConverter::toProtobuf(*ps.getCurr()).release()
+        );
+        return std::move(res);
+    }
+
+    static PredicateState::Ptr fromProtobuf(
+            const FactoryNest& fn,
+            const proto::PredicateStateImply& ps) {
+        auto&& base = PredicateStateConverter::fromProtobuf(fn, ps.base());
+        auto&& curr = PredicateStateConverter::fromProtobuf(fn, ps.curr());
+        return PredicateState::Ptr{ PredicateStateImply::Uniquified(base, curr) };
     }
 };
 

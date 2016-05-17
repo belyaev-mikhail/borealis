@@ -46,6 +46,21 @@ public:
             const std::vector<Term::Ptr>& diversifiers,
             const std::vector<Term::Ptr>& collectibles);
 
+    smt::Result isFullGroup(
+            PredicateState::Ptr query);
+
+    z3::expr_vector getUnsatCore(
+            std::vector<Predicate::Ptr>& query,
+            Predicate::Ptr pred = nullptr);
+
+    smt::Result isPossible(
+            Predicate::Ptr first,
+            Predicate::Ptr second);
+
+    smt::Result isWeaker(
+            Predicate::Ptr first,
+            Predicate::Ptr second);
+
 private:
 
     ExprFactory& z3ef;
