@@ -14,10 +14,10 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/Analysis/AliasAnalysis.h>
 
-#include "Passes/Util/ProxyFunctionPass.h"
-#include "Util/passes.hpp"
 #include "Passes/Contract/ContractManager.h"
 #include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
+#include "Passes/Util/ProxyFunctionPass.h"
+#include "Util/passes.hpp"
 
 namespace borealis {
 

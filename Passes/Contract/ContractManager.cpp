@@ -42,17 +42,17 @@ void ContractManager::addContract(llvm::Function* F, FunctionManager& FM, Predic
                                   const std::unordered_map<int, Args>& mapping) {
     if (IntrinsicsManager::getInstance().getIntrinsicType(F) != function_type::UNKNOWN)
         return;
+
     auto&& func = contracts->getFunctionId(F, FM.getMemoryBounds(F));
     func->called();
     functionInfo[func] = {F, &FM};
-    if (not S->isEmpty()) {
-        auto&& unified = ArgumentUnifier(FN, mapping).transform(S);
-        auto&& retyped = Retyper(FN).transform(unified);
-        auto&& choiceOptimized = ChoiceOptimizer(FN).transform(retyped);
-        auto&& optimized = StateOptimizer(FN).transform(choiceOptimized);
-        if (not optimized->isEmpty()) {
-            saveState(func, optimized);
-        }
+
+    auto&& unified = ArgumentUnifier(FN, mapping).transform(S);
+    auto&& retyped = Retyper(FN).transform(unified);
+    auto&& choiceOptimized = ChoiceOptimizer(FN).transform(retyped);
+    auto&& optimized = StateOptimizer(FN).transform(choiceOptimized);
+    if (not optimized->isEmpty()) {
+        saveState(func, optimized);
     }
 }
 
@@ -136,7 +136,7 @@ Term::Ptr ContractManager::stateToTerm(PredicateState::Ptr state) const {
 
 void ContractManager::printResults() {
     syncWithDB();
-    printContracts();
+    applyContracts();
     printSummaries();
     //dump all found contracts
     printContractsDump();
@@ -164,7 +164,7 @@ void ContractManager::printContractsDump() const {
     dbg << end;
 }
 
-void ContractManager::printContracts() const {
+void ContractManager::applyContracts() const {
     auto&& dbg = dbgs();
 
     dbg << "Contract extraction results" << endl;

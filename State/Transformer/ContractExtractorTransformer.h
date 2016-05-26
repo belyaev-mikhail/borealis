@@ -8,9 +8,10 @@
 #ifndef STATE_TRANSFORMER_CONTRACTEXTRACTORTRANSFORMER_H_
 #define STATE_TRANSFORMER_CONTRACTEXTRACTORTRANSFORMER_H_
 
+#include <llvm/IR/Instructions.h>
+
 #include <unordered_set>
 #include <unordered_map>
-#include <llvm/IR/Instructions.h>
 
 #include "Transformer.hpp"
 
