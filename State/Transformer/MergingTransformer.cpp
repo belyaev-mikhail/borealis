@@ -2,12 +2,11 @@
 // Created by kivi on 21.10.15.
 //
 
-#include <Passes/Contract/ContractManager.h>
+#include "MergingTransformer.h"
+#include "Passes/Contract/ContractManager.h"
 #include "SMT/Z3/Z3.h"
 #include "SMT/Z3/ExprFactory.h"
 #include "SMT/Z3/Solver.h"
-
-#include "MergingTransformer.h"
 
 namespace borealis {
 
@@ -47,7 +46,7 @@ void MergingTransformer::deleteOppositePredicates(std::vector<Predicate::Ptr>& s
 
         std::vector<int> indexes;
         indexes.reserve(state.size());
-        for (auto i = 0U; i < uc.size(); i++) {
+        for (auto i = 0U; i < uc.size(); ++i) {
             std::stringstream toString;
             std::stringstream toInt;
             int indx;

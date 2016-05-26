@@ -9,15 +9,15 @@
 #include "Codegen/llvm.h"
 #include "ContractExtractorPass.h"
 #include "Passes/Tracker/SlotTrackerPass.h"
-#include "State/Transformer/ReplaceTermTransformer.h"
-#include "State/Transformer/StateRipper.h"
+#include "State/Transformer/ContractExtractorTransformer.h"
 #include "State/Transformer/EqualityMapper.h"
 #include "State/Transformer/FindRTVEquiv.h"
-#include "State/Transformer/ContractExtractorTransformer.h"
 #include "State/Transformer/FunctionSummariesTransformer.h"
+#include "State/Transformer/ReplaceTermTransformer.h"
+#include "State/Transformer/StateRipper.h"
+#include "State/Transformer/TerTermToPathPredTransf.h"
 #include "State/Transformer/UnexpPathPrDeleter.h"
 #include "State/Transformer/UnusedGlobalsDeleter.h"
-#include "State/Transformer/TerTermToPathPredTransf.h"
 
 
 namespace borealis {
@@ -39,7 +39,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         processCallInstruction(*I, PSA->getInstructionState(I));
     }
 
-    if (!F.doesNotReturn()) {
+    /*if (!F.doesNotReturn()) {
         PredicateState::Ptr S;
         auto&& ret=llvm::getAllRets(&F);
         if(ret.size()==0)
@@ -82,12 +82,12 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
                 CM->addSummary(&F,pr,*FM);
             }
         }
-    }
+    }*/
     return false;
 }
 
 void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateState::Ptr S) {
-    /*if (I.getCalledFunction() == nullptr) return;
+    if (I.getCalledFunction() == nullptr) return;
 
     auto&& mapper = EqualityMapper(FN);
     auto&& mappedState = mapper.transform(S);
@@ -97,7 +97,7 @@ void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateS
     auto&& transformedState = extractor.transform(mappedState);
     auto&& argToTerms = extractor.getArgToTermMapping();
 
-    CM->addContract(I.getCalledFunction(), *FM, transformedState, argToTerms);*/
+    CM->addContract(I.getCalledFunction(), *FM, transformedState, argToTerms);
 }
 
 void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
