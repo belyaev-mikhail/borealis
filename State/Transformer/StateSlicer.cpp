@@ -21,8 +21,6 @@ StateSlicer::StateSlicer(FactoryNest FN, PredicateState::Ptr query) :
     Base(FN), query(query), sliceVars{}, slicePtrs{}, AA{}{ init(nullptr); }
 
 
-StateSlicer::StateSlicer(FactoryNest FN, TermSet TS, llvm::AliasAnalysis* AA) :
-    Base(FN), AA(AA), AST(nullptr == AA ? nullptr : new llvm::AliasSetTracker(*AA)) { filterTerms(TS); }
 static struct {
     using argument_type = Term::Ptr;
 
@@ -52,14 +50,12 @@ void StateSlicer::init(llvm::AliasAnalysis* llvmAA) {
 
     auto&& tc = TermCollector(FN);
     tc.transform(query);
-    filterTerms(tc.getTerms());
-}
 
-void StateSlicer::filterTerms(TermSet ts){
-    util::viewContainer(ts)
+    util::viewContainer(tc.getTerms())
         .filter(isInterestingTerm)
         .foreach(APPLY(this->addSliceTerm));
 }
+
 void StateSlicer::addSliceTerm(Term::Ptr term) {
     if (isPointerTerm(term)) {
         slicePtrs.insert(term);
