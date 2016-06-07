@@ -20,27 +20,29 @@ namespace {
 using namespace borealis::config;
 MultiConfigEntry asserts{"adapt", "assert"};
 MultiConfigEntry assumes{"adapt", "assume"};
+MultiConfigEntry nondets{"adapt", "nondet"};
+MultiConfigEntry errors {"adapt", "error"};
 MultiConfigEntry labels {"adapt", "error-label"};
 BoolConfigEntry undefinedDefaultsToUnknown{"adapt", "break-undefs"};
 
 llvm::Function* getBorealisBuiltin(
     function_type ft,
+    const std::vector<llvm::Type*>& argTypes,
     llvm::Module& M
 ) {
-    auto& intrinsic_manager = IntrinsicsManager::getInstance();
+    auto&& intrinsic_manager = IntrinsicsManager::getInstance();
 
-    auto* argType = llvm::Type::getInt32Ty(M.getContext());
-    auto* retType = llvm::Type::getVoidTy(M.getContext());
+    auto&& retType = llvm::Type::getVoidTy(M.getContext());
 
-    llvm::Function* cur = M.getFunction(
+    auto* cur = M.getFunction(
         intrinsic_manager.getFuncName(ft, "")
     );
 
-    if (!cur) {
+    if (not cur) {
         // FIXME: name clashes still possible due to linking, research that
-        auto* ty = llvm::FunctionType::get(
+        auto&& ty = llvm::FunctionType::get(
             retType,
-            argType,
+            argTypes,
             false
         );
 
@@ -57,35 +59,48 @@ llvm::Function* getBorealisBuiltin(
 
 llvm::Value* mkBorealisBuiltin(
     function_type ft,
+    const std::vector<llvm::Type*>& argTypes,
     llvm::Module& M,
     llvm::CallInst* existingCall
 ) {
     using llvm::dyn_cast;
 
-    auto* argType = llvm::Type::getInt32Ty(M.getContext());
-    auto* retType = llvm::Type::getVoidTy(M.getContext());
+    auto&& cur = getBorealisBuiltin(ft, argTypes, M);
 
-    llvm::Function* cur = getBorealisBuiltin(ft, M);
+    std::vector<llvm::Value*> realArgs;
 
-    auto* arg = existingCall->getArgOperand(0);
-    llvm::Value* realArg = arg->getType() == argType ? arg :
-        llvm::CastInst::CreateIntegerCast(
-            arg,
-            argType,
+    for (auto&& p : util::viewContainer(existingCall->arg_operands()) ^ util::viewContainer(argTypes)) {
+        auto&& expectedType = p.second;
+        auto&& realValue = p.first;
+
+        auto&& castOpCode = llvm::CastInst::getCastOpcode(
+            realValue,
             false,
-            "borealis.builtin_arg",
-            existingCall
+            expectedType,
+            false
         );
+
+        realArgs.push_back(
+            llvm::CastInst::Create(
+                castOpCode,
+                realValue,
+                expectedType,
+                "borealis.builtin_arg",
+                existingCall
+            )
+        );
+    }
+
     auto* newCall = llvm::CallInst::Create(
         cur,
-        realArg,
+        realArgs,
         "",
         existingCall
     );
     newCall->setDebugLoc(existingCall->getDebugLoc());
     newCall->setMetadata("dbg", existingCall->getMetadata("dbg"));
 
-    if (existingCall->getType() != retType) {
+    if (existingCall->getType() != newCall->getType()) {
         existingCall->replaceAllUsesWith(llvm::UndefValue::get(existingCall->getType()));
     } else {
         existingCall->replaceAllUsesWith(newCall);
@@ -97,22 +112,40 @@ llvm::Value* mkBorealisBuiltin(
 llvm::Value* mkBorealisAssert(
     llvm::Module& M,
     llvm::CallInst* existingCall) {
-    return mkBorealisBuiltin(function_type::BUILTIN_BOR_ASSERT, M, existingCall);
+    return mkBorealisBuiltin(
+        function_type::BUILTIN_BOR_ASSERT,
+        { llvm::Type::getInt32Ty(M.getContext()) },
+        M,
+        existingCall);
 }
 
 llvm::Value* mkBorealisAssume(
     llvm::Module& M,
     llvm::CallInst* existingCall) {
-    return mkBorealisBuiltin(function_type::BUILTIN_BOR_ASSUME, M, existingCall);
+    return mkBorealisBuiltin(
+        function_type::BUILTIN_BOR_ASSUME,
+        { llvm::Type::getInt32Ty(M.getContext()) },
+        M,
+        existingCall);
 }
 
-llvm::Value* mkBorealisNonDet(llvm::Module* M, llvm::Type* type, llvm::Instruction* insertBefore) {
-    auto& intrinsic_manager = IntrinsicsManager::getInstance();
-    auto* func = intrinsic_manager.createIntrinsic(
+llvm::Value* mkBorealisError(
+    llvm::Module& M,
+    llvm::CallInst* existingCall) {
+    return mkBorealisBuiltin(
+        function_type::ACTION_DEFECT,
+        {},
+        M,
+        existingCall);
+}
+
+llvm::Value* mkBorealisNonDet(llvm::Module& M, llvm::Type* type, llvm::Instruction* insertBefore) {
+    auto&& intrinsic_manager = IntrinsicsManager::getInstance();
+    auto&& func = intrinsic_manager.createIntrinsic(
         function_type::INTRINSIC_NONDET,
         util::toString(*type),
         llvm::FunctionType::get(type, false),
-        M
+        &M
     );
 
     return llvm::CallInst::Create(func, "", insertBefore);
@@ -123,41 +156,45 @@ public:
     // XXX: still buggy, unreachable propagation breaks everything to pieces
     void visitBasicBlock(llvm::BasicBlock& BB) {
         using namespace llvm;
-        auto& M = *BB.getParent()->getParent();
+        auto&& M = *BB.getParent()->getParent();
 
         static auto label = util::viewContainer(labels.get()).toHashSet();
 
-        if (!BB.hasName()) return;
+        if (not BB.hasName()) return;
 
         // transform the ERROR labeled BB
         if (label.count(BB.getName())) {
 
-            auto* first = BB.getFirstNonPHIOrDbgOrLifetime();
-            auto* f = getBorealisBuiltin(function_type::BUILTIN_BOR_ASSERT, M);
+            auto&& first = BB.getFirstNonPHIOrDbgOrLifetime();
+            auto&& f = getBorealisBuiltin(
+                function_type::BUILTIN_BOR_ASSERT,
+                { llvm::Type::getInt32Ty(M.getContext()) },
+                M
+            );
 
             // Check if we've already been here and done stuff
-            if (auto* CI = dyn_cast<CallInst>(first))
+            if (auto&& CI = dyn_cast<CallInst>(first))
                 if (f == CI->getCalledFunction())
                     return;
 
-            auto* arg = ConstantInt::get(f->getFunctionType()->getFunctionParamType(0), 0, false);
+            auto&& arg = ConstantInt::get(f->getFunctionType()->getFunctionParamType(0), 0, false);
 
-            llvm::CallInst::Create(f, arg, "", first);
+            llvm::CallInst::Create(f, arg, "SHOULD_FAIL", first);
         }
 
         // define all undefined variables
         if (undefinedDefaultsToUnknown.get(false)) {
             using namespace borealis::util;
-            auto allocas =
+            auto&& allocas =
                 viewContainer(BB)
                .map(ops::take_pointer)
                .filter(llvm::isaer<AllocaInst>{})
                .map(llvm::caster<AllocaInst>{})
                .toHashSet();
 
-            for (auto* alloca : viewContainer(allocas)) {
-                if(alloca->getAllocatedType()->isSingleValueType()) {
-                    auto nonDet = mkBorealisNonDet(&M, alloca->getAllocatedType(), alloca);
+            for (auto&& alloca : viewContainer(allocas)) {
+                if (alloca->getAllocatedType()->isSingleValueType()) {
+                    auto&& nonDet = mkBorealisNonDet(M, alloca->getAllocatedType(), alloca);
                     (new StoreInst{ nonDet, alloca })->insertAfter(alloca);
                 }
             }
@@ -170,17 +207,26 @@ public:
 
         static auto assert = util::viewContainer(asserts.get()).toHashSet();
         static auto assume = util::viewContainer(assumes.get()).toHashSet();
+        static auto error  = util::viewContainer(errors.get()).toHashSet();
+        static auto nondet = util::viewContainer(nondets.get()).toHashSet();
 
-        auto* calledFunc = I.getCalledFunction();
+        auto&& calledFunc = I.getCalledFunction();
 
-        if (!calledFunc) return;
-        if (!calledFunc->hasName()) return;
+        if (not calledFunc) return;
+        if (not calledFunc->hasName()) return;
 
-        auto& M = *I.getParent()->getParent()->getParent();
-        if (assert.count(calledFunc->getName())) {
+        auto&& M = *I.getParent()->getParent()->getParent();
+        auto&& calledFuncName = calledFunc->getName();
+
+        if (assert.count(calledFuncName)) {
             mkBorealisAssert(M, &I);
-        } else if (assume.count(calledFunc->getName())) {
+        } else if (assume.count(calledFuncName)) {
             mkBorealisAssume(M, &I);
+        } else if (error.count(calledFuncName)) {
+            mkBorealisError(M, &I);
+        } else if (nondet.count(calledFuncName)) {
+            auto&& nonDetValue = mkBorealisNonDet(M, I.getType(), &I);
+            I.replaceAllUsesWith(nonDetValue);
         }
     }
 
