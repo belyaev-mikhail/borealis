@@ -47,10 +47,17 @@ static Statistic LoopsFullyUnrolled("loop-deroll",
 LoopDeroll::LoopDeroll() : llvm::LoopPass(ID) {}
 
 static inline bool isLoopTruelyInfinite(llvm::Loop* L) {
-    using namespace llvm;
-    SmallVector<BasicBlock*, 4> ExitBlocks;
+    llvm::SmallVector<llvm::BasicBlock*, 4> ExitBlocks;
     L->getExitBlocks(ExitBlocks);
     return (ExitBlocks.size() == 0);
+}
+
+static inline llvm::Value* reverseFindInV2V(llvm::ValueToValueMapTy& VMap, llvm::Value* value) {
+    auto* res = util::viewContainer(VMap)
+                     .filter(LAM(p, value == p.second))
+                     .map(LAM(p, p.first))
+                     .first_or(nullptr);
+    return const_cast<llvm::Value*>(res);
 }
 
 static inline void RemapInstruction(
@@ -59,24 +66,24 @@ static inline void RemapInstruction(
 
     using namespace llvm;
 
-    for (unsigned op = 0, e = I.getNumOperands(); op != e; ++op) {
-        Value* Op = I.getOperand(op);
-        ValueToValueMapTy::iterator It = VMap.find(Op);
+    for (auto&& op = 0U, e = I.getNumOperands(); op != e; ++op) {
+        auto&& Op = I.getOperand(op);
+        auto&& It = VMap.find(Op);
         if (It != VMap.end()) {
             I.setOperand(op, It->second);
         // Attempt to remap internal MDNode values to cloned ones
         // to preserve debug information when unrolling
-        } else if (auto* MDN = dyn_cast_or_null<MDNode>(Op)) {
+        } else if (auto&& MDN = dyn_cast_or_null<MDNode>(Op)) {
 
             std::vector<Value*> mdn_values;
             mdn_values.reserve(MDN->getNumOperands());
             bool hasClonedValues = false;
 
-            for (unsigned mdn_op = 0, ee = MDN->getNumOperands(); mdn_op != ee; ++mdn_op) {
-                Instruction* OldVal = dyn_cast_or_null<Instruction>(MDN->getOperand(mdn_op));
-                ValueToValueMapTy::iterator Mdn_It = VMap.find(OldVal);
-                if (OldVal && Mdn_It != VMap.end()) {
-                    mdn_values.push_back(Mdn_It->second);
+            for (auto&& mdn_op = 0U, ee = MDN->getNumOperands(); mdn_op != ee; ++mdn_op) {
+                auto&& OldVal = dyn_cast_or_null<Instruction>(MDN->getOperand(mdn_op));
+                auto&& MdnIt = VMap.find(OldVal);
+                if (OldVal && MdnIt != VMap.end()) {
+                    mdn_values.push_back(MdnIt->second);
                     hasClonedValues = true;
                 } else {
                     mdn_values.push_back(OldVal);
@@ -90,9 +97,9 @@ static inline void RemapInstruction(
     }
 
     if (isa<PHINode>(I)) {
-        PHINode& PN = cast<PHINode>(I);
-        for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i) {
-            ValueToValueMapTy::iterator It = VMap.find(PN.getIncomingBlock(i));
+        auto&& PN = cast<PHINode>(I);
+        for (auto&& i = 0U, e = PN.getNumIncomingValues(); i != e; ++i) {
+            auto&& It = VMap.find(PN.getIncomingBlock(i));
             if (It != VMap.end()) {
                 PN.setIncomingBlock(i, cast<BasicBlock>(It->second));
             }
@@ -106,7 +113,7 @@ static inline llvm::BasicBlock* CreateUnreachableBasicBlock(
 
     using namespace llvm;
 
-    BasicBlock* BB = BasicBlock::Create(
+    auto* BB = BasicBlock::Create(
             F->getContext(),
             Name + Twine(".unreachable"),
             F
@@ -128,13 +135,13 @@ static inline llvm::BasicBlock* CreateUnreachableBasicBlock(
 static inline llvm::BasicBlock* normalizePhiNodes(llvm::BasicBlock* BB) {
     using namespace llvm;
 
-    auto phis = util::viewContainer(*BB)
-                .filter(isaer<PHINode>())
-                .map(caster<PHINode>());
+    auto&& phis = util::viewContainer(*BB)
+                  .filter(isaer<PHINode>())
+                  .map(caster<PHINode>());
 
-    auto* movePos = BB->getFirstNonPHIOrDbgOrLifetime();
+    auto&& movePos = BB->getFirstNonPHIOrDbgOrLifetime();
 
-    for (auto& PHI : phis) {
+    for (auto&& PHI : phis) {
         PHI.moveBefore(movePos);
     }
 
@@ -150,20 +157,20 @@ static llvm::BasicBlock* EvolveBasicBlock(
     std::vector<llvm::Instruction*>& toRemove
 ) {
 
-    using namespace llvm;
+    using namespace ::llvm;
 
     auto* bb = CloneBasicBlock(BB, VMap, ".bor.last");
     VMap[BB] = bb; // FIXME: we should first map all the blocks and then all the values
 
-    for (auto& I : *bb) RemapInstruction(I, VMap);
+    for (auto&& I : *bb) RemapInstruction(I, VMap);
 
     llvm::SCEVExpander exp(*SE, "bor.expander");
 
-    for (auto& I : *BB) {
-        if ( ! SE->isSCEVable(I.getType())) continue;
+    for (auto&& I : *BB) {
+        if (not SE->isSCEVable(I.getType())) continue;
         if (isa<CmpInst>(I)) continue; // XXX: scalar evo does not handle cmps only, or... ???
 
-        auto* scev = SE->getSCEV(&I);
+        auto&& scev = SE->getSCEV(&I);
 
         if (SE->isLoopInvariant(scev, L)) continue;
         if (isa<SCEVCouldNotCompute>(scev)) continue;
@@ -171,42 +178,35 @@ static llvm::BasicBlock* EvolveBasicBlock(
         llvm::LoopToScevMapT mp;
         mp.insert({L, Iteration});
 
-        auto* evo = llvm::apply(scev, mp, *SE);
+        auto&& evo = llvm::apply(scev, mp, *SE);
 
         llvm::Instruction* insertAt;
-        if (auto* foo = dyn_cast<Instruction>(VMap[&I])) {
+        if (auto&& foo = dyn_cast<Instruction>(VMap[&I])) {
             insertAt = foo;
         } else {
             insertAt = bb->getFirstNonPHIOrDbgOrLifetime();
         }
 
-        if( ! insertAt->getMetadata("dbg")) {
+        if (not insertAt->getMetadata("dbg")) {
             insertAt->setMetadata("dbg", I.getMetadata("dbg"));
         }
-        if( insertAt->getDebugLoc().isUnknown()) {
+        if (insertAt->getDebugLoc().isUnknown()) {
             insertAt->setDebugLoc(I.getDebugLoc());
         }
 
-        auto* val = exp.expandCodeFor(evo, I.getType(), insertAt);
-        if(auto ival = dyn_cast<Instruction>(val)) {
+        auto&& val = exp.expandCodeFor(evo, I.getType(), insertAt);
+        if (auto&& ival = dyn_cast<Instruction>(val)) {
             ival->setMetadata("dbg", I.getMetadata("dbg"));
             ival->setDebugLoc(I.getDebugLoc());
         }
 
+        auto&& newI = VMap.lookup(&I);
 
-        Value* newI = VMap.lookup(&I);
-
-        if (
-            newI
-         && (
-                (val != &I && val != newI)
-             || isa<PHINode>(val) // this case will be processed later by a higher entity
-            )
-        ) {
+        if (newI && val != &I && val != newI) {
             newI->replaceAllUsesWith(val);
         }
 
-        if ( ! insertAt->hasNUsesOrMore(1)) toRemove.push_back(insertAt);
+        if (not insertAt->hasNUsesOrMore(1)) toRemove.push_back(insertAt);
     }
 
     normalizePhiNodes(bb);
@@ -220,39 +220,40 @@ static util::option<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> UnrollFromT
     llvm::LoopInfo* LI,
     llvm::LoopBlocksDFS::RPOIterator BlockBegin,
     llvm::LoopBlocksDFS::RPOIterator BlockEnd,
-    llvm::ScalarEvolution* SE
+    llvm::ScalarEvolution* SE,
+    llvm::ValueToValueMapTy& VMap
 ) {
 
     using namespace ::llvm;
     using namespace ::llvm::types;
 
-    auto& ctx = F->getContext();
+    auto&& ctx = F->getContext();
 
-    bool isInfinite = isLoopTruelyInfinite(L);
+    auto&& isInfinite = isLoopTruelyInfinite(L);
 
-    if(
+    if (
         util::view(L->block_begin(), L->block_end())
        .map(ops::dereference)
        .flatten()
        .filter(llvm::isaer<llvm::PHINode>{})
        .map(llvm::caster<llvm::PHINode>{})
-       .any_of([SE](llvm::PHINode& phi){ return !SE->isSCEVable(phi.getType()); })
+       .any_of(LAM(phi, not SE->isSCEVable(phi.getType())))
     ) return util::nothing();
 
-    if ( ! isInfinite && ! SE->hasLoopInvariantBackedgeTakenCount(L)) return util::nothing();
+    if (not isInfinite && not SE->hasLoopInvariantBackedgeTakenCount(L)) return util::nothing();
 
-    BasicBlock* Header = L->getHeader();
-    BasicBlock* Latch = L->getLoopLatch();
+    auto&& Header = L->getHeader();
+    auto&& Latch = L->getLoopLatch();
 
-    const SCEV* backEdgeTaken = isInfinite ? nullptr : SE->getBackedgeTakenCount(L);
-    llvm::Type* indexType = backEdgeTaken ? backEdgeTaken->getType() : TypeBuilder<i<32>, true>::get(ctx);
+    auto&& backEdgeTaken = isInfinite ? nullptr : SE->getBackedgeTakenCount(L);
+    auto&& indexType = backEdgeTaken ? backEdgeTaken->getType() : TypeBuilder<i<32>, true>::get(ctx);
 
-    auto* nondetIntr = IntrinsicsManager::getInstance().createIntrinsic(
+    auto&& nondetIntr = IntrinsicsManager::getInstance().createIntrinsic(
         function_type::INTRINSIC_NONDET,
         "size_t",
         FunctionType::get(indexType, false),
         F->getParent());
-    auto* assumeIntr = IntrinsicsManager::getInstance().createIntrinsic(
+    auto&& assumeIntr = IntrinsicsManager::getInstance().createIntrinsic(
         function_type::BUILTIN_BOR_ASSUME,
         "",
         TypeBuilder<void(i<1>), true>::get(ctx),
@@ -260,38 +261,37 @@ static util::option<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> UnrollFromT
 
     llvm::IRBuilder<> builder{ F->getEntryBlock().getFirstNonPHIOrDbgOrLifetime() };
 
-    auto* nondetCall = builder.CreateCall(nondetIntr, "bor.loop.iteration." + Header->getName());
-    for(auto& I: *Header){
-        const auto& dl = I.getDebugLoc();
-        if ( ! dl.isUnknown()) {
+    auto&& nondetCall = builder.CreateCall(nondetIntr, "bor.loop.iteration." + Header->getName());
+    for (auto&& I : *Header) {
+        auto&& dl = I.getDebugLoc();
+        if (not dl.isUnknown()) {
             nondetCall->setDebugLoc(dl);
             break;
         }
     }
-    for(auto& I: *Header){
-        auto* md = I.getMetadata("dbg");
-        if ( md ) {
+    for (auto&& I: *Header) {
+        auto&& md = I.getMetadata("dbg");
+        if (md) {
             nondetCall->setMetadata("dbg", md);
             break;
         }
     }
 
-    auto* nondetSCEV = SE->getSCEV(nondetCall);
+    auto&& nondetSCEV = SE->getSCEV(nondetCall);
 
     std::vector<BasicBlock*> NewBBs;
-    ValueToValueMapTy VMap;
 
-    BasicBlock* NewHeader = nullptr;
-    BasicBlock* NewLatch = nullptr;
+    llvm::BasicBlock* NewHeader = nullptr;
+    llvm::BasicBlock* NewLatch = nullptr;
 
     std::vector<Instruction*> toRemove;
 
-    for (auto BB = BlockBegin; BB != BlockEnd; ++BB) {
-        BasicBlock* New = EvolveBasicBlock(SE, *BB, L, nondetSCEV, VMap, toRemove);
+    for (auto&& BB = BlockBegin; BB != BlockEnd; ++BB) {
+        auto&& New = EvolveBasicBlock(SE, *BB, L, nondetSCEV, VMap, toRemove);
         {
-            auto* insertAt = New->getFirstNonPHIOrDbgOrLifetime();
+            auto&& insertAt = New->getFirstNonPHIOrDbgOrLifetime();
             IRBuilder<> builder{ insertAt };
-            SCEVExpander exp(*SE, "bor.loop.expand");
+            SCEVExpander exp{ *SE, "bor.loop.expand" };
 
             builder.CreateCall(
                 assumeIntr,
@@ -299,8 +299,8 @@ static util::option<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> UnrollFromT
                 ""
             );
 
-            if(!isInfinite) {
-                auto* generatedBackEdge =
+            if (not isInfinite) {
+                auto&& generatedBackEdge =
                     exp.expandCodeFor(backEdgeTaken, indexType, insertAt);
 
                 // remember that backEdgeTaken is not the loop limit, but loop limit minus 1!
@@ -317,12 +317,12 @@ static util::option<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> UnrollFromT
         NewBBs.push_back(New);
 
         // Add PHI entries for newly created BB to all exit blocks
-        for (auto SI = succ_begin(*BB), SE = succ_end(*BB); SI != SE; ++SI) {
+        for (auto&& SI = succ_begin(*BB), SE = succ_end(*BB); SI != SE; ++SI) {
             if (L->contains(*SI))
                 continue;
-            for (auto BBI = (*SI)->begin(); PHINode* PHI = dyn_cast<PHINode>(BBI); ++BBI) {
-                Value* Incoming = PHI->getIncomingValueForBlock(*BB);
-                ValueToValueMapTy::iterator It = VMap.find(Incoming);
+            for (auto&& BBI = (*SI)->begin(); auto&& PHI = dyn_cast<PHINode>(BBI); ++BBI) {
+                auto&& Incoming = PHI->getIncomingValueForBlock(*BB);
+                auto&& It = VMap.find(Incoming);
                 if (It != VMap.end())
                     Incoming = It->second;
                 PHI->addIncoming(Incoming, New);
@@ -333,10 +333,10 @@ static util::option<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> UnrollFromT
         if (Latch == *BB) NewLatch = New;
     }
 
-    for (auto& I : util::viewContainer(NewBBs)
+    for (auto&& I : util::viewContainer(NewBBs)
                          .map(ops::dereference)
                          .flatten()) RemapInstruction(I, VMap);
-    for (auto* I : toRemove) if ( ! I->hasNUsesOrMore(1)) I->eraseFromParent();
+    for (auto&& I : toRemove) if (not I->hasNUsesOrMore(1)) I->eraseFromParent();
 
     ASSERTC(NewHeader && NewLatch);
 
@@ -344,7 +344,7 @@ static util::option<std::pair<llvm::BasicBlock*, llvm::BasicBlock*>> UnrollFromT
 }
 
 static unsigned adjustUnrollFactor(unsigned num, llvm::Loop* l) {
-    auto limit2one = [](unsigned i){ return std::max(i, 1U); };
+    auto&& limit2one = [](unsigned i){ return std::max(i, 1U); };
     unsigned loopDepth = l->getLoopDepth() + l->getSubLoops().size();
     constexpr unsigned basicBlockStd = 4U;
 
@@ -352,7 +352,7 @@ static unsigned adjustUnrollFactor(unsigned num, llvm::Loop* l) {
 
     unsigned basicBlocks = l->getBlocks().size();
 
-    num /= limit2one(basicBlocks/basicBlockStd);
+    num /= limit2one(basicBlocks / basicBlockStd);
     num = static_cast<unsigned>(std::lround(std::pow(num, 1. / loopDepth)));
 
     return limit2one(num);
@@ -368,12 +368,12 @@ void LoopDeroll::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 }
 
 bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
-    using namespace llvm;
+    using namespace ::llvm;
 
     // Basic info about the loop
-    BasicBlock* Header = L->getHeader();
-    BasicBlock* Latch = L->getLoopLatch();
-    BasicBlock* LoopPredecessor = L->getLoopPredecessor();
+    auto&& Header = L->getHeader();
+    auto&& Latch = L->getLoopLatch();
+    auto&& LoopPredecessor = L->getLoopPredecessor();
 
     // Sanity checks
     if (Header == nullptr) {
@@ -386,14 +386,14 @@ bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
         BYE_BYE(bool, "Cannot unroll a loop with multiple predecessors");
     }
 
-    Function* F = Header->getParent();
+    auto&& F = Header->getParent();
 
     LI = &getAnalysis<LoopInfo>();
     LM = &getAnalysis<LoopManager>();
     SE = &getAnalysis<ScalarEvolution>();
 
     // Loop exit info
-    BranchInst* BI = cast<BranchInst>(Latch->getTerminator());
+    auto&& BI = cast<BranchInst>(Latch->getTerminator());
     bool ContinueOnTrue = L->contains(BI->getSuccessor(0));
 
     ++LoopsEncountered;
@@ -416,12 +416,10 @@ bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
 
     // Original loop PHI nodes needed for the first iteration
     std::vector<PHINode*> OrigPHINodes;
-    for (auto& I : *Header) {
+    for (auto&& I : *Header) {
         if (isa<PHINode>(I)) {
             OrigPHINodes.push_back(&cast<PHINode>(I));
-        } else {
-            break;
-        }
+        } else break;
     }
 
     // LLVM on-the-fly SSA update requires blocks to be processed in
@@ -430,15 +428,16 @@ bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
     LoopBlocksDFS DFS(L);
     DFS.perform(LI);
     // Stash the DFS iterators before adding blocks to the loop
-    LoopBlocksDFS::RPOIterator BlockBegin = DFS.beginRPO();
-    LoopBlocksDFS::RPOIterator BlockEnd = DFS.endRPO();
+    auto&& BlockBegin = DFS.beginRPO();
+    auto&& BlockEnd = DFS.endRPO();
 
     static config::BoolConfigEntry PerformBackStab("analysis", "deroll-backstab");
-    bool DoBackStab = PerformBackStab.get(false); // XXX: move to true when stable
+    bool DoBackStab = PerformBackStab.get(true);
     // Try to stab this loop in the back
     // Do this before everything else 'cause derolling may break scalar evolution
-    util::option<std::pair<BasicBlock*, BasicBlock*>> lastHeaderAndLatch;
-    if (DoBackStab) lastHeaderAndLatch = UnrollFromTheBack(F, L, LI, BlockBegin, BlockEnd, SE);
+    util::option<std::pair<BasicBlock*, BasicBlock*>> endHeaderAndLatch;
+    ValueToValueMapTy endVMap;
+    if (DoBackStab) endHeaderAndLatch = UnrollFromTheBack(F, L, LI, BlockBegin, BlockEnd, SE, endVMap);
 
     static config::ConfigEntry<int> DerollCountOpt("analysis", "deroll-count");
     static config::ConfigEntry<int> MaxDerollCountOpt("analysis", "max-deroll-count");
@@ -446,7 +445,7 @@ bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
     unsigned Max = MaxDerollCountOpt.get(std::numeric_limits<int>::max());
 
     static config::BoolConfigEntry EnableAdaptiveDeroll("analysis", "adaptive-deroll");
-    bool AdaptiveDerollEnabled = EnableAdaptiveDeroll.get(false); // XXX: move to true when stable
+    bool AdaptiveDerollEnabled = EnableAdaptiveDeroll.get(true);
 
     // Try to guess the deroll count
     unsigned TripCount = SE->getSmallConstantTripCount(L, Latch);
@@ -459,37 +458,37 @@ bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
     unsigned AnnoUnrollCount = LM->getUnrollCount(L);
     if (AnnoUnrollCount != 0) CurrentDerollCount = AnnoUnrollCount;
 
-    if(CurrentDerollCount > Max) {
+    if (CurrentDerollCount > Max) {
         CurrentDerollCount = Max;
     }
 
-    if(AdaptiveDerollEnabled && lastHeaderAndLatch) {
+    if (AdaptiveDerollEnabled && endHeaderAndLatch) {
         ++LoopsBackstabbed;
         CurrentDerollCount = std::min(CurrentDerollCount, 1U);
-    } else if(AdaptiveDerollEnabled) {
+    } else if (AdaptiveDerollEnabled) {
         CurrentDerollCount = adjustUnrollFactor(CurrentDerollCount, L);
     }
 
     // llvm::WriteGraph<const llvm::Function*>(F, "cfg.before." + valueSummary(F) + valueSummary(Header), true);
 
-    for (unsigned UnrollIter = 0; UnrollIter != CurrentDerollCount; UnrollIter++) {
+    for (auto&& UnrollIter = 0U; UnrollIter != CurrentDerollCount; UnrollIter++) {
         std::vector<BasicBlock*> NewBlocks;
 
-        for (auto BB = BlockBegin; BB != BlockEnd; ++BB) {
+        for (auto&& BB = BlockBegin; BB != BlockEnd; ++BB) {
             ValueToValueMapTy VMap;
-            BasicBlock* New = CloneBasicBlock(*BB, VMap, ".bor." + Twine(UnrollIter));
+            auto&& New = CloneBasicBlock(*BB, VMap, ".bor." + Twine(UnrollIter));
             F->getBasicBlockList().push_back(New);
             L->addBasicBlockToLoop(New, LI->getBase());
 
             // Loop over all of the PHI nodes in the block, changing them to use
             // the incoming values from the previous block
             if (Header == *BB) {
-                for (auto* OrigPHINode : OrigPHINodes) {
-                    PHINode* NewPHI = cast<PHINode>(VMap[OrigPHINode]);
-                    Value* InVal = NewPHI->getIncomingValueForBlock(Latch);
-                    if (Instruction* InValI = dyn_cast<Instruction>(InVal)) {
-                        if (UnrollIter > 0 && L->contains(InValI)) {
-                            InVal = LastValueMap[InValI];
+                for (auto&& OrigPHINode : OrigPHINodes) {
+                    auto&& NewPHI = cast<PHINode>(VMap[OrigPHINode]);
+                    auto&& InVal = NewPHI->getIncomingValueForBlock(Latch);
+                    if (auto&& InValInst = dyn_cast<Instruction>(InVal)) {
+                        if (UnrollIter > 0 && L->contains(InValInst)) {
+                            InVal = LastValueMap[InValInst];
                         }
                     }
                     VMap[OrigPHINode] = InVal;
@@ -499,17 +498,17 @@ bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
 
             // Update the running map of newest clones
             LastValueMap[*BB] = New;
-            for (const auto& V : VMap) {
+            for (auto&& V : VMap) {
                 LastValueMap[V.first] = V.second;
             }
 
             // Add PHI entries for newly created values to all exit blocks
-            for (auto SI = succ_begin(*BB), SE = succ_end(*BB); SI != SE; ++SI) {
+            for (auto&& SI = succ_begin(*BB), SE = succ_end(*BB); SI != SE; ++SI) {
                 if (L->contains(*SI))
                     continue;
-                for (auto BBI = (*SI)->begin(); PHINode* PHI = dyn_cast<PHINode>(BBI); ++BBI) {
-                    Value* Incoming = PHI->getIncomingValueForBlock(*BB);
-                    ValueToValueMapTy::iterator It = LastValueMap.find(Incoming);
+                for (auto&& BBI = (*SI)->begin(); PHINode* PHI = dyn_cast<PHINode>(BBI); ++BBI) {
+                    auto&& Incoming = PHI->getIncomingValueForBlock(*BB);
+                    auto&& It = LastValueMap.find(Incoming);
                     if (It != LastValueMap.end())
                         Incoming = It->second;
                     PHI->addIncoming(Incoming, New);
@@ -522,33 +521,54 @@ bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
         }
 
         // Remap all instructions in the most recent iteration
-        for (auto* BB : NewBlocks) {
-            for (auto& I : *BB) {
+        for (auto&& BB : NewBlocks) {
+            for (auto&& I : *BB) {
                 RemapInstruction(I, LastValueMap);
             }
         }
     }
 
+    for (auto& hal : endHeaderAndLatch) {
+        auto&& header = hal.first;
+        auto&& latch = hal.second;
+
+        Headers.push_back(header);
+        Latches.push_back(latch);
+
+        // Link our back-stabbed loop iteration to the last unrolled iteration
+        // Back-stabbed info goes to `endVMap`, unrolled info is in `LastValueMap`
+        for (auto&& PN : OrigPHINodes) {
+            auto&& endPN = endVMap[PN];
+            if (auto&& NewPN = dyn_cast<PHINode>(endPN)) {
+                auto&& InVal = NewPN->getIncomingValueForBlock(latch);
+                InVal = reverseFindInV2V(endVMap, InVal);
+                ASSERT(InVal, "Could not find reverse mapping for bor.last of: " + llvm::valueSummary(InVal));
+                if (auto&& InValInst = dyn_cast<Instruction>(InVal)) {
+                    if (L->contains(InValInst)) {
+                        InVal = LastValueMap[InValInst];
+                    }
+                }
+                NewPN->replaceAllUsesWith(InVal);
+                header->getInstList().erase(NewPN);
+            }
+        }
+    }
+
     // Loop over the PHI nodes in the original block, setting incoming values
-    for (auto* PN : OrigPHINodes) {
+    for (auto&& PN : OrigPHINodes) {
         PN->replaceAllUsesWith(PN->getIncomingValueForBlock(LoopPredecessor));
         Header->getInstList().erase(PN);
     }
 
-    for (auto& hal : lastHeaderAndLatch) {
-        Headers.push_back(hal.first);
-        Latches.push_back(hal.second);
-    }
-
     // Now that all the basic blocks for the unrolled iterations are in place,
     // set up the branches to connect them
-    for (unsigned LL = 0, E = Latches.size(); LL != E; ++LL) {
+    for (auto&& LL = 0UL, E = Latches.size(); LL != E; ++LL) {
         // The original branch was replicated in each unrolled iteration
-        BranchInst* Term = cast<BranchInst>(Latches[LL]->getTerminator());
+        auto&& Term = cast<BranchInst>(Latches[LL]->getTerminator());
 
         // The branch destination
         unsigned DD = (LL + 1) % E;
-        BasicBlock* Dest = Headers[DD];
+        auto&& Dest = Headers[DD];
 
         if (DD != 0) {
             Term->setSuccessor(!ContinueOnTrue, Dest);
@@ -582,7 +602,7 @@ bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
     // llvm::WriteGraph<const llvm::Function*>(F, "cfg.after." + valueSummary(F) + valueSummary(Header), true);
 
     // Reconstruct dom info, because it is not preserved properly
-    if (DominatorTreeWrapperPass* DT = LPM.getAnalysisIfAvailable<DominatorTreeWrapperPass>()) {
+    if (auto&& DT = LPM.getAnalysisIfAvailable<DominatorTreeWrapperPass>()) {
         DT->runOnFunction(*F);
     }
     // This loop shall be no more...
