@@ -158,30 +158,6 @@ public:
         using namespace llvm;
         auto&& M = *BB.getParent()->getParent();
 
-        static auto label = util::viewContainer(labels.get()).toHashSet();
-
-        if (not BB.hasName()) return;
-
-        // transform the ERROR labeled BB
-        if (label.count(BB.getName())) {
-
-            auto&& first = BB.getFirstNonPHIOrDbgOrLifetime();
-            auto&& f = getBorealisBuiltin(
-                function_type::BUILTIN_BOR_ASSERT,
-                { llvm::Type::getInt32Ty(M.getContext()) },
-                M
-            );
-
-            // Check if we've already been here and done stuff
-            if (auto&& CI = dyn_cast<CallInst>(first))
-                if (f == CI->getCalledFunction())
-                    return;
-
-            auto&& arg = ConstantInt::get(f->getFunctionType()->getFunctionParamType(0), 0, false);
-
-            llvm::CallInst::Create(f, arg, "SHOULD_FAIL", first);
-        }
-
         // define all undefined variables
         if (undefinedDefaultsToUnknown.get(false)) {
             using namespace borealis::util;
