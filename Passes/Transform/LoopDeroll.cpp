@@ -430,6 +430,9 @@ bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
     // Stash the DFS iterators before adding blocks to the loop
     auto&& BlockBegin = DFS.beginRPO();
     auto&& BlockEnd = DFS.endRPO();
+    // Stash them real good
+    auto&& AllLoopBlocks = util::view(BlockBegin, BlockEnd)
+                                .toVector();
 
     static config::BoolConfigEntry PerformBackStab("analysis", "deroll-backstab");
     bool DoBackStab = PerformBackStab.get(true);
@@ -474,15 +477,15 @@ bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
     for (auto&& UnrollIter = 0U; UnrollIter != CurrentDerollCount; UnrollIter++) {
         std::vector<BasicBlock*> NewBlocks;
 
-        for (auto&& BB = BlockBegin; BB != BlockEnd; ++BB) {
+        for (auto&& BB : AllLoopBlocks) {
             ValueToValueMapTy VMap;
-            auto&& New = CloneBasicBlock(*BB, VMap, ".bor." + Twine(UnrollIter));
+            auto&& New = CloneBasicBlock(BB, VMap, ".bor." + Twine(UnrollIter));
             F->getBasicBlockList().push_back(New);
             L->addBasicBlockToLoop(New, LI->getBase());
 
             // Loop over all of the PHI nodes in the block, changing them to use
             // the incoming values from the previous block
-            if (Header == *BB) {
+            if (Header == BB) {
                 for (auto&& OrigPHINode : OrigPHINodes) {
                     auto&& NewPHI = cast<PHINode>(VMap[OrigPHINode]);
                     auto&& InVal = NewPHI->getIncomingValueForBlock(Latch);
@@ -497,17 +500,17 @@ bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
             }
 
             // Update the running map of newest clones
-            LastValueMap[*BB] = New;
+            LastValueMap[BB] = New;
             for (auto&& V : VMap) {
                 LastValueMap[V.first] = V.second;
             }
 
             // Add PHI entries for newly created values to all exit blocks
-            for (auto&& SI = succ_begin(*BB), SE = succ_end(*BB); SI != SE; ++SI) {
+            for (auto&& SI = succ_begin(BB), SE = succ_end(BB); SI != SE; ++SI) {
                 if (L->contains(*SI))
                     continue;
                 for (auto&& BBI = (*SI)->begin(); PHINode* PHI = dyn_cast<PHINode>(BBI); ++BBI) {
-                    auto&& Incoming = PHI->getIncomingValueForBlock(*BB);
+                    auto&& Incoming = PHI->getIncomingValueForBlock(BB);
                     auto&& It = LastValueMap.find(Incoming);
                     if (It != LastValueMap.end())
                         Incoming = It->second;
@@ -515,8 +518,8 @@ bool LoopDeroll::runOnLoop(llvm::Loop* L, llvm::LPPassManager& LPM) {
                 }
             }
 
-            if (Header == *BB) Headers.push_back(New);
-            if (Latch == *BB) Latches.push_back(New);
+            if (Header == BB) Headers.push_back(New);
+            if (Latch == BB) Latches.push_back(New);
             NewBlocks.push_back(New);
         }
 
