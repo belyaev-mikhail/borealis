@@ -183,7 +183,6 @@ ExecutionContext ExecutionContext::mergeMemory(
     }
 
     // Merge context axioms
-
     impl_::z3exprSet mergedAxioms;
     if(contexts.empty()) {
         res.contextAxioms = impl_::z3exprSet{};
@@ -198,7 +197,6 @@ ExecutionContext ExecutionContext::mergeMemory(
         res.contextAxioms = std::move(h);
         // res.contextAxioms.finalize();
     }
-
     return res;
 };
 

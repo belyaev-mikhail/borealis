@@ -15,11 +15,16 @@ WriteBoundPredicate::WriteBoundPredicate(
         const Locus& loc,
         PredicateType type) :
             Predicate(class_tag(*this), type, loc) {
-    asString = "writeBound(" +
-        lhv->getName() + "," +
-        rhv->getName() +
-    ")";
     ops = { lhv, rhv };
+    update();
+}
+
+Predicate* WriteBoundPredicate::update() {
+    asString = "writeBound(" +
+        getLhv()->getName() + "," +
+        getRhv()->getName() +
+    ")";
+    return this;
 }
 
 Term::Ptr WriteBoundPredicate::getLhv() const {

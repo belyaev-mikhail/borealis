@@ -11,6 +11,7 @@
 #include "Protobuf/ConverterUtil.h"
 
 #include "Annotation/ProtobufConverterImpl.hpp"
+#include "Passes/Contract/ProtobufConverterImpl.hpp"
 #include "Predicate/ProtobufConverterImpl.hpp"
 #include "State/ProtobufConverterImpl.hpp"
 #include "Term/ProtobufConverterImpl.hpp"
@@ -35,6 +36,21 @@ Annotation::Ptr    deprotobuffy(FactoryNest FN, const proto::Annotation& p);
 
 AnnotationContainer::ProtoPtr protobuffy(AnnotationContainer::Ptr p);
 AnnotationContainer::Ptr    deprotobuffy(FactoryNest FN, const proto::AnnotationContainer& p);
+
+Contract::ProtoPtr protobuffy(Contract::ConstPtr p);
+Contract::Ptr    deprotobuffy(FactoryNest FN, const proto::Contract& p);
+
+FunctionIdentifier::ProtoPtr protobuffy(FunctionIdentifier::ConstPtr p);
+FunctionIdentifier::Ptr    deprotobuffy(const proto::FunctionIdentifier& p);
+
+ContractContainer::ProtoPtr protobuffy(ContractContainer::ConstPtr p);
+ContractContainer::Ptr    deprotobuffy(FactoryNest FN, const proto::ContractContainer& p);
+
+Contract::ProtoPtr protobuffy(Contract::ConstPtr p);
+Contract::Ptr    deprotobuffy(FactoryNest FN, const proto::Contract& p);
+
+FunctionIdentifier::ProtoPtr protobuffy(FunctionIdentifier::ConstPtr p);
+FunctionIdentifier::Ptr    deprotobuffy(FactoryNest, const proto::FunctionIdentifier& p);
 
 PredicateState::ProtoPtr protobuffy(PredicateState::Ptr p);
 PredicateState::Ptr    deprotobuffy(FactoryNest FN, const proto::PredicateState& p);
