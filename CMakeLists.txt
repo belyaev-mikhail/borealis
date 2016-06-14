@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
-project(borealis)
-
 set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+
+project(borealis)
 
 find_package(LLVM QUIET REQUIRED COMPONENTS ALL
         CONFIG
@@ -161,17 +161,17 @@ set(DBGLOG_DIR ${PROJECT_SOURCE_DIR}/lib/dbglog)
 set(DBGLOG_DIST ${DBGLOG_DIR}/dist)
 set(DBGLOG_LIB ${DBGLOG_DIST}/lib/)
 
-add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/.dbglog
+add_custom_command(OUTPUT ${DBGLOG_DIR}/.dbglog
         COMMAND ./configure CXX=${CMAKE_CXX_COMPILER} --prefix=${DBGLOG_DIST}
         COMMAND make CXX=${CMAKE_CXX_COMPILER} -C ${DBGLOG_DIR} install
-        COMMAND touch ${PROJECT_SOURCE_DIR}/.dbglog
+        COMMAND touch ${DBGLOG_DIR}/.dbglog
         WORKING_DIRECTORY ${DBGLOG_DIR})
 
 add_custom_target(.dbglog
-        DEPENDS ${PROJECT_SOURCE_DIR}/.dbglog)
+        DEPENDS ${DBGLOG_DIR}/.dbglog)
 
 add_custom_target(clean.dbglog
-        COMMAND rm ${PROJECT_SOURCE_DIR}/.dbglog
+        COMMAND rm ${DBGLOG_DIR}/.dbglog || true
         COMMAND make -C ${DBGLOG_DIR} clean
         COMMAND make -C ${DBGLOG_DIR} distclean
         COMMAND rm -rf ${DBGLOG_DIST})
@@ -185,17 +185,17 @@ list(APPEND ARCHIVES dbglog)
 set(CFGPARSER_DIR ${PROJECT_SOURCE_DIR}/lib/cfgparser)
 set(CFGPARSER_LIB ${CFGPARSER_DIR}/dist/lib/)
 
-add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/.cfgparser
+add_custom_command(OUTPUT ${CFGPARSER_DIR}/.cfgparser
         COMMAND ./configure --prefix=${CFGPARSER_DIR}/dist --with-dbglog=${DBGLOG_DIST}
         COMMAND make CXX=${CMAKE_CXX_COMPILER} -C ${CFGPARSER_DIR} install
-        COMMAND touch ${PROJECT_SOURCE_DIR}/.cfgparser
+        COMMAND touch ${CFGPARSER_DIR}/.cfgparser
         WORKING_DIRECTORY ${CFGPARSER_DIR})
 
 add_custom_target(.cfgparser
-        DEPENDS ${PROJECT_SOURCE_DIR}/.cfgparser)
+        DEPENDS ${CFGPARSER_DIR}/.cfgparser)
 
 add_custom_target(clean.cfgparser
-        COMMAND rm ${PROJECT_SOURCE_DIR}/.cfgparser
+        COMMAND rm ${CFGPARSER_DIR}/.cfgparser || true
         COMMAND make CXX=${CMAKE_CXX_COMPILER} -C ${CFGPARSER_DIR} clean
         COMMAND make CXX=${CMAKE_CXX_COMPILER} -C ${CFGPARSER_DIR} distclean
         COMMAND rm -rf ${CFGPARSER_DIR}/dist)
@@ -230,18 +230,18 @@ set(PROTO_SOURCE_DIR ${PROJECT_SOURCE_DIR}/Protobuf/Gen)
 set(PROTOC protoc --proto_path=${PROJECT_SOURCE_DIR} --cpp_out=${PROTO_SOURCE_DIR})
 set(PROTOEXT ${PROJECT_SOURCE_DIR}/extract-protobuf-desc.awk)
 
-add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/.protobuf
+add_custom_command(OUTPUT ${PROTO_SOURCE_DIR}/.protobuf
         COMMAND mkdir -p ${PROTO_SOURCE_DIR}
         COMMAND ${PROTOEXT} `find ${PROJECT_SOURCE_DIR} -name '*.cpp' -o -name '*.h' -o -name '*.hpp' | sort`
         COMMAND find ${PROJECT_SOURCE_DIR} -name "*.proto" | xargs ${PROTOC}
-        COMMAND touch ${PROJECT_SOURCE_DIR}/.protobuf
+        COMMAND touch ${PROTO_SOURCE_DIR}/.protobuf
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_custom_target(.protobuf
-        DEPENDS ${PROJECT_SOURCE_DIR}/.protobuf)
+        DEPENDS ${PROTO_SOURCE_DIR}/.protobuf)
 
 add_custom_target(clean.protobuf
-        COMMAND rm ${PROJECT_SOURCE_DIR}/.protobuf
+        COMMAND rm ${PROTO_SOURCE_DIR}/.protobuf || true
         COMMAND find ${PROJECT_SOURCE_DIR} -name "*.proto" -delete
         COMMAND rm -rf ${PROTO_SOURCE_DIR})
 
@@ -396,3 +396,12 @@ add_custom_target(check-all
 add_dependencies(check-all
         .regenerate-test-defs
         ${TEST_EXE})
+
+################################################################################
+# custom clean target
+################################################################################
+add_custom_target(clean-all
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMAND make clean.protobuf
+        COMMAND make clean.cfgparser
+        COMMAND make clean)
