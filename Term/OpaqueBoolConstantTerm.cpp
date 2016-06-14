@@ -16,6 +16,11 @@ OpaqueBoolConstantTerm::OpaqueBoolConstantTerm(Type::Ptr type, bool value):
         value ? "true" : "false"
     ), value(value) {};
 
+Term* OpaqueBoolConstantTerm::update() {
+    name = getValue() ? "true" : "false";
+    return this;
+}
+
 bool OpaqueBoolConstantTerm::getValue() const {
     return value;
 }
