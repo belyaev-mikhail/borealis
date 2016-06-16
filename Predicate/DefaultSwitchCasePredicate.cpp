@@ -17,15 +17,17 @@ DefaultSwitchCasePredicate::DefaultSwitchCasePredicate(
         const Locus& loc,
         PredicateType type) :
             Predicate(class_tag(*this), type, loc) {
-
-    auto&& a = util::viewContainer(cases)
-                .map([](auto&& c) { return c->getName(); })
-                .reduce("", [](auto&& acc, auto&& e) { return acc + "|" + e; });
-
-    asString = cond->getName() + "=not(" + a + ")";
-
     ops.insert(ops.end(), cond);
     ops.insert(ops.end(), cases.begin(), cases.end());
+
+    update();
+}
+
+Predicate* DefaultSwitchCasePredicate::update() {
+    asString = getCond()->getName() + "=not(" + getCases()
+                        .map([](auto&& c) { return c->getName(); })
+                        .reduce("", [](auto&& acc, auto&& e) { return acc + "|" + e; }) + ")";
+    return this;
 }
 
 Term::Ptr DefaultSwitchCasePredicate::getCond() const {

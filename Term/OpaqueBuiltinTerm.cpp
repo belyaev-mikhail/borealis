@@ -16,6 +16,11 @@ OpaqueBuiltinTerm::OpaqueBuiltinTerm(Type::Ptr type, const std::string& vname):
         "\\" + vname
     ), vname(vname) {};
 
+Term* OpaqueBuiltinTerm::update() {
+    name = "\\" + getVName();
+    return this;
+}
+
 const std::string& OpaqueBuiltinTerm::getVName() const {
     return vname;
 }

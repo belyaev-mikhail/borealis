@@ -15,8 +15,13 @@ InequalityPredicate::InequalityPredicate(
         const Locus& loc,
         PredicateType type) :
             Predicate(class_tag(*this), type, loc) {
-    asString = lhv->getName() + "!=" + rhv->getName();
     ops = { lhv, rhv };
+    update();
+}
+
+Predicate* InequalityPredicate::update() {
+    asString = getLhv()->getName() + "!=" + getRhv()->getName();
+    return this;
 }
 
 Term::Ptr InequalityPredicate::getLhv() const {
