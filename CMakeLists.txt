@@ -358,7 +358,7 @@ foreach(def_file_dir ${TEST_DEF_FILES})
     endforeach()
     file(READ ${def_file_dir}/tests.def.long FILECONTENT)
     if (NOT (FILECONTENT STREQUAL ""))
-        string(REGEX REPLACE "# |#" "" CONTENT_WITHOUT_COMM ${FILECONTENT})
+        string(REGEX REPLACE "#[ \t]*" "" CONTENT_WITHOUT_COMM ${FILECONTENT})
         file(APPEND ${def_file_dir}/tests.def.long.all ${CONTENT_WITHOUT_COMM})
     endif ()
     execute_process(COMMAND grep -v -x -f ${def_file_dir}/tests.def.long.all ${def_file_dir}/tests.def.all
