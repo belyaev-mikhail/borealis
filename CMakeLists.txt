@@ -77,7 +77,7 @@ set(INCLUDE_DIRS
         ${PROJECT_SOURCE_DIR}/lib/cfgparser/include
         ${PROJECT_SOURCE_DIR}/lib/backward-cpp)
 
-include_directories(${PROJECT_SOURCE_DIR})
+include_directories(${PROJECT_SOURCE_DIR} ./ ../)
 
 include_directories(SYSTEM /usr/include/z3)             # using SYSTEM parameter to exclude
 include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})        # compiler warnings on include libraries
