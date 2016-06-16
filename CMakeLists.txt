@@ -343,15 +343,32 @@ target_link_libraries(${TEST_EXE} ${ARCHIVES} ${TEST_ARCHIVES})
 target_link_libraries(${TEST_EXE} ${SYSTEM_LIBS} ${CLANG_LIBS} ${LLVM_AVAILABLE_LIBS})
 
 ################################################################################
-# testing targets
+# regenerate tests.def files
 ################################################################################
 
-foreach(dir ${TEST_DIRS})
-    execute_process(COMMAND "ls -1 ${dir} | grep '^.*.c$' | xargs -n1 basename > tests.def.all")
-    execute_process(COMMAND "sed -e 's|^#\\s*||' ${dir}/tests.def.long > tests.def.long.all")
-    execute_process(COMMAND "grep -v -x -f ${dir}.long.all tests.def.all > tests.def")
+execute_process(COMMAND find ${TEST_DIRS} -name "tests.def" -printf "%h;" OUTPUT_VARIABLE TEST_DEF_FILES)
+
+foreach(def_file_dir ${TEST_DEF_FILES})
+    file(GLOB_RECURSE SRC ${def_file_dir}/*.c)
+    file(WRITE ${def_file_dir}/tests.def.all "")
+    file(WRITE ${def_file_dir}/tests.def.long.all "")
+    foreach(test_file ${SRC})
+        get_filename_component(name ${test_file} NAME)
+        file(APPEND ${def_file_dir}/tests.def.all "${name}\n")
+    endforeach()
+    file(READ ${def_file_dir}/tests.def.long FILECONTENT)
+    if (NOT (FILECONTENT STREQUAL ""))
+        string(REGEX REPLACE "# |#" "" CONTENT_WITHOUT_COMM ${FILECONTENT})
+        file(APPEND ${def_file_dir}/tests.def.long.all ${CONTENT_WITHOUT_COMM})
+    endif ()
+    execute_process(COMMAND grep -v -x -f ${def_file_dir}/tests.def.long.all ${def_file_dir}/tests.def.all
+            OUTPUT_VARIABLE RUNNING_TESTS)
+    file(WRITE ${def_file_dir}/tests.def ${RUNNING_TESTS})
 endforeach()
 
+################################################################################
+# testing targets
+################################################################################
 add_custom_target(.regenerate-test-defs
         COMMAND find ${TEST_DIRS} -name "*.tmp" -delete)
 
