@@ -19,7 +19,7 @@ CastTerm::CastTerm(Type::Ptr type, bool signExtend, Term::Ptr rhv):
     update();
 };
 
-void CastTerm::update() {
+Term* CastTerm::update() {
     name =
         "cast(" +
             std::string(signExtend ? "+" : "") +
@@ -27,6 +27,7 @@ void CastTerm::update() {
             ", " +
             getRhv()->getName() +
         ")";
+    return this;
 }
 
 Term::Ptr CastTerm::getRhv() const {
