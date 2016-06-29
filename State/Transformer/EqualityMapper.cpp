@@ -19,15 +19,14 @@ Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr p
     TermMap replacement;
     if (prev && pred->getRhv()->equals(prev.get()) && not (util::contains(usedTerms, prev))) {
         replacement[pred->getRhv()] = prevRhv;
-    }
-    else{
+    } else {
         if (util::at(mapping, pred->getLhv())) {
             prev = pred->getLhv();
             return pred;
         }
         for (auto&& subterm : Term::getFullTermSet(pred->getRhv())) {
             if (auto&& value = util::at(mapping, subterm)) {
-                if (not (util::contains(usedTerms,subterm)))
+                if (not (util::contains(usedTerms, subterm)))
                     replacement[subterm] = value.getUnsafe();
             }
         }
