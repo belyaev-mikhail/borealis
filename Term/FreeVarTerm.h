@@ -19,7 +19,7 @@ package borealis.proto;
 
 message FreeVarTerm {
     extend borealis.proto.Term {
-        optional FreeVarTerm ext = $COUNTER_TERM;
+        optional FreeVarTerm ext = 64;
     }
 }
 

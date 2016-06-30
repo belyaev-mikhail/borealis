@@ -16,11 +16,16 @@ MallocPredicate::MallocPredicate(
         const Locus& loc,
         PredicateType type) :
             Predicate(class_tag(*this), type, loc) {
-    asString = lhv->getName() + "=malloc(" +
-        numElems->getName() + "," +
-        origNumElems->getName() +
-    ")";
     ops = { lhv, numElems, origNumElems };
+    update();
+}
+
+Predicate* MallocPredicate::update() {
+    asString = getLhv()->getName() + "=malloc(" +
+        getNumElems()->getName() + "," +
+        getOrigNumElems()->getName() +
+    ")";
+    return this;
 }
 
 Term::Ptr MallocPredicate::getLhv() const {

@@ -14,6 +14,7 @@
 #include "SMT/Z3/Solver.h"
 #include "State/Transformer/StateSlicer.h"
 #include "State/Transformer/TermSizeCalculator.h"
+#include "State/Transformer/UnusedVariablesDeleter.h"
 
 namespace borealis {
 
@@ -29,7 +30,7 @@ public:
     using explicit_result = smt::Result;
 
     CheckHelper(Pass* pass, llvm::Instruction* I, DefectType defectType) :
-        pass(pass), I(I), defectType(defectType) {};
+            pass(pass), I(I), defectType(defectType) {};
 
     bool skip() {
         return skip(pass->DM->getDefect(defectType, I));
@@ -62,7 +63,9 @@ public:
 
         dbgs() << "Slicing started" << endl;
         static config::BoolConfigEntry useLocalAA("analysis", "use-local-aa");
-        auto&& sliced = StateSlicer(pass->FN, query, useLocalAA.get(false)? nullptr : pass->AA).transform(state);
+        auto&& sliced1 = StateSlicer(pass->FN, query, useLocalAA.get(false)? nullptr : pass->AA).transform(state);
+        auto&& sliced = UnusedVariablesDeleter(pass->FN, query).transform(sliced1);
+        //auto&& sliced = state;
         dbgs() << "Slicing finished" << endl;
 
         dbgs() << "State size after slicing:" << TermSizeCalculator::measure(sliced) << endl;

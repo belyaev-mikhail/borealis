@@ -40,6 +40,8 @@ struct Z3 {
     using BV = z3_::logic::BitVector<N>;
     // dynamic bit vector
     using DynBV = z3_::logic::DynBitVectorExpr;
+    // regular comparable type
+    using Comparable = z3_::logic::ComparableExpr;
     // unsigned comparable type
     using UComparable = z3_::logic::UComparableExpr;
     // dynamic logic type
