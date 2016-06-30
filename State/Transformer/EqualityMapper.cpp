@@ -41,10 +41,11 @@ Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr p
             mapping[newEq->getLhv()] = newEq->getRhv();
         }
         else usedTerms.insert(newEq->getLhv());
+
+        prev = newEq->getLhv();
+        prevRhv = newEq->getRhv();
     }
 
-    prev = pred->getLhv();
-    prevRhv = pred->getRhv();
     return replaced;
 }
 
