@@ -15,11 +15,16 @@
 namespace borealis {
 
 StateSlicer::StateSlicer(FactoryNest FN, PredicateState::Ptr query, llvm::AliasAnalysis* AA) :
-    Base(FN), query(query), sliceVars{}, slicePtrs{}, AA{}{ init(AA); }
+        Base(FN), query(query), AA{} {init(AA); }
 
 StateSlicer::StateSlicer(FactoryNest FN, PredicateState::Ptr query) :
-    Base(FN), query(query), sliceVars{}, slicePtrs{}, AA{}{ init(nullptr); }
+        Base(FN), query(query), sliceVars{}, slicePtrs{}, AA{}{ init(nullptr); }
 
+StateSlicer::StateSlicer(FactoryNest FN, const TermSet& TS, llvm::AliasAnalysis* AA) :
+        Base(FN), AA{} { initWithTermSet(TS, AA); }
+
+StateSlicer::StateSlicer(FactoryNest FN, const TermSet& TS) :
+    Base(FN), sliceVars{}, slicePtrs{}, AA{} { initWithTermSet(TS, nullptr); }
 
 static struct {
     using argument_type = Term::Ptr;
@@ -52,8 +57,20 @@ void StateSlicer::init(llvm::AliasAnalysis* llvmAA) {
     tc.transform(query);
 
     util::viewContainer(tc.getTerms())
-        .filter(isInterestingTerm)
-        .foreach(APPLY(this->addSliceTerm));
+            .filter(isInterestingTerm)
+            .foreach(APPLY(this->addSliceTerm));
+}
+
+void StateSlicer::initWithTermSet(const TermSet& ts, llvm::AliasAnalysis* llvmAA){
+    if(llvmAA) {
+        AA = util::make_unique<AliasAnalysisAdapter>(llvmAA, FN);
+    } else {
+        AA = util::make_unique<LocalStensgaardAA>(FN);
+    }
+
+    util::viewContainer(ts)
+            .filter(isInterestingTerm)
+            .foreach(APPLY(this->addSliceTerm));
 }
 
 void StateSlicer::addSliceTerm(Term::Ptr term) {
@@ -69,9 +86,9 @@ PredicateState::Ptr StateSlicer::transform(PredicateState::Ptr ps) {
     return nullptr == AA
            ? ps
            : Base::transform(ps->reverse())
-               ->filter([](auto&& p) { return !!p; })
-               ->reverse()
-               ->simplify();
+                   ->filter([](auto&& p) { return !!p; })
+                   ->reverse()
+                   ->simplify();
 }
 
 Predicate::Ptr StateSlicer::transformBase(Predicate::Ptr pred) {
@@ -81,15 +98,15 @@ Predicate::Ptr StateSlicer::transformBase(Predicate::Ptr pred) {
     for (auto&& lhv : util::viewContainer(pred->getOperands()).take(1)) {
         auto&& nested = Term::getFullTermSet(lhv);
         util::viewContainer(nested)
-            .filter(isInterestingTerm)
-            .foreach(APPLY(lhvTerms.insert));
+                .filter(isInterestingTerm)
+                .foreach(APPLY(lhvTerms.insert));
     }
     auto&& rhvTerms = Term::Set{};
     for (auto&& rhv : util::viewContainer(pred->getOperands()).drop(1)) {
         auto&& nested = Term::getFullTermSet(rhv);
         util::viewContainer(nested)
-            .filter(isInterestingTerm)
-            .foreach(APPLY(rhvTerms.insert));
+                .filter(isInterestingTerm)
+                .foreach(APPLY(rhvTerms.insert));
     }
 
     Predicate::Ptr res = nullptr;
@@ -110,7 +127,7 @@ bool StateSlicer::checkPath(Predicate::Ptr pred, const Term::Set& lhv, const Ter
         PredicateType::ASSUME == pred->getType() ||
         PredicateType::REQUIRES == pred->getType()) {
         (util::viewContainer(lhv) >> util::viewContainer(rhv))
-            .foreach(APPLY(this->addSliceTerm));
+                .foreach(APPLY(this->addSliceTerm));
         return true;
     }
     return false;
@@ -118,12 +135,12 @@ bool StateSlicer::checkPath(Predicate::Ptr pred, const Term::Set& lhv, const Ter
 
 bool StateSlicer::checkVars(const Term::Set& lhv, const Term::Set& rhv) {
     if (
-        util::viewContainer(lhv)
-            .filter(isNotPointerTerm)
-            .any_of([&](auto&& t) { return util::contains(sliceVars, t); })
-        ) {
+            util::viewContainer(lhv)
+                    .filter(isNotPointerTerm)
+                    .any_of([&](auto&& t) { return util::contains(sliceVars, t); })
+            ) {
         util::viewContainer(rhv)
-            .foreach(APPLY(this->addSliceTerm));
+                .foreach(APPLY(this->addSliceTerm));
         return true;
     }
     return false;
@@ -131,17 +148,17 @@ bool StateSlicer::checkVars(const Term::Set& lhv, const Term::Set& rhv) {
 
 bool StateSlicer::checkPtrs(const Term::Set& lhv, const Term::Set& rhv) {
     if (
-        util::viewContainer(lhv)
-            .filter(isPointerTerm)
-            .any_of([&](auto&& a) {
-                return util::viewContainer(slicePtrs)
-                    .any_of([&](auto&& b) {
-                        return AA->mayAlias(a, b);
-                    });
-            })
-        ) {
+            util::viewContainer(lhv)
+                    .filter(isPointerTerm)
+                    .any_of([&](auto&& a) {
+                        return util::viewContainer(slicePtrs)
+                                .any_of([&](auto&& b) {
+                                    return AA->mayAlias(a, b);
+                                });
+                    })
+            ) {
         util::viewContainer(rhv)
-            .foreach(APPLY(this->addSliceTerm));
+                .foreach(APPLY(this->addSliceTerm));
         return true;
     }
     return false;

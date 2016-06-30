@@ -75,7 +75,9 @@ set(INCLUDE_DIRS
         ${PROJECT_SOURCE_DIR}/lib/yaml-cpp/include
         ${PROJECT_SOURCE_DIR}/lib/yaml-cpp/test
         ${PROJECT_SOURCE_DIR}/lib/cfgparser/include
-        ${PROJECT_SOURCE_DIR}/lib/backward-cpp)
+        ${PROJECT_SOURCE_DIR}/lib/backward-cpp
+        ${PROJECT_SOURCE_DIR}/lib/leveldb-mp/include
+        ${PROJECT_SOURCE_DIR}/lib/leveldb-mp/libsocket/headers)
 
 include_directories(${PROJECT_SOURCE_DIR} ./ ../)
 
@@ -240,6 +242,20 @@ add_dependencies(clean.cfgparser clean.dbglog)
 
 link_directories(${CFGPARSER_LIB})
 list(APPEND ARCHIVES cfgparser)
+
+################################################################################
+# LevelDB-MP
+################################################################################
+set(LEVELDB_MP_SOURCE_DIR ${PROJECT_SOURCE_DIR}/lib/leveldb-mp)
+
+add_subdirectory(${LEVELDB_MP_SOURCE_DIR})
+
+
+link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib/leveldb-mp)
+link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib/leveldb-mp/libsocket/C++)
+
+list(APPEND ARCHIVES socket++)          #needed for leveldb-mp
+list(APPEND ARCHIVES leveldb_client)
 
 ################################################################################
 # andersen

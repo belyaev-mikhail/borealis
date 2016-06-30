@@ -20,4 +20,8 @@ const std::string& OpaqueNamedConstantTerm::getVName() const {
     return vname;
 }
 
+Term* OpaqueNamedConstantTerm::update() {
+    return this;
+}
+
 } // namespace borealis

@@ -84,8 +84,8 @@ void FunctionManager::put(const llvm::Function* F, PredicateState::Ptr state) {
 }
 
 void FunctionManager::update(const llvm::Function* F, PredicateState::Ptr state) {
-    dbgs() << "Updating function state for: " << F->getName().str() << endl
-           << "  with: " << endl << state << endl;
+    /*dbgs() << "Updating function state for: " << F->getName().str() << endl
+           << "  with: " << endl << state << endl;*/
 
     if (util::containsKey(data, F)) {
         data[F] = mergeFunctionDesc(data.at(F), state);
