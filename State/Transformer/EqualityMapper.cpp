@@ -17,22 +17,15 @@ Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr p
     }
 
     TermMap replacement;
-    if (prev && pred->getRhv()->equals(prev.get()) && not (util::contains(usedTerms, prev))) {
-        replacement[pred->getRhv()] = prevRhv;
+    if (util::at(mapping, pred->getLhv())) {
+        return pred;
     }
-    else{
-        if (util::at(mapping, pred->getLhv())) {
-            //prev = pred->getLhv();
-            return pred;
-        }
-        for (auto&& subterm : Term::getFullTermSet(pred->getRhv())) {
-            if (auto&& value = util::at(mapping, subterm)) {
-                if (not (util::contains(usedTerms,subterm)))
-                    replacement[subterm] = value.getUnsafe();
-            }
+    for (auto&& subterm : Term::getFullTermSet(pred->getRhv())) {
+        if (auto&& value = util::at(mapping, subterm)) {
+            if (not (util::contains(usedTerms, subterm)))
+                replacement[subterm] = value.getUnsafe();
         }
     }
-
     auto&& newRhv = Term::Ptr{ pred->getRhv()->replaceOperands(replacement) };
     auto&& replaced = FN.Predicate->getEqualityPredicate(pred->getLhv(), newRhv, pred->getLocation(), pred->getType());
     replaced = Predicate::Ptr{ replaced->replaceOperands(replacement) };
@@ -44,8 +37,6 @@ Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr p
         else usedTerms.insert(newEq->getLhv());
     }
 
-    prev = pred->getLhv();
-    prevRhv = pred->getRhv();
     return replaced;
 }
 

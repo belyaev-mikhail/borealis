@@ -94,7 +94,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
 }
 
 void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateState::Ptr S) {
-    /*if (I.getCalledFunction() == nullptr) return;
+    if (I.getCalledFunction() == nullptr) return;
 
     auto&& mapper = EqualityMapper(FN);
     auto&& mappedState = mapper.transform(S);
@@ -104,7 +104,7 @@ void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateS
     auto&& transformedState = extractor.transform(mappedState);
     auto&& argToTerms = extractor.getArgToTermMapping();
 
-    CM->addContract(I.getCalledFunction(), *FM, transformedState, argToTerms);*/
+    CM->addContract(I.getCalledFunction(), *FM, transformedState, argToTerms);
 }
 
 void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
