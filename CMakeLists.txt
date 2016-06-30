@@ -109,6 +109,40 @@ set(SOURCE_DIRS
         ${PROJECT_SOURCE_DIR}/Type
         ${PROJECT_SOURCE_DIR}/Util)
 
+################################################################################
+# Protobuf
+################################################################################
+set(PROTO_SOURCE_DIR ${PROJECT_SOURCE_DIR}/Protobuf/Gen)
+set(PROTOC protoc --proto_path=${PROJECT_SOURCE_DIR} --cpp_out=${PROTO_SOURCE_DIR})
+set(PROTOEXT ${PROJECT_SOURCE_DIR}/extract-protobuf-desc.awk)
+
+if (NOT EXISTS "${PROJECT_SOURCE_DIR}/.protobuf")
+    message("Generating protobuf files")
+    file(MAKE_DIRECTORY ${PROTO_SOURCE_DIR})
+    file(GLOB_RECURSE PROTO_DESC_FILES ${PROJECT_SOURCE_DIR}/*.cpp
+            ${PROJECT_SOURCE_DIR}/*.h
+            ${PROJECT_SOURCE_DIR}/*.hpp)
+
+    execute_process(COMMAND ${PROTOEXT} ${PROTO_DESC_FILES}
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
+    file(GLOB_RECURSE PROTO_FILES ${PROJECT_SOURCE_DIR}/*.proto)
+    foreach(proto_file ${PROTO_FILES})
+        execute_process(COMMAND ${PROTOC} ${proto_file})
+    endforeach()
+
+    file(WRITE ${PROJECT_SOURCE_DIR}/.protobuf "")
+endif ()
+
+add_custom_target(clean.protobuf
+        COMMAND rm ${PROJECT_SOURCE_DIR}/.protobuf || true
+        COMMAND find ${PROJECT_SOURCE_DIR} -name *.proto -delete
+        COMMAND rm -rf ${PROTO_SOURCE_DIR})
+
+################################################################################
+# source files
+################################################################################
+
 foreach(dir ${SOURCE_DIRS})
     file(GLOB_RECURSE SRC ${dir}/*.cc
                   ${dir}/*.cpp)
@@ -223,29 +257,6 @@ list(APPEND ARCHIVES libAndersen.so)
 set(VALGRIND "valgrind --leak-check=yes --suppressions=valgrind.supp")
 
 ################################################################################
-# Protobuf
-################################################################################
-#Don't know how to fucking generate CPP files in required directory
-set(PROTO_SOURCE_DIR ${PROJECT_SOURCE_DIR}/Protobuf/Gen)
-set(PROTOC protoc --proto_path=${PROJECT_SOURCE_DIR} --cpp_out=${PROTO_SOURCE_DIR})
-set(PROTOEXT ${PROJECT_SOURCE_DIR}/extract-protobuf-desc.awk)
-
-add_custom_command(OUTPUT ${PROTO_SOURCE_DIR}/.protobuf
-        COMMAND mkdir -p ${PROTO_SOURCE_DIR}
-        COMMAND ${PROTOEXT} `find ${PROJECT_SOURCE_DIR} -name '*.cpp' -o -name '*.h' -o -name '*.hpp' | sort`
-        COMMAND find ${PROJECT_SOURCE_DIR} -name "*.proto" | xargs ${PROTOC}
-        COMMAND touch ${PROTO_SOURCE_DIR}/.protobuf
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-
-add_custom_target(.protobuf
-        DEPENDS ${PROTO_SOURCE_DIR}/.protobuf)
-
-add_custom_target(clean.protobuf
-        COMMAND rm ${PROTO_SOURCE_DIR}/.protobuf || true
-        COMMAND find ${PROJECT_SOURCE_DIR} -name "*.proto" -delete
-        COMMAND rm -rf ${PROTO_SOURCE_DIR})
-
-################################################################################
 # libraries
 ################################################################################
 set(SYSTEM_LIBS
@@ -298,7 +309,6 @@ target_compile_options(wrapper PUBLIC ${COMPILER_FLAGS})
 target_compile_definitions(wrapper PUBLIC ${COMPILER_DEFINITIONS})
 
 add_dependencies(wrapper
-        .protobuf
         yaml-cpp
         .cfgparser
         Andersen)
@@ -313,7 +323,6 @@ target_compile_options(ar_wrapper PUBLIC ${COMPILER_FLAGS})
 target_compile_definitions(ar_wrapper PUBLIC ${COMPILER_DEFINITIONS})
 
 add_dependencies(ar_wrapper
-        .protobuf
         yaml-cpp
         .cfgparser
         Andersen)
@@ -330,7 +339,6 @@ set(RUN_TEST_EXES ${PROJECT_SOURCE_DIR}/${TEST_EXE} --gtest_output="xml:${TEST_O
 
 add_executable(${TEST_EXE} EXCLUDE_FROM_ALL $<TARGET_OBJECTS:SourceObjects> $<TARGET_OBJECTS:TestObjects>)
 add_dependencies(${TEST_EXE}
-        .protobuf
         yaml-cpp
         .cfgparser
         Andersen
