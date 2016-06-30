@@ -18,6 +18,7 @@
 #include "State/Transformer/TerTermToPathPredTransf.h"
 #include "State/Transformer/UnexpPathPrDeleter.h"
 #include "State/Transformer/UnusedGlobalsDeleter.h"
+#include "State/Transformer/UnusedVariablesDeleter.h"
 
 
 namespace borealis {
@@ -39,7 +40,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         processCallInstruction(*I, PSA->getInstructionState(I));
     }
 
-    /*if (!F.doesNotReturn()) {
+    if (!F.doesNotReturn()) {
         PredicateState::Ptr S;
         auto&& ret=llvm::getAllRets(&F);
         if(ret.size()==0)
@@ -52,7 +53,7 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         auto&& mapper = EqualityMapper(FN);
         auto&& mappedState = mapper.transform(onlyPath);
         auto&& mapping = mapper.getMappedValues();
-        auto&& sliced = StateSlicer(FN, TermSet({FN.Term->getReturnValueTerm(&F)}), &AA).transform(mappedState);
+        auto&& sliced = StateSlicer(FN, TermSet({FN.Term->getReturnValueTerm(&F)})).transform(mappedState);
         auto&& rtv = FN.Term->getReturnValueTerm(&F);
         if(mapping.find(rtv)==mapping.end()){
             return false;
@@ -63,18 +64,24 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
         Term::Ptr rtvMap=mapping.at(rtv);
         auto&& extractor = FunctionSummariesTransformer(FN, rtvEq);
         extractor.transform(sliced);
+        auto&& isImpl = extractor.getIsImpl();
+        if(isImpl){
+            CM->addSummary(&F,sliced,*FM);
+            return false;
+        }
         auto&& terms = extractor.getTermSet();
         auto&& protPredsMapping = extractor.getProtPredMapping();
         auto&& protPreds = extractor.getProtectedPredicates();
         if (terms.size() == 0)
             return false;
-        for (auto&& i = 0U; i < terms.size(); ++i) {
+        for (auto&& i = 0U; i < protPreds.size(); ++i) {
             auto&& deleter = StateRipper(FN, protPreds[i]);
             auto&& del = deleter.transform(sliced);
-            auto&& sliced1 = StateSlicer(FN, terms[i], &AA).transform(del);
-            auto&& del2 = UnexpPathPrDeleter(FN, protPreds[i]).transform(sliced1);
+            auto&& sliced1 = StateSlicer(FN, terms[i]).transform(del);
+            auto&& withoutUnused = UnusedVariablesDeleter(FN, terms[i]).transform(sliced1);
+            auto&& del2 = UnexpPathPrDeleter(FN, protPreds[i]).transform(withoutUnused);
             auto&& withoutGlob=UnusedGlobalsDeleter(FN,terms[i]).transform(del2);
-            auto&& sliced2 = StateSlicer(FN, terms[i], &AA).transform(withoutGlob);
+            auto&& sliced2 = StateSlicer(FN, terms[i]).transform(withoutGlob);
             auto&& result = ReplaceTermTransformer(FN, fName).transform(sliced2);
             if (auto&& k = util::at(protPredsMapping, protPreds[i])) {
                 auto&& eq=FN.Predicate->getEqualityPredicate(rtv,k.getUnsafe());
@@ -82,12 +89,12 @@ bool ContractExtractorPass::runOnFunction(llvm::Function& F) {
                 CM->addSummary(&F,pr,*FM);
             }
         }
-    }*/
+    }
     return false;
 }
 
 void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateState::Ptr S) {
-    if (I.getCalledFunction() == nullptr) return;
+    /*if (I.getCalledFunction() == nullptr) return;
 
     auto&& mapper = EqualityMapper(FN);
     auto&& mappedState = mapper.transform(S);
@@ -97,7 +104,7 @@ void ContractExtractorPass::processCallInstruction(llvm::CallInst& I, PredicateS
     auto&& transformedState = extractor.transform(mappedState);
     auto&& argToTerms = extractor.getArgToTermMapping();
 
-    CM->addContract(I.getCalledFunction(), *FM, transformedState, argToTerms);
+    CM->addContract(I.getCalledFunction(), *FM, transformedState, argToTerms);*/
 }
 
 void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
@@ -113,7 +120,7 @@ void ContractExtractorPass::getAnalysisUsage(llvm::AnalysisUsage& Info) const {
 char ContractExtractorPass::ID = 0;
 
 static llvm::RegisterPass<ContractExtractorPass>
-X("contract-extractor", "Contract extractor pass", false, false);
+        X("contract-extractor", "Contract extractor pass", false, false);
 
 
 } /* namespace borealis */

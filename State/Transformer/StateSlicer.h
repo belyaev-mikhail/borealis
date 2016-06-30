@@ -53,7 +53,7 @@ class AliasAnalysisAdapter: public LocalAABase {
 
 public:
     AliasAnalysisAdapter(llvm::AliasAnalysis* AA, FactoryNest FN):
-        AA(AA), AST(new llvm::AliasSetTracker(*AA)), FN(FN){}
+            AA(AA), AST(new llvm::AliasSetTracker(*AA)), FN(FN){}
 
     bool mayAlias(Term::Ptr a, Term::Ptr b) override {
         if(*a == *b) return true;
@@ -81,11 +81,14 @@ public:
 class StateSlicer : public borealis::CachingTransformer<StateSlicer> {
 
     using Base = borealis::CachingTransformer<StateSlicer>;
+    using TermSet = std::unordered_set<Term::Ptr,TermHash, TermEquals>;
 
 public:
 
     StateSlicer(FactoryNest FN, PredicateState::Ptr query, llvm::AliasAnalysis* AA);
     StateSlicer(FactoryNest FN, PredicateState::Ptr query);
+    StateSlicer(FactoryNest FN, const TermSet& TS, llvm::AliasAnalysis* AA);
+    StateSlicer(FactoryNest FN, const TermSet& TS);
 
     using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
@@ -102,6 +105,8 @@ private:
     std::unique_ptr<LocalAABase> AA;
 
     void init(llvm::AliasAnalysis* llvmAA);
+    void initWithTermSet(const TermSet& ts, llvm::AliasAnalysis* llvmAA);
+    void filterTerms(std::unordered_set<Term::Ptr,TermHash,TermEquals> ts);
     void addSliceTerm(Term::Ptr term);
 
     bool checkPath(Predicate::Ptr pred, const Term::Set& lhv, const Term::Set& rhv);

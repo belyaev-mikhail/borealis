@@ -42,7 +42,6 @@ void ContractManager::addContract(llvm::Function* F, FunctionManager& FM, Predic
                                   const std::unordered_map<int, Args>& mapping) {
     if (IntrinsicsManager::getInstance().getIntrinsicType(F) != function_type::UNKNOWN)
         return;
-
     auto&& func = contracts->getFunctionId(F, FM.getMemoryBounds(F));
     func->called();
     functionInfo[func] = {F, &FM};

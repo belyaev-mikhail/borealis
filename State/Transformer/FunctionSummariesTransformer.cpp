@@ -11,7 +11,7 @@
 namespace borealis{
 
 FunctionSummariesTransformer::FunctionSummariesTransformer(const FactoryNest& FN, const TermSet rtvMap) :
-        Base(FN), rtvEquiv(rtvMap) {}
+        Base(FN), rtvEquiv(rtvMap) { isImplyHere=false; }
 
 PredicateState::Ptr FunctionSummariesTransformer::transform(PredicateState::Ptr ps) {
     return Base::transform(ps)
@@ -22,11 +22,14 @@ PredicateState::Ptr FunctionSummariesTransformer::transform(PredicateState::Ptr 
 
 
 PredicateState::Ptr FunctionSummariesTransformer::transformChoice(PredicateStateChoicePtr ps){
-    Predicate::Ptr emptyPred;
-    prStack.push(emptyPred);
+    prStack.push(nullptr);
     return Base::transformChoice(ps);
 }
 
+PredicateState::Ptr FunctionSummariesTransformer::transformImply(PredicateStateImplyPtr ps){
+    isImplyHere=true;
+    return ps;
+}
 
 PredicateState::Ptr FunctionSummariesTransformer::transformPredicateStateChoice(PredicateStateChoicePtr ps){
     prStack.pop();
@@ -47,6 +50,8 @@ Predicate::Ptr FunctionSummariesTransformer::transformPredicate(Predicate::Ptr p
         if(eqPred==NULL) return pred;
         if(rtvEquiv.find(eqPred->getLhv())==rtvEquiv.end()) return pred;
         if(not isOpaqueTerm(eqPred->getRhv())) return pred;
+        if(prStack.size()==0) return pred;
+        if(prStack.top()==nullptr) return pred;
         for (auto &&op : prStack.top()->getOperands()) {
             for (auto&& t : Term::getFullTermSet(op)) {
                 if(!isOpaqueTerm(t)&&t->getNumSubterms()==0){
@@ -54,6 +59,11 @@ Predicate::Ptr FunctionSummariesTransformer::transformPredicate(Predicate::Ptr p
                     if(!util::contains(protPreds,prStack.top()))
                         protPreds.push_back(prStack.top());
                     protPredMapping.insert(std::make_pair(prStack.top(),eqPred->getRhv()));
+                    /*if(!util::contains(protPreds,prStack.top())){
+                        TS.insert(t);
+                        protPreds.push_back(prStack.top());
+                        protPredMapping.insert(std::make_pair(prStack.top(),eqPred->getRhv()));
+                    }*/
                 }
             }
             if(TS.size()!=0)

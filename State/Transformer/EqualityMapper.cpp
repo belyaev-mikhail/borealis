@@ -22,7 +22,7 @@ Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr p
     }
     else{
         if (util::at(mapping, pred->getLhv())) {
-            prev = pred->getLhv();
+            //prev = pred->getLhv();
             return pred;
         }
         for (auto&& subterm : Term::getFullTermSet(pred->getRhv())) {
