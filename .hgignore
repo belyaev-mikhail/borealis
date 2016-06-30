@@ -16,6 +16,7 @@ ar_wrapper
 run-tests
 
 Protobuf/Gen/*
+build/*
 *.proto
 
 *.xml

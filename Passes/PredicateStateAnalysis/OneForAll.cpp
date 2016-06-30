@@ -197,6 +197,9 @@ PredicateState::Ptr getFront(PredicateState::Ptr state) {
         // (and this is kinda what we want here)
         return choice->self();
 
+    } else if (auto* imply = llvm::dyn_cast<PredicateStateImply>(state)) {
+        return imply->self();
+
     } else {
         UNREACHABLE("Should never happen!");
     }

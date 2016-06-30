@@ -80,11 +80,12 @@ struct SMTImpl<Impl, PredicateStateImply> {
     static Bool<Impl> doit(
             const PredicateStateImply* s,
             ExprFactory<Impl>& ef,
-            ExecutionContext<Impl>* ctx) {
+            ExecutionContext<Impl>* ctx,
+            bool pathMode = false) {
         TRACE_FUNC;
 
         auto res = ef.getTrue();
-        res = res && (not(SMT<Impl>::doit(s->getBase(), ef, ctx)) || SMT<Impl>::doit(s->getCurr(), ef, ctx));
+        res = res && (not(SMT<Impl>::doit(s->getBase(), ef, ctx, pathMode)) || SMT<Impl>::doit(s->getCurr(), ef, ctx, pathMode));
         return res;
     }
 };
