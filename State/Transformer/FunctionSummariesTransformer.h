@@ -38,17 +38,22 @@ public:
 
     PredicateState::Ptr transformChoice(PredicateStateChoicePtr ps);
     PredicateState::Ptr transformPredicateStateChoice(PredicateStateChoicePtr ps);
+    PredicateState::Ptr transformImply(PredicateStateImplyPtr ps);
 
     const PrVector& getProtectedPredicates() const{
         return protPreds;
     }
 
-    VecTermSet& getTermSet() {
+    const VecTermSet& getTermSet() {
         return ter;
     }
 
     const PredTermMap& getProtPredMapping() const {
         return protPredMapping;
+    }
+
+    bool getIsImpl(){
+        return isImplyHere;
     }
 
 private:
@@ -62,6 +67,7 @@ private:
     PredTermMap protPredMapping;
     TermSet rtvEquiv;
     std::stack<Predicate::Ptr> prStack;
+    bool isImplyHere;
 
 };
 

@@ -1,8 +1,8 @@
 /*
  * PredicateStateImply.h
  *
- *  Created on: Apr 30, 2013
- *      Author: ice-phoenix
+ *  Created on: Apr 30, 2016
+ *      Author: stepanov
  */
 
 #ifndef PREDICATESTATEIMPLY_H_

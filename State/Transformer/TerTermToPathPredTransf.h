@@ -20,12 +20,16 @@ class TerTermToPathPredTransf : public borealis::Transformer<TerTermToPathPredTr
 
     public:
         using Base::transform;
-        PredicateState::Ptr transform(PredicateState::Ptr ps);
+
         TerTermToPathPredTransf(const FactoryNest& fn);
-        Term::Ptr transformTernaryTerm(Term::Ptr term);
-        Predicate::Ptr transformEquality(EqualityPredicatePtr pred);
+
+        PredicateState::Ptr transform(PredicateState::Ptr ps);
         PredicateState::Ptr transformBasic(BasicPredicateStatePtr ps);
         PredicateState::Ptr transformBasicPredicateState(BasicPredicateStatePtr ps);
+
+        Predicate::Ptr transformEquality(EqualityPredicatePtr pred);
+
+        Term::Ptr transformTernaryTerm(Term::Ptr term);
 
     private:
         Term::Ptr curLhv;
