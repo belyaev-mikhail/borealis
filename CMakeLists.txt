@@ -443,6 +443,5 @@ add_dependencies(check-all
 ################################################################################
 add_custom_target(clean-all
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-        COMMAND make clean.protobuf
         COMMAND make clean.cfgparser
         COMMAND make clean)
