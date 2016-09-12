@@ -51,8 +51,6 @@ void ContractManager::addContract(llvm::Function* F, FunctionManager& FM, Predic
     auto&& choiceOptimized = ChoiceOptimizer(FN).transform(retyped);
     auto&& optimized = StateOptimizer(FN).transform(choiceOptimized);
     if (not optimized->isEmpty()) {
-        errs() << optimized << endl;
-        errs() << endl << endl;
         saveState(func, optimized);
     }
 }
