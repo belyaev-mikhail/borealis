@@ -20,6 +20,7 @@
 #include "State/Transformer/ChoiceOptimizer.h"
 #include "Util/passes.hpp"
 
+#include "Util/macros.h"
 
 namespace borealis {
 
@@ -42,6 +43,7 @@ void ContractManager::addContract(llvm::Function* F, FunctionManager& FM, Predic
                                   const std::unordered_map<int, Args>& mapping) {
     if (IntrinsicsManager::getInstance().getIntrinsicType(F) != function_type::UNKNOWN)
         return;
+
     auto&& func = contracts->getFunctionId(F, FM.getMemoryBounds(F));
     func->called();
     functionInfo[func] = {F, &FM};
@@ -50,9 +52,7 @@ void ContractManager::addContract(llvm::Function* F, FunctionManager& FM, Predic
     auto&& retyped = Retyper(FN).transform(unified);
     auto&& choiceOptimized = ChoiceOptimizer(FN).transform(retyped);
     auto&& optimized = StateOptimizer(FN).transform(choiceOptimized);
-    if (not optimized->isEmpty()) {
-        saveState(func, optimized);
-    }
+    saveState(func, optimized);
 }
 
 void ContractManager::addSummary(llvm::Function* F, PredicateState::Ptr S, FunctionManager& FM) {
@@ -64,6 +64,8 @@ void ContractManager::addSummary(llvm::Function* F, PredicateState::Ptr S, Funct
 }
 
 void ContractManager::saveState(FunctionIdentifier::Ptr func, PredicateState::Ptr state) {
+    if (state->isEmpty()) return;
+
     if (llvm::isa<BasicPredicateState>(state)) {
         contracts->at(func)->push_back(state);
     } else if (auto&& chain = llvm::dyn_cast<PredicateStateChain>(state)) {
@@ -183,12 +185,16 @@ void ContractManager::applyContracts() const {
         auto&& mergedState = merger.getMergedState();
         if (not mergedState->isEmpty()) {
 
-            if (auto&& contract = stateToTerm(mergedState)) {
-                auto&& function = functionInfo[F].first;
-                auto&& fm = functionInfo[F].second;
-                auto&& contractPredicate = FN.Predicate->getEqualityPredicate(contract, FN.Term->getTrueTerm(), Locus(), PredicateType::REQUIRES);
-                fm->update(function, FN.State->Basic({contractPredicate}));
-            }
+            auto&& contract = stateToTerm(mergedState);
+            ASSERTC(contract);
+
+            auto&& function = functionInfo[F].first;
+            auto&& fm = functionInfo[F].second;
+            auto&& contractPredicate = FN.Predicate->getEqualityPredicate(contract,
+                                                                          FN.Term->getTrueTerm(),
+                                                                          Locus(),
+                                                                          PredicateType::REQUIRES);
+            fm->update(function, FN.State->Basic({contractPredicate}));
 
             dbg << "---" << "Function " << F->name() << "---" << endl;
             dbg << "State:" << endl;
@@ -284,3 +290,5 @@ static llvm::RegisterPass<ContractManager>
 X("contract-manager", "Contract manager pass", false, false);
 
 } /* namespace borealis */
+
+#include "Util/unmacros.h"
