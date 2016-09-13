@@ -8,8 +8,6 @@ syntax: glob
 *.log
 *.pyc
 
-CMakeLists.txt
-
 wrapper
 ar_wrapper
 run-tests
