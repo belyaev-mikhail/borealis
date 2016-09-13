@@ -40,15 +40,15 @@ PredicateState::Ptr ContractExtractorTransformer::transform(PredicateState::Ptr 
 
 Predicate::Ptr ContractExtractorTransformer::transformPredicate(Predicate::Ptr pred) {
     if (pred->getType() == PredicateType::PATH) {
-        TermMap m;
+        TermMap termMap;
         for (auto&& op : pred->getOperands()) {
             if (checkTermForArgs(op)) {
-                m[op] = op;
+                termMap[op] = op;
             }
         }
 
-        if (not m.empty()) {
-            return Predicate::Ptr{ pred->replaceOperands(m) };
+        if (not termMap.empty()) {
+            return Predicate::Ptr{ pred->replaceOperands(termMap) };
         }
     }
 

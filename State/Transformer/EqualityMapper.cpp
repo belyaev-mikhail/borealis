@@ -20,10 +20,11 @@ Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr p
     if (util::at(mapping, pred->getLhv())) {
         return pred;
     }
+
     for (auto&& subterm : Term::getFullTermSet(pred->getRhv())) {
-        if (auto&& value = util::at(mapping, subterm)) {
-            if (not (util::contains(usedTerms, subterm)))
-                replacement[subterm] = value.getUnsafe();
+        auto&& value = util::at(mapping, subterm);
+        if (value && not util::contains(usedTerms, subterm)) {
+            replacement[subterm] = value.getUnsafe();
         }
     }
     auto&& newRhv = Term::Ptr{ pred->getRhv()->replaceOperands(replacement) };
@@ -33,8 +34,9 @@ Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr p
     if (auto&& newEq = llvm::dyn_cast<EqualityPredicate>(replaced)) {
         if (not isOpaqueTerm(newEq->getRhv())) {
             mapping[newEq->getLhv()] = newEq->getRhv();
+        } else {
+            usedTerms.insert(newEq->getLhv());
         }
-        else usedTerms.insert(newEq->getLhv());
     }
 
     return replaced;
