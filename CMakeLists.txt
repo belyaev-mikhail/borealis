@@ -4,80 +4,81 @@ set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 project(borealis)
 
 find_package(LLVM QUIET REQUIRED COMPONENTS ALL
-     CONFIG
-     PATHS /opt/clang/3.5.1/share/llvm/cmake/
-     NO_DEFAULT_PATH)
+        CONFIG
+        PATHS /opt/clang/3.5.1/share/llvm/cmake/
+        NO_DEFAULT_PATH)
 
 link_directories(${LLVM_LIBRARY_DIRS})
 link_directories(/usr/lib)
 link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib)
 
 if (NOT ${LLVM_FOUND})
- message(FATAL_ERROR "LLVM libraries not found")
+    message(FATAL_ERROR "LLVM libraries not found")
 endif ()
 
 ################################################################################
 # warnings
 ################################################################################
 set(WARNINGS_ON all extra cast-qual float-equal switch
-     undef init-self pointer-arith cast-align effc++
-     strict-prototypes strict-overflow=5 write-strings
-     aggregate-return super-class-method-mismatch)
+        undef init-self pointer-arith cast-align effc++
+        strict-prototypes strict-overflow=5 write-strings
+        aggregate-return super-class-method-mismatch)
 
 set(WARNINGS_OFF unused-function redundant-decls unused-local-typedef pessimizing-move)
 
 set(WARNINGS_TAE overloaded-virtual return-stack-address
-     implicit-function-declaration address-of-temporary
-     delete-non-virtual-dtor return-type)
+        implicit-function-declaration address-of-temporary
+        delete-non-virtual-dtor return-type)
 
 if (${CMAKE_CXX_COMPILER} STREQUAL "/usr/bin/clang++")
- foreach(w ${WARNINGS_ON})
-     list(APPEND COMPILER_WARNINGS -W${w})
- endforeach()
- foreach(w ${WARNINGS_OFF})
-     list(APPEND COMPILER_WARNINGS -Wno-${w})
- endforeach()
- foreach(w ${WARNINGS_TAE})
-     list(APPEND COMPILER_WARNINGS -Werror-${w})
- endforeach()
+    foreach(w ${WARNINGS_ON})
+        list(APPEND COMPILER_WARNINGS -W${w})
+    endforeach()
+    foreach(w ${WARNINGS_OFF})
+        list(APPEND COMPILER_WARNINGS -Wno-${w})
+    endforeach()
+    foreach(w ${WARNINGS_TAE})
+        list(APPEND COMPILER_WARNINGS -Werror-${w})
+    endforeach()
 endif ()
 
 ################################################################################
 # compiler flags
 ################################################################################
 add_definitions(${LLVM_DEFINITIONS}
-     -std=c++14)
+    -std=c++14)
 
 set(COMPILER_DEFINITIONS
-     -D_GLIBCXX_USE_CXX11_ABI=1
-     -DGOOGLE_PROTOBUF_NO_RTTI
-     -DNO_TRACING)
+        -D_GLIBCXX_USE_CXX11_ABI=1
+        -DGOOGLE_PROTOBUF_NO_RTTI
+        -DNO_TRACING)
 
 set(COMPILER_FLAGS
-     ${CMAKE_CXX_FLAGS}
-     ${LLVM_CXX_FLAGS}
-     ${LLVM_LD_FLAGS}
-     -O0
-     -g
-     -fPIC
-     -fno-rtti
-     ${COMPILER_WARNINGS})
+        ${CMAKE_CXX_FLAGS}
+        ${LLVM_CXX_FLAGS}
+        ${LLVM_LD_FLAGS}
+        -O0
+        -g
+        -fPIC
+        -fno-rtti
+        ${COMPILER_WARNINGS})
 
 ################################################################################
 # include directories
 ################################################################################
 set(INCLUDE_DIRS
-     ${PROJECT_SOURCE_DIR}/Protobuf/Gen
-     ${PROJECT_SOURCE_DIR}/lib
-     ${PROJECT_SOURCE_DIR}/lib/pegtl/include
-     ${PROJECT_SOURCE_DIR}/lib/google-test/include
-     ${PROJECT_SOURCE_DIR}/lib/yaml-cpp/include
-     ${PROJECT_SOURCE_DIR}/lib/yaml-cpp/test
-     ${PROJECT_SOURCE_DIR}/lib/cfgparser/include
-     ${PROJECT_SOURCE_DIR}/lib/backward-cpp)
+        ${PROJECT_SOURCE_DIR}/Protobuf/Gen
+        ${PROJECT_SOURCE_DIR}/lib
+        ${PROJECT_SOURCE_DIR}/lib/pegtl/include
+        ${PROJECT_SOURCE_DIR}/lib/google-test/include
+        ${PROJECT_SOURCE_DIR}/lib/yaml-cpp/include
+        ${PROJECT_SOURCE_DIR}/lib/yaml-cpp/test
+        ${PROJECT_SOURCE_DIR}/lib/cfgparser/include
+        ${PROJECT_SOURCE_DIR}/lib/backward-cpp)
 
 include_directories(${PROJECT_SOURCE_DIR} ./ ../)
 
+include_directories(SYSTEM /usr/include/)
 include_directories(SYSTEM /usr/include/z3)             # using SYSTEM parameter to exclude
 include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})        # compiler warnings on include libraries
 include_directories(SYSTEM ${INCLUDE_DIRS})
@@ -87,26 +88,26 @@ include_directories(SYSTEM ${INCLUDE_DIRS})
 ################################################################################
 
 set(SOURCE_DIRS
-     #       ${PROJECT_SOURCE_DIR}
-     ${PROJECT_SOURCE_DIR}/Actions
-     ${PROJECT_SOURCE_DIR}/Anno
-     ${PROJECT_SOURCE_DIR}/Annotation
-     ${PROJECT_SOURCE_DIR}/Codegen
-     ${PROJECT_SOURCE_DIR}/Config
-     ${PROJECT_SOURCE_DIR}/Driver
-     ${PROJECT_SOURCE_DIR}/Executor
-     ${PROJECT_SOURCE_DIR}/Factory
-     ${PROJECT_SOURCE_DIR}/Logging
-     ${PROJECT_SOURCE_DIR}/Passes
-     ${PROJECT_SOURCE_DIR}/Predicate
-     ${PROJECT_SOURCE_DIR}/Protobuf
-     ${PROJECT_SOURCE_DIR}/Reanimator
-     ${PROJECT_SOURCE_DIR}/SMT
-     ${PROJECT_SOURCE_DIR}/State
-     ${PROJECT_SOURCE_DIR}/Statistics
-     ${PROJECT_SOURCE_DIR}/Term
-     ${PROJECT_SOURCE_DIR}/Type
-     ${PROJECT_SOURCE_DIR}/Util)
+        # ${PROJECT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}/Actions
+        ${PROJECT_SOURCE_DIR}/Anno
+        ${PROJECT_SOURCE_DIR}/Annotation
+        ${PROJECT_SOURCE_DIR}/Codegen
+        ${PROJECT_SOURCE_DIR}/Config
+        ${PROJECT_SOURCE_DIR}/Driver
+        ${PROJECT_SOURCE_DIR}/Executor
+        ${PROJECT_SOURCE_DIR}/Factory
+        ${PROJECT_SOURCE_DIR}/Logging
+        ${PROJECT_SOURCE_DIR}/Passes
+        ${PROJECT_SOURCE_DIR}/Predicate
+        ${PROJECT_SOURCE_DIR}/Protobuf
+        ${PROJECT_SOURCE_DIR}/Reanimator
+        ${PROJECT_SOURCE_DIR}/SMT
+        ${PROJECT_SOURCE_DIR}/State
+        ${PROJECT_SOURCE_DIR}/Statistics
+        ${PROJECT_SOURCE_DIR}/Term
+        ${PROJECT_SOURCE_DIR}/Type
+        ${PROJECT_SOURCE_DIR}/Util)
 
 ################################################################################
 # Protobuf
@@ -116,38 +117,38 @@ set(PROTOC protoc --proto_path=${PROJECT_SOURCE_DIR} --cpp_out=${PROTO_SOURCE_DI
 set(PROTOEXT ${PROJECT_SOURCE_DIR}/extract-protobuf-desc.awk)
 
 if (NOT EXISTS "${PROJECT_SOURCE_DIR}/.protobuf")
- message("Generating protobuf files")
- file(MAKE_DIRECTORY ${PROTO_SOURCE_DIR})
- file(GLOB_RECURSE PROTO_DESC_FILES ${PROJECT_SOURCE_DIR}/*.cpp
-         ${PROJECT_SOURCE_DIR}/*.h
-         ${PROJECT_SOURCE_DIR}/*.hpp)
+    message("Generating protobuf files")
+    file(MAKE_DIRECTORY ${PROTO_SOURCE_DIR})
+    file(GLOB_RECURSE PROTO_DESC_FILES ${PROJECT_SOURCE_DIR}/*.cpp
+            ${PROJECT_SOURCE_DIR}/*.h
+            ${PROJECT_SOURCE_DIR}/*.hpp)
 
- execute_process(COMMAND ${PROTOEXT} ${PROTO_DESC_FILES}
-         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+    execute_process(COMMAND ${PROTOEXT} ${PROTO_DESC_FILES}
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
- file(GLOB_RECURSE PROTO_FILES ${PROJECT_SOURCE_DIR}/*.proto)
- foreach(proto_file ${PROTO_FILES})
-     execute_process(COMMAND ${PROTOC} ${proto_file})
- endforeach()
+    file(GLOB_RECURSE PROTO_FILES ${PROJECT_SOURCE_DIR}/*.proto)
+    foreach(proto_file ${PROTO_FILES})
+        execute_process(COMMAND ${PROTOC} ${proto_file})
+    endforeach()
 
- file(WRITE ${PROJECT_SOURCE_DIR}/.protobuf "")
+    file(WRITE ${PROJECT_SOURCE_DIR}/.protobuf "")
 endif ()
 
 add_custom_target(clean.protobuf
-     COMMAND rm ${PROJECT_SOURCE_DIR}/.protobuf || true
-     COMMAND find ${PROJECT_SOURCE_DIR} -name *.proto -delete
-     COMMAND rm -rf ${PROTO_SOURCE_DIR})
+        COMMAND rm ${PROJECT_SOURCE_DIR}/.protobuf || true
+        COMMAND find ${PROJECT_SOURCE_DIR} -name *.proto -delete
+        COMMAND rm -rf ${PROTO_SOURCE_DIR})
 
 ################################################################################
 # source files
 ################################################################################
 
 foreach(dir ${SOURCE_DIRS})
- file(GLOB_RECURSE SRC ${dir}/*.cc
-         ${dir}/*.cpp)
- foreach(file ${SRC})
-     list(APPEND SOURCES "${file}")
- endforeach()
+    file(GLOB_RECURSE SRC ${dir}/*.cc
+            ${dir}/*.cpp)
+    foreach(file ${SRC})
+        list(APPEND SOURCES "${file}")
+    endforeach()
 endforeach()
 
 add_library(SourceObjects OBJECT ${SOURCES})
@@ -161,10 +162,10 @@ target_compile_definitions(SourceObjects PUBLIC ${COMPILER_DEFINITIONS})
 set(TEST_DIRS ${PROJECT_SOURCE_DIR}/test)
 
 foreach(dir ${TEST_DIRS})
- file(GLOB_RECURSE SRC ${dir}/*.cpp)
- foreach(file ${SRC})
-     list(APPEND TEST_SOURCES "${file}")
- endforeach()
+    file(GLOB_RECURSE SRC ${dir}/*.cpp)
+    foreach(file ${SRC})
+        list(APPEND TEST_SOURCES "${file}")
+    endforeach()
 endforeach()
 
 add_library(TestObjects OBJECT ${TEST_SOURCES})
@@ -201,19 +202,19 @@ set(DBGLOG_DIST ${DBGLOG_DIR}/dist)
 set(DBGLOG_LIB ${DBGLOG_DIST}/lib/)
 
 add_custom_command(OUTPUT ${DBGLOG_DIR}/.dbglog
-     COMMAND ./configure CXX=${CMAKE_CXX_COMPILER} --prefix=${DBGLOG_DIST}
-     COMMAND make CXX=${CMAKE_CXX_COMPILER} -C ${DBGLOG_DIR} install
-     COMMAND touch ${DBGLOG_DIR}/.dbglog
-     WORKING_DIRECTORY ${DBGLOG_DIR})
+        COMMAND ./configure CXX=${CMAKE_CXX_COMPILER} --prefix=${DBGLOG_DIST}
+        COMMAND make CXX=${CMAKE_CXX_COMPILER} -C ${DBGLOG_DIR} install
+        COMMAND touch ${DBGLOG_DIR}/.dbglog
+        WORKING_DIRECTORY ${DBGLOG_DIR})
 
 add_custom_target(.dbglog
-     DEPENDS ${DBGLOG_DIR}/.dbglog)
+        DEPENDS ${DBGLOG_DIR}/.dbglog)
 
 add_custom_target(clean.dbglog
-     COMMAND rm ${DBGLOG_DIR}/.dbglog || true
-     COMMAND make -C ${DBGLOG_DIR} clean
-     COMMAND make -C ${DBGLOG_DIR} distclean
-     COMMAND rm -rf ${DBGLOG_DIST})
+        COMMAND rm ${DBGLOG_DIR}/.dbglog || true
+        COMMAND make -C ${DBGLOG_DIR} clean
+        COMMAND make -C ${DBGLOG_DIR} distclean
+        COMMAND rm -rf ${DBGLOG_DIST})
 
 link_directories(${DBGLOG_LIB})
 list(APPEND ARCHIVES dbglog)
@@ -265,42 +266,42 @@ set(VALGRIND "valgrind --leak-check=yes --suppressions=valgrind.supp")
 # libraries
 ################################################################################
 set(SYSTEM_LIBS
-     z3
-     log4cpp
-     profiler
-     jsoncpp
-     protobuf
-     tinyxml2
-     mathsat
-     gmpxx
-     gmp
-     uuid
-     stdc++
-     rt
-     dl
-     curses
-     pthread
-     z
-     m)
+        z3
+        log4cpp
+        profiler
+        jsoncpp
+        protobuf
+        tinyxml2
+        mathsat
+        gmpxx
+        gmp
+        uuid
+        stdc++
+        rt
+        dl
+        curses
+        pthread
+        z
+        m)
 
 set(CLANG_LIBS
-     clangFrontendTool
-     clangFrontend
-     clangDriver
-     clangSerialization
-     clangCodeGen
-     clangParse
-     clangSema
-     clangStaticAnalyzerFrontend
-     clangStaticAnalyzerCheckers
-     clangStaticAnalyzerCore
-     clangAnalysis
-     clangARCMigrate
-     clangRewrite
-     clangEdit
-     clangAST
-     clangLex
-     clangBasic)
+        clangFrontendTool
+        clangFrontend
+        clangDriver
+        clangSerialization
+        clangCodeGen
+        clangParse
+        clangSema
+        clangStaticAnalyzerFrontend
+        clangStaticAnalyzerCheckers
+        clangStaticAnalyzerCore
+        clangAnalysis
+        clangARCMigrate
+        clangRewrite
+        clangEdit
+        clangAST
+        clangLex
+        clangBasic)
 
 ################################################################################
 # executables
@@ -314,9 +315,9 @@ target_compile_options(wrapper PUBLIC ${COMPILER_FLAGS})
 target_compile_definitions(wrapper PUBLIC ${COMPILER_DEFINITIONS})
 
 add_dependencies(wrapper
-     yaml-cpp
-     .cfgparser
-     Andersen)
+        yaml-cpp
+        .cfgparser
+        Andersen)
 
 target_link_libraries(wrapper ${ARCHIVES})
 target_link_libraries(wrapper ${SYSTEM_LIBS} ${CLANG_LIBS} ${LLVM_AVAILABLE_LIBS})
@@ -328,9 +329,9 @@ target_compile_options(ar_wrapper PUBLIC ${COMPILER_FLAGS})
 target_compile_definitions(ar_wrapper PUBLIC ${COMPILER_DEFINITIONS})
 
 add_dependencies(ar_wrapper
-     yaml-cpp
-     .cfgparser
-     Andersen)
+        yaml-cpp
+        .cfgparser
+        Andersen)
 
 target_link_libraries(ar_wrapper ${ARCHIVES})
 target_link_libraries(ar_wrapper ${SYSTEM_LIBS} ${CLANG_LIBS} ${LLVM_AVAILABLE_LIBS})
@@ -344,10 +345,10 @@ set(RUN_TEST_EXES ${PROJECT_SOURCE_DIR}/${TEST_EXE} --gtest_output="xml:${TEST_O
 
 add_executable(${TEST_EXE} EXCLUDE_FROM_ALL $<TARGET_OBJECTS:SourceObjects> $<TARGET_OBJECTS:TestObjects>)
 add_dependencies(${TEST_EXE}
-     yaml-cpp
-     .cfgparser
-     Andersen
-     gtest)
+        yaml-cpp
+        .cfgparser
+        Andersen
+        gtest)
 
 target_compile_options(${TEST_EXE} PUBLIC ${COMPILER_FLAGS})
 target_compile_definitions(${TEST_EXE} PUBLIC ${COMPILER_DEFINITIONS})
@@ -362,75 +363,78 @@ target_link_libraries(${TEST_EXE} ${SYSTEM_LIBS} ${CLANG_LIBS} ${LLVM_AVAILABLE_
 execute_process(COMMAND find ${TEST_DIRS} -name "tests.def" -printf "%h;" OUTPUT_VARIABLE TEST_DEF_FILES)
 
 foreach(def_file_dir ${TEST_DEF_FILES})
- file(GLOB_RECURSE SRC ${def_file_dir}/*.c)
- file(WRITE ${def_file_dir}/tests.def.all "")
- file(WRITE ${def_file_dir}/tests.def.long.all "")
- foreach(test_file ${SRC})
-     get_filename_component(name ${test_file} NAME)
-     file(APPEND ${def_file_dir}/tests.def.all "${name}\n")
- endforeach()
- file(READ ${def_file_dir}/tests.def.long FILECONTENT)
- if (NOT (FILECONTENT STREQUAL ""))
-     string(REGEX REPLACE "#[ \t]*" "" CONTENT_WITHOUT_COMM ${FILECONTENT})
-     file(APPEND ${def_file_dir}/tests.def.long.all ${CONTENT_WITHOUT_COMM})
- endif ()
- execute_process(COMMAND grep -v -x -f ${def_file_dir}/tests.def.long.all ${def_file_dir}/tests.def.all
-         OUTPUT_VARIABLE RUNNING_TESTS)
- file(WRITE ${def_file_dir}/tests.def ${RUNNING_TESTS})
+    file(GLOB_RECURSE SRC ${def_file_dir}/*.c)
+    file(WRITE ${def_file_dir}/tests.def.all "")
+    file(WRITE ${def_file_dir}/tests.def.long.all "")
+
+    foreach(test_file ${SRC})
+        get_filename_component(name ${test_file} NAME)
+        file(APPEND ${def_file_dir}/tests.def.all "${name}\n")
+    endforeach()
+
+    file(READ ${def_file_dir}/tests.def.long FILECONTENT)
+    if (NOT (FILECONTENT STREQUAL ""))
+        string(REGEX REPLACE "#[ \t]*" "" CONTENT_WITHOUT_COMM ${FILECONTENT})
+        file(APPEND ${def_file_dir}/tests.def.long.all ${CONTENT_WITHOUT_COMM})
+    endif ()
+
+    execute_process(COMMAND grep -v -x -f ${def_file_dir}/tests.def.long.all ${def_file_dir}/tests.def.all
+            OUTPUT_VARIABLE RUNNING_TESTS)
+    file(WRITE ${def_file_dir}/tests.def ${RUNNING_TESTS})
 endforeach()
 
 ################################################################################
 # testing targets
 ################################################################################
 add_custom_target(.regenerate-test-defs
-     COMMAND find ${TEST_DIRS} -name "*.tmp" -delete)
+        COMMAND find ${TEST_DIRS} -name "*.tmp" -delete)
 
 add_custom_target(check
-     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-     COMMAND ${RUN_TEST_EXES} --gtest_filter=-*Long/*:-*Summary* || true)
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        COMMAND ${RUN_TEST_EXES} --gtest_filter=-*Long/*:-*Summary* || true)
 add_dependencies(check
-     .regenerate-test-defs
-     ${TEST_EXE})
+        .regenerate-test-defs
+        ${TEST_EXE})
 
 add_custom_target(check-with-valgrind
-     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-     COMMAND ${VALGRIND} ${RUN_TEST_EXES} --gtest_filter=-*Long/*:-*Summary* || true)
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        COMMAND ${VALGRIND} ${RUN_TEST_EXES} --gtest_filter=-*Long/*:-*Summary* || true)
 add_dependencies(check-with-valgrind
-     .regenerate-test-defs
-     ${TEST_EXE})
+        .regenerate-test-defs
+        ${TEST_EXE})
 
 add_custom_target(check-long
-     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-     COMMAND ${RUN_TEST_EXES} --gtest_filter=*Long/*:-*Summary* || true)
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        COMMAND ${RUN_TEST_EXES} --gtest_filter=*Long/*:-*Summary* || true)
 add_dependencies(check-long
-     .regenerate-test-defs
-     ${TEST_EXE})
+        .regenerate-test-defs
+        ${TEST_EXE})
 
 add_custom_target(check-summary
-     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-     COMMAND ${RUN_TEST_EXES} --gtest_filter=*Summary*:-*Long/* || true)
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        COMMAND ${RUN_TEST_EXES} --gtest_filter=*Summary*:-*Long/* || true)
 add_dependencies(check-summary
-     .regenerate-test-defs
-     ${TEST_EXE})
+        .regenerate-test-defs
+        ${TEST_EXE})
 
 add_custom_target(check-summary-long
-     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-     COMMAND ${RUN_TEST_EXES} --gtest_filter=*SummaryLong/* || true)
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        COMMAND ${RUN_TEST_EXES} --gtest_filter=*SummaryLong/* || true)
 add_dependencies(check-summary-long
-     .regenerate-test-defs
-     ${TEST_EXE})
+        .regenerate-test-defs
+        ${TEST_EXE})
 
 add_custom_target(check-all
-     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-     COMMAND ${RUN_TEST_EXES} --gtest_filter=-*Summary* || true)
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        COMMAND ${RUN_TEST_EXES} --gtest_filter=-*Summary* || true)
 add_dependencies(check-all
-     .regenerate-test-defs
-     ${TEST_EXE})
+        .regenerate-test-defs
+        ${TEST_EXE})
 
 ################################################################################
 # custom clean target
 ################################################################################
 add_custom_target(clean-all
-     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-     COMMAND make clean.cfgparser
-     COMMAND make clean)
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMAND make clean.cfgparser
+        COMMAND make clean)
