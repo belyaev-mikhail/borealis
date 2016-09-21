@@ -48,7 +48,7 @@
 #include "Driver/clang_pipeline.h"
 #include "Driver/gestalt.h"
 #include "Driver/interviewer.h"
-#include "Driver/llvm_pipeline.h"
+#include "Driver/llvm_module_pipeline.h"
 #include "Driver/plugin_loader.h"
 #include "Logging/logger.hpp"
 #include "Passes/Misc/PrinterPasses.h"

@@ -5,8 +5,8 @@
  *      Author: belyaev
  */
 
-#ifndef LLVM_PIPELINE_H_
-#define LLVM_PIPELINE_H_
+#ifndef LLVM_MODULE_PIPELINE_H_
+#define LLVM_MODULE_PIPELINE_H_
 
 #include "Logging/logger.hpp"
 #include "Passes/Util/DataProvider.hpp"
@@ -14,7 +14,7 @@
 namespace borealis {
 namespace driver {
 
-class llvm_pipeline: public logging::DelegateLogging {
+class llvm_module_pipeline: public logging::DelegateLogging {
     struct impl;
     std::unique_ptr<impl> pimpl;
 
@@ -23,8 +23,8 @@ class llvm_pipeline: public logging::DelegateLogging {
 public:
     enum class status { SUCCESS, FAILURE };
 
-    llvm_pipeline(const std::shared_ptr<llvm::Module>& m);
-    ~llvm_pipeline();
+    llvm_module_pipeline(const std::shared_ptr<llvm::Module>& m);
+    ~llvm_module_pipeline();
     
 #include "Util/macros.h"
     template<class T, class = GUARD(std::is_base_of<llvm::Pass, T>::value)>
@@ -41,9 +41,10 @@ public:
     }
 
     status run();
+    std::shared_ptr<llvm::Module> get();
 };
 
 } // namespace driver
 } // namespace borealis
 
-#endif /* LLVM_PIPELINE_H_ */
+#endif /* LLVM_MODULE_PIPELINE_H_ */
