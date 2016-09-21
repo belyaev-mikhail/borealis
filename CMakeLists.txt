@@ -3,18 +3,39 @@ set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 
 project(borealis)
 
+################################################################################
+# link directories
+################################################################################
+link_directories(/usr/lib)                              # system libraries directory
+link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib)       # subprojects output directory
+
+################################################################################
+# LLVM
+################################################################################
 find_package(LLVM QUIET REQUIRED COMPONENTS ALL
         CONFIG
         PATHS /opt/clang/3.5.1/share/llvm/cmake/
         NO_DEFAULT_PATH)
 
 link_directories(${LLVM_LIBRARY_DIRS})
-link_directories(/usr/lib)
-link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib)
 
 if (NOT ${LLVM_FOUND})
     message(FATAL_ERROR "LLVM libraries not found")
 endif ()
+
+################################################################################
+# MPI
+################################################################################
+find_package(MPI REQUIRED)
+
+include_directories(${MPI_INCLUDE_PATH})
+link_directories(${MPI_LINK_PATH})
+
+if (NOT ${MPI_FOUND})
+    message(FATAL_ERROR "LLVM libraries not found")
+endif ()
+
+list(APPEND ARCHIVES ${MPI_LIBRARIES})
 
 ################################################################################
 # warnings
@@ -57,6 +78,7 @@ set(COMPILER_FLAGS
         ${CMAKE_CXX_FLAGS}
         ${LLVM_CXX_FLAGS}
         ${LLVM_LD_FLAGS}
+        ${MPI_COMPILE_FLAGS}
         -O0
         -g
         -fPIC
