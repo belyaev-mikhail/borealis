@@ -150,7 +150,7 @@ foreach(dir ${SOURCE_DIRS})
  endforeach()
 endforeach()
 
-add_library(SourceObjects OBJECT ${SOURCES})
+add_library(SourceObjects OBJECT ${SOURCES} Util/FunChoicer.cpp Util/FunChoicer.h)
 
 target_compile_options(SourceObjects PUBLIC ${COMPILER_FLAGS})
 target_compile_definitions(SourceObjects PUBLIC ${COMPILER_DEFINITIONS})
