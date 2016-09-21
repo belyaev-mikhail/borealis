@@ -176,6 +176,7 @@ int gestalt::main(int argc, const char** argv) {
     std::vector<StringRef> passes2run;
     passes2run.insert(passes2run.end(), prePasses.begin(), prePasses.end());
     passes2run.insert(passes2run.end(), inPasses.begin(), inPasses.end());
+    passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
 
     std::vector<StringRef> libs2load;
     libs2load.insert(libs2load.end(), libs.begin(), libs.end());
@@ -220,41 +221,35 @@ int gestalt::main(int argc, const char** argv) {
         llvm.add(pass.str());
     }
 
-    llvm::errs() << "FUCK" << *module_ptr << '\n';
-
     llvm.run();
 
-    llvm::errs() << "SHIT" << *module_ptr << '\n';
-
-    passes2run.clear();
-    passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
-
-    {
-        borealis::logging::log_entry out(infos());
-        out << "Function passes:" << endl;
-        if (passes2run.empty()) out << "  " << "None" << endl;
-        for (const auto& pass : passes2run) {
-            out << "  " << pass << endl;
-        }
-    }
-
-    llvm_function_pipeline llvm_func { module_ptr };
-    llvm_func.assignLogger(*this);
-
-    llvm_func.add(*annotatedModule->annotations);
-    llvm_func.add(annotatedModule->extVars);
-    clang::FileManager files2{ FileSystemOptions() };
-    llvm.add(files2);
-
-    llvm_func.add(std::string{ "loops" });
-
-    for (StringRef pass : passes2run) {
-        llvm_func.add(pass.str());
-    }
-
-    llvm::errs() << "BEWBS" << *module_ptr << '\n';
-
-    llvm_func.run();
+//    passes2run.clear();
+//    passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
+//
+//    {
+//        borealis::logging::log_entry out(infos());
+//        out << "Function passes:" << endl;
+//        if (passes2run.empty()) out << "  " << "None" << endl;
+//        for (const auto& pass : passes2run) {
+//            out << "  " << pass << endl;
+//        }
+//    }
+//
+//    llvm_function_pipeline llvm_func { module_ptr };
+//    llvm_func.assignLogger(*this);
+//
+//    llvm_func.add(*annotatedModule->annotations);
+//    llvm_func.add(annotatedModule->extVars);
+//    clang::FileManager files2{ FileSystemOptions() };
+//    llvm.add(files2);
+//
+//    llvm_func.add(std::string{ "loops" });
+//
+//    for (StringRef pass : passes2run) {
+//        llvm_func.add(pass.str());
+//    }
+//
+//    llvm_func.run();
 
     // verify we didn't screw up the module structure
 
