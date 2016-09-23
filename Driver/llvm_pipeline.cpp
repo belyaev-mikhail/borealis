@@ -9,7 +9,7 @@
 #include <llvm/PassManager.h>
 #include <llvm/IR/DataLayout.h>
 
-#include "Driver/llvm_module_pipeline.h"
+#include "Driver/llvm_pipeline.h"
 #include "Passes/Misc/PrinterPasses.h"
 
 namespace borealis {
@@ -40,25 +40,25 @@ llvm::PassRegistry& initPassRegistry() {
 
 } // namespace
 
-struct llvm_module_pipeline::impl {
+struct llvm_pipeline::impl {
     llvm::PassManager pm;
     std::shared_ptr<llvm::Module> module;
 
     impl(const std::shared_ptr<llvm::Module>& m): module{m} {};
 };
 
-llvm_module_pipeline::~llvm_module_pipeline() {};
+llvm_pipeline::~llvm_pipeline() {};
 
-llvm_module_pipeline::llvm_module_pipeline(const std::shared_ptr<llvm::Module>& m)
+llvm_pipeline::llvm_pipeline(const std::shared_ptr<llvm::Module>& m)
     : pimpl{ new impl{m} } {
       pimpl->pm.add(new llvm::DataLayoutPass(m.get()));
 };
 
-void llvm_module_pipeline::addPass(llvm::Pass* pass) {
+void llvm_pipeline::addPass(llvm::Pass* pass) {
     pimpl->pm.add(pass);
 }
 
-void llvm_module_pipeline::add(const std::string& pname) {
+void llvm_pipeline::add(const std::string& pname) {
     auto& reg = initPassRegistry();
     llvm::StringRef pass = pname;
 
@@ -84,12 +84,12 @@ void llvm_module_pipeline::add(const std::string& pname) {
     }
 }
 
-llvm_module_pipeline::status llvm_module_pipeline::run() {
+llvm_pipeline::status llvm_pipeline::run() {
     if (pimpl->pm.run(*pimpl->module)) return status::SUCCESS;
     else return status::FAILURE;
 }
 
-std::shared_ptr<llvm::Module> llvm_module_pipeline::get() {
+std::shared_ptr<llvm::Module> llvm_pipeline::get() {
     return pimpl->module;
 }
 
