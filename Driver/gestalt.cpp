@@ -69,13 +69,12 @@
 #include "Driver/clang_pipeline.h"
 #include "Driver/gestalt.h"
 #include "Driver/interviewer.h"
-#include "Driver/llvm_module_pipeline.h"
+#include "Driver/llvm_pipeline.h"
 #include "Driver/plugin_loader.h"
 #include "Logging/logger.hpp"
 #include "Passes/Misc/PrinterPasses.h"
 #include "Passes/Util/DataProvider.hpp"
 #include "Util/util.h"
-#include "llvm_function_pipeline.h"
 
 namespace borealis {
 namespace driver {
@@ -176,7 +175,7 @@ int gestalt::main(int argc, const char** argv) {
     std::vector<StringRef> passes2run;
     passes2run.insert(passes2run.end(), prePasses.begin(), prePasses.end());
     passes2run.insert(passes2run.end(), inPasses.begin(), inPasses.end());
-    passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
+//    passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
 
     std::vector<StringRef> libs2load;
     libs2load.insert(libs2load.end(), libs.begin(), libs.end());
@@ -208,48 +207,40 @@ int gestalt::main(int argc, const char** argv) {
     }
     pl.run();
 
-    // run llvm passes
+    // run pre passes
 
-    llvm_module_pipeline llvm { module_ptr };
-    llvm.assignLogger(*this);
+    llvm_pipeline pre_pipeline { module_ptr };
+    pre_pipeline.assignLogger(*this);
 
-    llvm.add(*annotatedModule->annotations);
-    llvm.add(annotatedModule->extVars);
+    pre_pipeline.add(*annotatedModule->annotations);
+    pre_pipeline.add(annotatedModule->extVars);
     clang::FileManager files{ FileSystemOptions() };
-    llvm.add(files);
+    pre_pipeline.add(files);
     for (StringRef pass : passes2run) {
-        llvm.add(pass.str());
+        pre_pipeline.add(pass.str());
     }
 
-    llvm.run();
+    pre_pipeline.run();
 
-//    passes2run.clear();
-//    passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
-//
-//    {
-//        borealis::logging::log_entry out(infos());
-//        out << "Function passes:" << endl;
-//        if (passes2run.empty()) out << "  " << "None" << endl;
-//        for (const auto& pass : passes2run) {
-//            out << "  " << pass << endl;
-//        }
-//    }
-//
-//    llvm_function_pipeline llvm_func { module_ptr };
-//    llvm_func.assignLogger(*this);
-//
-//    llvm_func.add(*annotatedModule->annotations);
-//    llvm_func.add(annotatedModule->extVars);
-//    clang::FileManager files2{ FileSystemOptions() };
-//    llvm.add(files2);
-//
-//    llvm_func.add(std::string{ "loops" });
-//
-//    for (StringRef pass : passes2run) {
-//        llvm_func.add(pass.str());
-//    }
-//
-//    llvm_func.run();
+    // run post passes
+
+    passes2run.clear();
+    passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
+
+    for (auto&& function : util::viewContainer(*module_ptr)) {
+        llvm_pipeline post_pipeline { module_ptr };
+        post_pipeline.assignLogger(*this);
+        post_pipeline.add(*annotatedModule->annotations);
+        post_pipeline.add(annotatedModule->extVars);
+        post_pipeline.add(files);
+        for (StringRef pass : passes2run) {
+            post_pipeline.add(pass.str());
+        }
+
+        post_pipeline.add(provideAsPass<llvm::Function>(&function));
+
+        post_pipeline.run();
+    }
 
     // verify we didn't screw up the module structure
 

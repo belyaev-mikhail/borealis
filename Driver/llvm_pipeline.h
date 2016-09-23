@@ -14,7 +14,7 @@
 namespace borealis {
 namespace driver {
 
-class llvm_module_pipeline: public logging::DelegateLogging {
+class llvm_pipeline: public logging::DelegateLogging {
     struct impl;
     std::unique_ptr<impl> pimpl;
 
@@ -23,8 +23,8 @@ class llvm_module_pipeline: public logging::DelegateLogging {
 public:
     enum class status { SUCCESS, FAILURE };
 
-    llvm_module_pipeline(const std::shared_ptr<llvm::Module>& m);
-    ~llvm_module_pipeline();
+    llvm_pipeline(const std::shared_ptr<llvm::Module>& m);
+    ~llvm_pipeline();
     
 #include "Util/macros.h"
     template<class T, class = GUARD(std::is_base_of<llvm::Pass, T>::value)>

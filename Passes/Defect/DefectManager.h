@@ -143,6 +143,12 @@ private:
 public:
 
     const DefectData& getData() const { return data.trueData; }
+    void clearData() {
+        data.trueData.clear();
+        data.falseData.clear();
+        data.truePastData.clear();
+        data.falsePastData.clear();
+    }
 
 #include "Util/macros.h"
     auto begin() QUICK_CONST_RETURN(data.trueData.begin())
