@@ -105,7 +105,7 @@ bool DefectSummaryPass::runOnModule(llvm::Module& M) {
         }
     }
 
-    //dm.clearData();
+    dm.clearData();
 
     return false;
 }

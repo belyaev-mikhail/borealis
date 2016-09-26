@@ -62,6 +62,8 @@
 
 #include <google/protobuf/stubs/common.h>
 
+#include <mpi.h>
+
 #include "Actions/GatherCommentsAction.h"
 #include "Config/config.h"
 #include "Codegen/DiagnosticLogger.h"
@@ -70,6 +72,7 @@
 #include "Driver/gestalt.h"
 #include "Driver/interviewer.h"
 #include "Driver/llvm_pipeline.h"
+#include "Driver/mpi_driver.h"
 #include "Driver/plugin_loader.h"
 #include "Logging/logger.hpp"
 #include "Passes/Misc/PrinterPasses.h"
@@ -175,7 +178,6 @@ int gestalt::main(int argc, const char** argv) {
     std::vector<StringRef> passes2run;
     passes2run.insert(passes2run.end(), prePasses.begin(), prePasses.end());
     passes2run.insert(passes2run.end(), inPasses.begin(), inPasses.end());
-//    passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
 
     std::vector<StringRef> libs2load;
     libs2load.insert(libs2load.end(), libs.begin(), libs.end());
@@ -222,13 +224,21 @@ int gestalt::main(int argc, const char** argv) {
 
     pre_pipeline.run();
 
-    // run post passes
+    // verify we didn't screw up the module structure
 
+    std::string err;
+    llvm::raw_string_ostream rso{err};
+    if (verifyModule(*module_ptr, &rso)) {
+        errs() << "Module errors detected: " << rso.str() << endl;
+    }
+
+
+    // run post passes
     passes2run.clear();
     passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
 
-    for (auto&& function : util::viewContainer(*module_ptr)) {
-        llvm_pipeline post_pipeline { module_ptr };
+    auto&& runPostPipeline = [&] (llvm::Function& function) {
+        llvm_pipeline post_pipeline{module_ptr};
         post_pipeline.assignLogger(*this);
         post_pipeline.add(*annotatedModule->annotations);
         post_pipeline.add(annotatedModule->extVars);
@@ -240,15 +250,80 @@ int gestalt::main(int argc, const char** argv) {
         post_pipeline.add(provideAsPass<llvm::Function>(&function));
 
         post_pipeline.run();
+    };
+
+    // Start up MPI
+    MPI::Init();
+    auto&& rank = MPI::COMM_WORLD.Get_rank();
+    auto&& size = MPI::COMM_WORLD.Get_size();
+
+    // if we run without mpi
+    if (size == 1) {
+        util::viewContainer(*module_ptr)
+                .foreach(runPostPipeline);
+
+        MPI::Finalize();
+        return OK;
     }
 
-    // verify we didn't screw up the module structure
+#include "Util/macros.h"
 
-    std::string err;
-    llvm::raw_string_ostream rso{err};
-    if (verifyModule(*module_ptr, &rso)) {
-        errs() << "Module errors detected: " << rso.str() << endl;
+    std::vector<llvm::Function*> functions;
+    util::viewContainer(*module_ptr).foreach(
+        [&functions](llvm::Function& function) {
+            functions.push_back(&function);
+        }
+    );
+
+    std::sort(functions.begin(), functions.end(), [] (llvm::Function* a, llvm::Function* b) {
+        return a->size() < b->size();
+    });
+
+    mpi::MPI_Driver driver{rank, size};
+
+    // produсer process
+    if (driver.isRoot()) {
+
+        auto&& function = functions.begin();
+
+        //process all functions of module
+        while (function != functions.end()) {
+            driver.receive();
+            auto&& status = driver.getStatus();
+            if (status.MPI_TAG == mpi::DataTag::READY) {
+                // sending a message to consumer
+                driver.send(status.MPI_SOURCE, function - functions.begin(), mpi::DataTag::FUNCTION);
+                ++function;
+            }
+        }
+
+        // terminate all consumers
+        driver.terminateAll();
+
+    // consumer processes
+    } else {
+
+        while (true) {
+            driver.send(mpi::MPI_Driver::ROOT, 0, mpi::DataTag::READY);
+            auto&& functionIndex = driver.receive(mpi::MPI_Driver::ROOT);
+            auto&& status = driver.getStatus();
+
+            // stop work if producer tells us to stop
+            if (status.MPI_TAG == mpi::DataTag::TERMINATE) break;
+
+            //check that we received correct message
+            ASSERTC(status.MPI_TAG == mpi::DataTag::FUNCTION);
+            ASSERTC(functionIndex >= 0);
+
+            // analyze function
+            runPostPipeline(*functions[functionIndex]);
+        }
+
     }
+
+    MPI::Finalize();
+
+#include "Util/unmacros.h"
 
     return OK;
 }
