@@ -69,10 +69,13 @@ struct SMTImpl<Impl, StorePredicate> {
         USING_SMT_IMPL(Impl);
 
         ASSERTC(ctx != nullptr);
+        size_t memspace = 0;
+        if(auto&& ptr = llvm::dyn_cast<type::Pointer>(p->getLhv()->getType())) {
+            memspace = ptr->getMemspace();
+        }
 
-        auto&& l = SMT<Impl>::doit(p->getLhv(), ef, ctx).template to<Pointer>();
-        ASSERT(not l.empty(), "Store dealing with a non-pointer value");
-        auto&& lp = l.getUnsafe();
+        Pointer lp = SMT<Impl>::doit(p->getLhv(), ef, ctx);
+        ASSERT(lp, "Store dealing with a non-pointer value");
 
         if(isa<type::Record>(p->getRhv()->getType())) {
             /// FIXME: for now, we do not do anything to store records
@@ -81,11 +84,10 @@ struct SMTImpl<Impl, StorePredicate> {
             return ef.getTrue();
         }
 
-        auto&& r = SMT<Impl>::doit(p->getRhv(), ef, ctx).template to<DynBV>();
-        ASSERT(not r.empty(), "Store dealing with a non-BV value");
-        auto&& rbv = r.getUnsafe();
+        DynBV rbv = SMT<Impl>::doit(p->getRhv(), ef, ctx);
+        ASSERT(rbv, "Store dealing with a non-BV value");
 
-        ctx->writeExprToMemory(lp, rbv);
+        ctx->writeExprToMemory(lp, rbv, memspace);
 
         return ef.getTrue();
     }

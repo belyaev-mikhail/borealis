@@ -73,10 +73,13 @@ struct SMTImpl<Impl, AllocaPredicate> {
         USING_SMT_IMPL(Impl);
 
         ASSERTC(ctx != nullptr);
+        size_t memspace = 0;
+        if(auto&& ptr = llvm::dyn_cast<type::Pointer>(p->getLhv()->getType())) {
+            memspace = ptr->getMemspace();
+        }
 
-        auto&& lhve = SMT<Impl>::doit(p->getLhv(), ef, ctx).template to<Pointer>();
-        ASSERT(not lhve.empty(), "Encountered alloca with non-Pointer left side");
-        auto&& lhvp = lhve.getUnsafe();
+        Pointer lhvp = SMT<Impl>::doit(p->getLhv(), ef, ctx);
+        ASSERT(lhvp, "Encountered alloca with non-Pointer left side");
 
         auto&& elems = 1ULL;
         if (auto* cnst = llvm::dyn_cast<OpaqueIntConstantTerm>(p->getNumElems())) {
@@ -85,11 +88,10 @@ struct SMTImpl<Impl, AllocaPredicate> {
             BYE_BYE(Bool, "Encountered alloca with non-integer element number");
         }
 
-        auto&& origSize = SMT<Impl>::doit(p->getOrigNumElems(), ef, ctx).template to<Integer>();
-        ASSERT(not origSize.empty(), "Encountered alloca with non-integer original size");
-        auto&& origSizeInt = origSize.getUnsafe();
+        Integer origSizeInt = SMT<Impl>::doit(p->getOrigNumElems(), ef, ctx);
+        ASSERT(origSizeInt, "Encountered alloca with non-integer original size");
 
-        return lhvp == ctx->getLocalPtr(elems, origSizeInt);
+        return lhvp == ctx->getLocalPtr(memspace, elems, origSizeInt);
     }
 };
 #include "Util/unmacros.h"

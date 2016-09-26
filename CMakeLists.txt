@@ -96,7 +96,8 @@ set(INCLUDE_DIRS
         ${PROJECT_SOURCE_DIR}/lib/yaml-cpp/include
         ${PROJECT_SOURCE_DIR}/lib/yaml-cpp/test
         ${PROJECT_SOURCE_DIR}/lib/cfgparser/include
-        ${PROJECT_SOURCE_DIR}/lib/backward-cpp)
+        ${PROJECT_SOURCE_DIR}/lib/backward-cpp
+        ${PROJECT_SOURCE_DIR}/lib/boolector)
 
 include_directories(${PROJECT_SOURCE_DIR} ./ ../)
 
@@ -280,6 +281,31 @@ link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib/andersen/lib)
 list(APPEND ARCHIVES libAndersen.so)
 
 ################################################################################
+# boolector
+################################################################################
+set(BOOLECTOR_BASE_DIR ${PROJECT_SOURCE_DIR}/lib/boolector)
+set(BOOLECTOR_DIR ${BOOLECTOR_BASE_DIR}/boolector)
+set(LINGELING_DIR ${BOOLECTOR_BASE_DIR}/lingeling)
+set(BOOLECTOR_LIB ${BOOLECTOR_DIR}/libboolector.a)
+set(LINGELING_LIB ${LINGELING_DIR}/liblgl.a)
+
+add_custom_command(OUTPUT ${BOOLECTOR_BASE_DIR}/.boolector
+        COMMAND make
+        COMMAND touch ${BOOLECTOR_BASE_DIR}/.boolector
+        WORKING_DIRECTORY ${BOOLECTOR_BASE_DIR})
+
+add_custom_target(.boolector
+        DEPENDS ${BOOLECTOR_BASE_DIR}/.boolector)
+
+add_custom_target(clean.boolector
+        COMMAND make clean
+        COMMAND rm ${BOOLECTOR_BASE_DIR}/.boolector
+        WORKING_DIRECTORY ${BOOLECTOR_BASE_DIR})
+
+list(APPEND ARCHIVES ${BOOLECTOR_LIB})
+list(APPEND ARCHIVES ${LINGELING_LIB})
+
+################################################################################
 # Valgrind
 ################################################################################
 set(VALGRIND "valgrind --leak-check=yes --suppressions=valgrind.supp")
@@ -289,6 +315,8 @@ set(VALGRIND "valgrind --leak-check=yes --suppressions=valgrind.supp")
 ################################################################################
 set(SYSTEM_LIBS
         z3
+        cvc4
+        cln
         log4cpp
         profiler
         jsoncpp
@@ -339,7 +367,8 @@ target_compile_definitions(wrapper PUBLIC ${COMPILER_DEFINITIONS})
 add_dependencies(wrapper
         yaml-cpp
         .cfgparser
-        Andersen)
+        Andersen
+        .boolector)
 
 target_link_libraries(wrapper ${ARCHIVES})
 target_link_libraries(wrapper ${SYSTEM_LIBS} ${CLANG_LIBS} ${LLVM_AVAILABLE_LIBS})
@@ -353,7 +382,8 @@ target_compile_definitions(ar_wrapper PUBLIC ${COMPILER_DEFINITIONS})
 add_dependencies(ar_wrapper
         yaml-cpp
         .cfgparser
-        Andersen)
+        Andersen
+        .boolector)
 
 target_link_libraries(ar_wrapper ${ARCHIVES})
 target_link_libraries(ar_wrapper ${SYSTEM_LIBS} ${CLANG_LIBS} ${LLVM_AVAILABLE_LIBS})
