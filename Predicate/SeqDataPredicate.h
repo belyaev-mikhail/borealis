@@ -74,19 +74,22 @@ struct SMTImpl<Impl, SeqDataPredicate> {
         USING_SMT_IMPL(Impl);
 
         ASSERTC(ctx != nullptr);
+        size_t memspace = 0;
+        if(auto&& ptr = llvm::dyn_cast<type::Pointer>(p->getBase()->getType())) {
+            memspace = ptr->getMemspace();
+        }
 
-        auto&& l = SMT<Impl>::doit(p->getBase(), ef, ctx).template to<Pointer>();
-        ASSERT(not l.empty(), "SeqData with non-pointer base");
-        auto&& lp = l.getUnsafe();
+        Pointer lp = SMT<Impl>::doit(p->getBase(), ef, ctx);
+        ASSERT(lp, "SeqData with non-pointer base");
 
-        auto&& base = ctx->getGlobalPtr(p->getData().size());
+        auto&& base = ctx->getGlobalPtr(memspace, p->getData().size());
         auto&& res = lp == base;
 
         static config::ConfigEntry<bool> SkipStaticInit("analysis", "skip-static-init");
         if (not SkipStaticInit.get(true)) {
             for (auto&& datum : p->getData()) {
                 auto&& d = SMT<Impl>::doit(datum, ef, ctx);
-                ctx->writeExprToMemory(base, d);
+                ctx->writeExprToMemory(base, d, memspace);
                 base = base + 1;
             }
         }

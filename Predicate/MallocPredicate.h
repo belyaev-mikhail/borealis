@@ -74,10 +74,13 @@ struct SMTImpl<Impl, MallocPredicate> {
         USING_SMT_IMPL(Impl);
 
         ASSERTC(ctx != nullptr);
+        size_t memspace = 0;
+        if(auto&& ptr = llvm::dyn_cast<type::Pointer>(p->getLhv()->getType())) {
+            memspace = ptr->getMemspace();
+        }
 
-        auto&& lhve = SMT<Impl>::doit(p->getLhv(), ef, ctx).template to<Pointer>();
-        ASSERT(not lhve.empty(), "Malloc produces a non-pointer");
-        auto&& lhvp = lhve.getUnsafe();
+        Pointer lhvp = SMT<Impl>::doit(p->getLhv(), ef, ctx);
+        ASSERT(lhvp, "Malloc produces a non-pointer");
 
         auto&& elems = 1ULL;
         if (auto* cnst = llvm::dyn_cast<OpaqueIntConstantTerm>(p->getNumElems())) {
@@ -86,15 +89,14 @@ struct SMTImpl<Impl, MallocPredicate> {
             BYE_BYE(Bool, "Encountered malloc with non-integer element number");
         }
 
-        auto&& origSize = SMT<Impl>::doit(p->getOrigNumElems(), ef, ctx).template to<Integer>();
-        ASSERT(not origSize.empty(), "Malloc with non-integer original size");
-        auto&& origSizeInt = origSize.getUnsafe();
+        Integer origSize = SMT<Impl>::doit(p->getOrigNumElems(), ef, ctx);
+        ASSERT(origSize, "Malloc with non-integer original size");
 
         static config::ConfigEntry<bool> NullableMallocs("analysis", "nullable-mallocs");
         if (NullableMallocs.get(true)) {
-            return lhvp == ef.getNullPtr() || lhvp == ctx->getLocalPtr(elems, origSizeInt);
+            return lhvp == ef.getNullPtr() || lhvp == ctx->getLocalPtr(memspace, elems, origSize);
         } else {
-            return lhvp == ctx->getLocalPtr(elems, origSizeInt);
+            return lhvp == ctx->getLocalPtr(memspace, elems, origSize);
         }
     }
 };

@@ -60,11 +60,14 @@ z3::tactic Solver::tactics(unsigned int timeout) {
     return z3::try_for(st, timeout);
 }
 
-// TODO: Move this stuff to ExecutionContext???
-static impl_::z3_set_instance<z3::expr> uniqueAxioms(const ExecutionContext& ctx) {
-    impl_::z3_set_instance<z3::expr> ret;
+static std::unordered_set<z3::expr, std::hash<z3::expr>, Z3Engine::equality> uniqueAxioms(const ExecutionContext& ctx) {
+    std::unordered_set<z3::expr, std::hash<z3::expr>, Z3Engine::equality> ret;
     ctx.getAxioms().foreach(APPLY(ret.insert));
     return std::move(ret);
+}
+
+void Solver::interrupt() {
+    z3ef.unwrap().interrupt();
 }
 
 Solver::check_result Solver::check(
@@ -85,12 +88,12 @@ Solver::check_result Solver::check(
     auto&& axioms = uniqueAxioms(ctx);
 
     dbgs() << "! adding axioms started" << endl;
-    s.add(z3impl::asAxiom(z3state));
+    s.add(z3state.asAxiom());
     util::viewContainer(axioms).foreach(APPLY(s.add));
     dbgs() << "! adding axioms finished" << endl;
 
     dbgs() << "! adding query started" << endl;
-    s.add(z3impl::getAxiom(z3query));
+    s.add(z3query.getAxiom());
     dbgs() << "! adding query finished" << endl;
 
     if (log_formulae.get(true)) {
@@ -110,7 +113,7 @@ Solver::check_result Solver::check(
     }
 
     auto&& pred = z3ef.getBoolVar("$CHECK$");
-    s.add(z3impl::getExpr(implies(pred, z3query)));
+    s.add(pred.implies(z3query).getExpr());
 
     if (auto&& dump_dir = dump_smt2_state.get()) {
         auto&& uuid = UUID::generate();
@@ -129,7 +132,7 @@ Solver::check_result Solver::check(
         TRACE_BLOCK("z3::check");
 
         dbgs() << "! z3 started" << endl;
-        auto&& pred_e = logic::z3impl::getExpr(pred);
+        auto&& pred_e = pred.getExpr();
         auto&& r = s.check(1, &pred_e);
         dbgs() << "! z3 finished" << endl;
 
@@ -186,64 +189,84 @@ Solver::check_result Solver::check(
 }
 
 template<class TermCollection>
-SatResult::model_t recollectModel(
+Model::assignments_t recollectModel(
     ExprFactory& z3ef,
     ExecutionContext& ctx,
     z3::model& implModel,
     const TermCollection& vars) {
     TRACE_FUNC
+    USING_SMT_LOGIC(Z3)
+
+    FactoryNest FN;
 
     return util::viewContainer(vars)
         .map([&](auto&& var) {
             auto&& e = SMT<Z3>::doit(var, z3ef, &ctx);
-            auto&& z3e = logic::z3impl::getExpr(e);
+            auto&& z3e = e.getExpr();
 
             dbgs() << "Evaluating " << z3e << endl;
 
             auto&& retz3e = implModel.eval(z3e, true);
 
-            return std::make_pair(var->getName(), unlogic::undoThat(retz3e));
+            return std::make_pair(var, unlogic::undoThat(FN, var, Dynamic(z3ef.unwrap(), retz3e)));
         })
-        .template to<SatResult::model_t>();
+        .template to<Model::assignments_t>();
 }
 
 template<class TermCollection>
-std::pair<SatResult::memory_shape_t, SatResult::memory_shape_t> recollectMemory(
+void recollectMemory(
+    Model& m,
     ExprFactory& z3ef,
     ExecutionContext& ctx,
     z3::model& implModel,
     const TermCollection& ptrs) {
     TRACE_FUNC
+    USING_SMT_LOGIC(Z3)
 
-    using namespace logic::z3impl;
+    if (ptrs.empty()) return;
 
-    SatResult::memory_shape_t retStart;
-    SatResult::memory_shape_t retFinal;
-
-    if (ptrs.empty()) return { retStart, retFinal };
-
-    auto&& startMem = ctx.getInitialMemoryContents();
-    auto&& finalMem = ctx.getCurrentMemoryContents();
+    auto FN = m.getFactoryNest();
+    auto TB = TermBuilder(FN.Term, nullptr);
 
     for (auto&& ptr: ptrs) {
-        auto eptr = SMT<Z3>::doit(ptr, z3ef, &ctx).template to<Z3::Pointer>().getUnsafe();
+        size_t memspace = 0;
+        if(auto&& pt = llvm::dyn_cast<type::Pointer>(ptr->getType())) {
+            memspace = pt->getMemspace();
+        }
+        auto&& startMem = ctx.getInitialMemoryContents(memspace);
+        auto&& finalMem = ctx.getCurrentMemoryContents(memspace);
+
+        auto&& startBounds = ctx.getCurrentGepBounds(memspace);
+        auto&& endBounds = ctx.getCurrentGepBounds(memspace);
+
+        Z3::Pointer eptr = SMT<Z3>::doit(ptr, z3ef, &ctx);
 
         auto&& startV = startMem.select(eptr, z3ef.sizeForType(TypeUtils::getPointerElementType(ptr->getType())));
         auto&& finalV = finalMem.select(eptr, z3ef.sizeForType(TypeUtils::getPointerElementType(ptr->getType())));
 
-        auto&& modelPtr = implModel.eval(getExpr(eptr), true);
-        auto&& modelStartV = implModel.eval(getExpr(startV), true);
-        auto&& modelFinalV = implModel.eval(getExpr(finalV), true);
+        auto&& startBound = startBounds[eptr];
+        auto&& finalBound = endBounds[eptr];
 
-        auto&& undonePtr = unlogic::undoThat(modelPtr);
-        ASSERTC(llvm::isa<OpaqueIntConstantTerm>(undonePtr));
-        auto&& actualPtrValue = llvm::cast<OpaqueIntConstantTerm>(undonePtr)->getValue();
+        auto&& modelPtr = implModel.eval(eptr.getExpr(), true);
+        auto&& modelStartV = implModel.eval(startV.getExpr(), true);
+        auto&& modelFinalV = implModel.eval(finalV.getExpr(), true);
+        auto&& modelStartBound = implModel.eval(startBound.getExpr(), true);
+        auto&& modelFinalBound = implModel.eval(finalBound.getExpr(), true);
 
-        retStart[actualPtrValue] = unlogic::undoThat(modelStartV);
-        retFinal[actualPtrValue] = unlogic::undoThat(modelFinalV);
+        auto&& undonePtr = unlogic::undoThat(FN, ptr, Dynamic(z3ef.unwrap(), modelPtr));
+
+        m.getMemories()[memspace].getInitialMemoryShape()[undonePtr] =
+            unlogic::undoThat(FN, *TB(undonePtr), Dynamic(z3ef.unwrap(), modelStartV));
+        m.getMemories()[memspace].getFinalMemoryShape()[undonePtr] =
+            unlogic::undoThat(FN, *TB(undonePtr), Dynamic(z3ef.unwrap(), modelFinalV));
+
+        m.getBounds()[memspace].getInitialMemoryShape()[undonePtr] =
+            unlogic::undoThat(FN, TB(undonePtr).bound(), Dynamic(z3ef.unwrap(), modelStartBound));
+        m.getBounds()[memspace].getFinalMemoryShape()[undonePtr] =
+            unlogic::undoThat(FN, TB(undonePtr).bound(), Dynamic(z3ef.unwrap(), modelFinalBound));
     }
 
-    return { std::move(retStart), std::move(retFinal) };
+    return;
 }
 
 Result Solver::isViolated(
@@ -291,7 +314,7 @@ Result Solver::isViolated(
         TRACE_BLOCK("z3::sanity_check");
         auto&& ss = tactics(sanity_check_timeout.get(5) * 1000).mk_solver();
         util::viewContainer(uniqueAxioms(ctx)).foreach(APPLY(ss.add));
-        ss.add(z3impl::asAxiom(z3state));
+        ss.add(z3state.asAxiom());
 
         auto&& dbg = dbgs();
 
@@ -323,7 +346,7 @@ Result Solver::isViolated(
             ->filterByTypes({PredicateType::PATH})
             ->filter([&](auto&& p) {
                 auto&& z3p = SMT<Z3>::doit(p, z3ef, &ctx);
-                auto&& valid = m.eval(logic::z3impl::asAxiom(z3p));
+                auto&& valid = m.eval(z3p.asAxiom());
                 auto&& bValid = util::stringCast<bool>(valid);
                 return bValid.getOrElse(false);
             });
@@ -336,17 +359,15 @@ Result Solver::isViolated(
                << endl;
 
         if (gather_z3_models.get(false) or gather_smt_models.get(false)) {
-            auto&& vars = collectVariables(FactoryNest{}, query, state);
-            auto&& pointers = collectPointers(FactoryNest{}, query, state);
+            FactoryNest FN;
+            auto&& vars = collectVariables(FN, query, state);
+            auto&& pointers = collectPointers(FN, query, state);
 
-            auto&& collectedModel = recollectModel(z3ef, ctx, m, vars);
-            auto&& collectedMems = recollectMemory(z3ef, ctx, m, pointers);
+            auto&& model = std::make_shared<Model>(FN);
 
-            return SatResult{
-                util::copy_or_share(collectedModel),
-                util::copy_or_share(collectedMems.first),
-                util::copy_or_share(collectedMems.second)
-            };
+            model->getAssignments() = recollectModel(z3ef, ctx, m, vars);
+            recollectMemory(*model, z3ef, ctx, m, pointers);
+            return SatResult(model);
         }
 
         return SatResult{};
@@ -378,17 +399,15 @@ Result Solver::isPathImpossible(
 
         // XXX: Do we need model collection for path possibility queries???
         if (gather_z3_models.get(false) or gather_smt_models.get(false)) {
-            auto&& vars = collectVariables(FactoryNest{}, path, state);
-            auto&& pointers = collectPointers(FactoryNest{}, path, state);
+            FactoryNest FN;
+            auto&& vars = collectVariables(FN, path, state);
+            auto&& pointers = collectPointers(FN, path, state);
 
-            auto&& collectedModel = recollectModel(z3ef, ctx, m, vars);
-            auto&& collectedMems = recollectMemory(z3ef, ctx, m, pointers);
+            auto&& model = std::make_shared<Model>(FN);
 
-            return SatResult{
-                util::copy_or_share(collectedModel),
-                util::copy_or_share(collectedMems.first),
-                util::copy_or_share(collectedMems.second)
-            };
+            model->getAssignments() = recollectModel(z3ef, ctx, m, vars);
+            recollectMemory(*model, z3ef, ctx, m, pointers);
+            return SatResult(model);
         }
 
         return SatResult{};
@@ -425,13 +444,15 @@ z3::expr model2expr(const z3::model& model,
 PredicateState::Ptr model2state(const z3::model& model,
                                 const std::vector<Term::Ptr>& collectibles,
                                 const std::vector<z3::expr>& z3collects) {
+    USING_SMT_LOGIC(Z3)
+
     FactoryNest FN;
     auto&& PSB = FN.State * FN.State->Basic();
     for (auto&& zipped : util::viewContainer(collectibles) ^ util::viewContainer(z3collects)) {
         auto&& val = model.eval(zipped.second, true);
         PSB += FN.Predicate->getEqualityPredicate(
             zipped.first,
-            z3_::unlogic::undoThat(val)
+            z3_::unlogic::undoThat(FN, zipped.first, Dynamic(val.ctx(), val))
         );
     }
     return PSB();
@@ -455,7 +476,7 @@ PredicateState::Ptr Solver::probeModels(
     auto&& t2e = [&](auto&& terms) {
         return util::viewContainer(terms)
             .map([&](auto&& t) {
-                return logic::z3impl::getExpr(SMT<Z3>::doit(t, z3ef, &ctx));
+                return SMT<Z3>::doit(t, z3ef, &ctx).getExpr();
             })
             .toVector();
     };
@@ -464,8 +485,8 @@ PredicateState::Ptr Solver::probeModels(
     auto&& z3collects = t2e(collectibles);
 
     auto&& solver = tactics(force_timeout.get(0)).mk_solver();
-    solver.add(logic::z3impl::asAxiom(z3body));
-    solver.add(logic::z3impl::asAxiom(z3query));
+    solver.add(z3body.asAxiom());
+    solver.add(z3query.asAxiom());
     util::viewContainer(uniqueAxioms(ctx)).foreach(APPLY(solver.add));
 
     FactoryNest FN;
@@ -486,8 +507,8 @@ PredicateState::Ptr Solver::probeModels(
             auto&& stateModel = model2state(model, collectibles, z3collects);
 
             auto&& usolver = tactics(force_timeout.get(0)).mk_solver();
-            usolver.add(logic::z3impl::asAxiom(z3body));
-            usolver.add(logic::z3impl::asAxiom(not z3query));
+            usolver.add(z3body.asAxiom());
+            usolver.add((not z3query).asAxiom());
             usolver.add( z3model );
 
             if (z3::sat == usolver.check()) continue;
