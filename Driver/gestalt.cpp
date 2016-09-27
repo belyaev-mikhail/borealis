@@ -185,26 +185,30 @@ int gestalt::main(int argc, const char** argv) {
     std::vector<StringRef> libs2load;
     libs2load.insert(libs2load.end(), libs.begin(), libs.end());
 
-    {
-        borealis::logging::log_entry out(infos());
-        out << "Passes:" << endl;
-        if (passes2run.empty()) out << "  " << "None" << endl;
-        for (const auto& pass : passes2run) {
-            out << "  " << pass << endl;
-        }
-    }
+    // Start up MPI
+    MPI::Init();
+    mpi::MPI_Driver driver{};
 
-    {
-        borealis::logging::log_entry out(infos());
-        out << "Dynamic libraries:" << endl;
-        if (libs2load.empty()) out << "  " << "None" << endl;
+    // if we are root, print log
+    if (driver.isRoot()) {
+        // print list of runned pre passes
+        borealis::logging::log_entry passes(infos());
+        passes << "Passes:" << endl;
+        if (passes2run.empty()) passes << "  " << "None" << endl;
+        for (const auto& pass : passes2run) {
+            passes << "  " << pass << endl;
+        }
+
+        // print list of dynamic libraries
+        borealis::logging::log_entry libs(infos());
+        libs << "Dynamic libraries:" << endl;
+        if (libs2load.empty()) libs << "  " << "None" << endl;
         for (const auto& lib : libs2load) {
-            out << "  " << lib << endl;
+            libs << "  " << lib << endl;
         }
     }
 
     // load .so plugins
-
     plugin_loader pl;
     pl.assignLogger(*this);
     for (const auto& lib : libs2load) {
@@ -213,7 +217,6 @@ int gestalt::main(int argc, const char** argv) {
     pl.run();
 
     // run pre passes
-
     llvm_pipeline pre_pipeline { module_ptr };
     pre_pipeline.assignLogger(*this);
 
@@ -221,24 +224,33 @@ int gestalt::main(int argc, const char** argv) {
     pre_pipeline.add(annotatedModule->extVars);
     clang::FileManager files{ FileSystemOptions() };
     pre_pipeline.add(files);
-    for (StringRef pass : passes2run) {
+    for (auto&& pass : passes2run) {
         pre_pipeline.add(pass.str());
     }
 
     pre_pipeline.run();
 
     // verify we didn't screw up the module structure
-
-    std::string err;
-    llvm::raw_string_ostream rso{err};
-    if (verifyModule(*module_ptr, &rso)) {
-        errs() << "Module errors detected: " << rso.str() << endl;
+    if (driver.isRoot()) {
+        std::string err;
+        llvm::raw_string_ostream rso{err};
+        if (verifyModule(*module_ptr, &rso)) {
+            errs() << "Module errors detected: " << rso.str() << endl;
+        }
     }
 
 
     // run post passes
     passes2run.clear();
     passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
+    if (driver.isRoot()) {
+        borealis::logging::log_entry out(infos());
+        out << "Post passes:" << endl;
+        if (passes2run.empty()) out << "  " << "None" << endl;
+        for (const auto& pass : passes2run) {
+            out << "  " << pass << endl;
+        }
+    }
 
     auto&& runPostPipeline = [&] (llvm::Function& function) {
         llvm_pipeline post_pipeline{module_ptr};
@@ -246,7 +258,7 @@ int gestalt::main(int argc, const char** argv) {
         post_pipeline.add(*annotatedModule->annotations);
         post_pipeline.add(annotatedModule->extVars);
         post_pipeline.add(files);
-        for (StringRef pass : passes2run) {
+        for (auto&& pass : passes2run) {
             post_pipeline.add(pass.str());
         }
 
@@ -255,13 +267,8 @@ int gestalt::main(int argc, const char** argv) {
         post_pipeline.run();
     };
 
-    // Start up MPI
-    MPI::Init();
-    auto&& rank = MPI::COMM_WORLD.Get_rank();
-    auto&& size = MPI::COMM_WORLD.Get_size();
-
     // if we run without mpi
-    if (size == 1) {
+    if (not driver.isMPI()) {
         util::viewContainer(*module_ptr)
                 .foreach(runPostPipeline);
 
@@ -282,26 +289,27 @@ int gestalt::main(int argc, const char** argv) {
         return a->size() < b->size();
     });
 
-    mpi::MPI_Driver driver{rank, size};
-
     // produсer process
     if (driver.isRoot()) {
 
+        auto free_proc = driver.getSize() - 1;
         auto&& function = functions.begin();
 
         //process all functions of module
-        while (function != functions.end()) {
+        while (true) {
             driver.receive();
             auto&& status = driver.getStatus();
-            if (status.MPI_TAG == mpi::DataTag::READY) {
+            ASSERTC(status.MPI_TAG == mpi::DataTag::READY)
+            if (function != functions.end()) {
                 // sending a message to consumer
                 driver.send(status.MPI_SOURCE, function - functions.begin(), mpi::DataTag::FUNCTION);
                 ++function;
+            } else if (free_proc > 0) {
+                driver.terminate(status.MPI_SOURCE);
+                --free_proc;
+                if (free_proc == 0) break;
             }
         }
-
-        // terminate all consumers
-        driver.terminateAll();
 
     // consumer processes
     } else {
