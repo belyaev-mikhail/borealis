@@ -7,7 +7,11 @@
 
 #include <mpi.h>
 
+#include "Logging/logger.hpp"
+#include "Util/util.h"
 #include "Util/macros.h"
+
+
 
 namespace borealis {
 namespace mpi {
@@ -20,7 +24,7 @@ enum DataTag {
     TERMINATE
 };
 
-class MPI_Driver {
+class MPI_Driver : public logging::ObjectLevelLogging<MPI_Driver> {
 
     using Data = int;
     using Tag = int;
@@ -29,12 +33,12 @@ public:
 
     static const int ROOT = 0;
 
-    MPI_Driver() {
+    MPI_Driver() : ObjectLevelLogging("mpi") {
         rank_ = MPI::COMM_WORLD.Get_rank();
         size_ = MPI::COMM_WORLD.Get_size();
     }
 
-    MPI_Driver(int rank, int size) : rank_(rank), size_(size) {}
+    MPI_Driver(int rank, int size) : ObjectLevelLogging("mpi"), rank_(rank), size_(size) {}
 
     bool isRoot() const {
         return rank_ == ROOT;

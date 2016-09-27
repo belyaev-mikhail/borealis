@@ -21,7 +21,7 @@ public:
     }
 
     bool isAnalyze(llvm::Function *F) {
-        if ((int) F->getName().front() % 2 == 0)
+        if ((int) F->getName().front() % 2 != 0)
             return false;
         else {
             anFun.push_back(F);
