@@ -61,6 +61,7 @@
 #include <llvm/Target/TargetMachine.h>
 
 #include <google/protobuf/stubs/common.h>
+#include <fstream>
 
 #include <mpi.h>
 
