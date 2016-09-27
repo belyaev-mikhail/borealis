@@ -40,6 +40,10 @@ public:
         return rank_ == ROOT;
     }
 
+    bool isMPI() const {
+        return size_ > 1;
+    }
+
     void send(int receiver, Data data, Tag tag) const {
         MPI_Send(&data, 1, MPI_INT, receiver, tag, MPI_COMM_WORLD);
     }
@@ -60,6 +64,18 @@ public:
         }
     }
 
+    void terminate(int receiver) const {
+        ASSERTC(receiver != 0);
+        send(receiver, 0, DataTag::TERMINATE);
+    }
+
+    int gerRank() const {
+        return rank_;
+    }
+
+    int getSize() const {
+        return size_;
+    }
 
 private:
 
@@ -67,7 +83,6 @@ private:
     int size_;
     Data buffer_;
     MPI_Status status_;
-
 
 };
 
