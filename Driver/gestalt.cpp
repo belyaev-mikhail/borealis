@@ -61,7 +61,6 @@
 #include <llvm/Target/TargetMachine.h>
 
 #include <google/protobuf/stubs/common.h>
-#include <fstream>
 
 #include <mpi.h>
 
@@ -192,7 +191,7 @@ int gestalt::main(int argc, const char** argv) {
 
     // if we are root, print log
     if (driver.isRoot()) {
-        // print list of runned pre passes
+        // print list of pre passes
         borealis::logging::log_entry passes(infos());
         passes << "Passes:" << endl;
         if (passes2run.empty()) passes << "  " << "None" << endl;
@@ -242,13 +241,13 @@ int gestalt::main(int argc, const char** argv) {
 
 
     // run post passes
-    passes2run.clear();
-    passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
+
     if (driver.isRoot()) {
+        // print list of post passes
         borealis::logging::log_entry out(infos());
         out << "Post passes:" << endl;
-        if (passes2run.empty()) out << "  " << "None" << endl;
-        for (const auto& pass : passes2run) {
+        if (postPasses.empty()) out << "  " << "None" << endl;
+        for (const auto& pass : postPasses) {
             out << "  " << pass << endl;
         }
     }
@@ -259,8 +258,8 @@ int gestalt::main(int argc, const char** argv) {
         post_pipeline.add(*annotatedModule->annotations);
         post_pipeline.add(annotatedModule->extVars);
         post_pipeline.add(files);
-        for (auto&& pass : passes2run) {
-            post_pipeline.add(pass.str());
+        for (auto&& pass : postPasses) {
+            post_pipeline.add(pass);
         }
 
         post_pipeline.add(provideAsPass<llvm::Function>(&function));
@@ -287,13 +286,13 @@ int gestalt::main(int argc, const char** argv) {
     );
 
     std::sort(functions.begin(), functions.end(), [] (llvm::Function* a, llvm::Function* b) {
-        return a->size() < b->size();
+        return a->getName() < b->getName();
     });
 
     // produсer process
     if (driver.isRoot()) {
 
-        auto free_proc = driver.getSize() - 1;
+        auto numOfFreeProc = driver.getSize() - 1;
         auto&& function = functions.begin();
 
         //process all functions of module
@@ -301,14 +300,18 @@ int gestalt::main(int argc, const char** argv) {
             driver.receive();
             auto&& status = driver.getStatus();
             ASSERTC(status.MPI_TAG == mpi::DataTag::READY)
+
+            // if we still have function to analyze, then send it to consumer
             if (function != functions.end()) {
                 // sending a message to consumer
                 driver.send(status.MPI_SOURCE, function - functions.begin(), mpi::DataTag::FUNCTION);
                 ++function;
-            } else if (free_proc > 0) {
+
+            // else just terminate consumer
+            } else if (numOfFreeProc > 0) {
                 driver.terminate(status.MPI_SOURCE);
-                --free_proc;
-                if (free_proc == 0) break;
+                --numOfFreeProc;
+                if (numOfFreeProc == 0) break;
             }
         }
 

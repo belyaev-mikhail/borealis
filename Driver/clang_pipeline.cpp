@@ -21,6 +21,7 @@
 #include <llvm/IR/TypeBuilder.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/SourceMgr.h>
+#include <llvm/Support/LockFileManager.h>
 #include <llvm/Option/Arg.h>
 #include <llvm/Option/ArgList.h>
 
@@ -240,6 +241,9 @@ struct clang_pipeline::impl: public DelegateLogging {
         auto annofile = fname + ".anno";
         auto typetablefile = fname + ".ctypetable";
         auto vartablefile = fname + ".cvartable";
+
+        llvm::LockFileManager lockManager(fname);
+        if (lockManager != llvm::LockFileManager::LFS_Owned) return;
 
         auto annotatedModule = fileCache[fname];
         ASSERTC(annotatedModule != nullptr);
