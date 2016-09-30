@@ -62,8 +62,6 @@
 
 #include <google/protobuf/stubs/common.h>
 
-#include <mpi.h>
-
 #include "Actions/GatherCommentsAction.h"
 #include "Config/config.h"
 #include "Codegen/DiagnosticLogger.h"
@@ -230,19 +228,16 @@ int gestalt::main(int argc, const char** argv) {
 
     pre_pipeline.run();
 
-    // verify we didn't screw up the module structure
+    // run post passes
+
     if (driver.isRoot()) {
+        // verify we didn't screw up the module structure
         std::string err;
         llvm::raw_string_ostream rso{err};
         if (verifyModule(*module_ptr, &rso)) {
             errs() << "Module errors detected: " << rso.str() << endl;
         }
-    }
 
-
-    // run post passes
-
-    if (driver.isRoot()) {
         // print list of post passes
         borealis::logging::log_entry out(infos());
         out << "Post passes:" << endl;
@@ -301,17 +296,18 @@ int gestalt::main(int argc, const char** argv) {
             auto&& status = driver.getStatus();
             ASSERTC(status.MPI_TAG == mpi::DataTag::READY)
 
-            // if we still have function to analyze, then send it to consumer
+            // if we still have function to analyze, send it to consumer
             if (function != functions.end()) {
                 // sending a message to consumer
+                dbgs() << "Function " << (function - functions.begin() + 1) << " / " << functions.size() << endl;
                 driver.send(status.MPI_SOURCE, function - functions.begin(), mpi::DataTag::FUNCTION);
                 ++function;
 
             // else just terminate consumer
-            } else if (numOfFreeProc > 0) {
+            } else {
                 driver.terminate(status.MPI_SOURCE);
-                --numOfFreeProc;
-                if (numOfFreeProc == 0) break;
+                // if there are no more consumers, terminate itself
+                if ( (--numOfFreeProc) == 0 ) break;
             }
         }
 
@@ -331,7 +327,9 @@ int gestalt::main(int argc, const char** argv) {
             ASSERTC(functionIndex >= 0);
 
             // analyze function
+            dbgs() << "Consumer " << driver.getRank() << " started function " << functionIndex << endl;
             runPostPipeline(*functions[functionIndex]);
+            dbgs() << "Consumer " << driver.getRank() << " finished function " << functionIndex << endl;
         }
 
     }
