@@ -13,6 +13,7 @@
 #include <set>
 #include <fstream>
 #include <Config/config.h>
+#include <llvm/Support/LockFileManager.h>
 
 #include "Logging/logger.hpp"
 #include "Passes/Defect/DefectManager/DefectInfo.h"
@@ -75,16 +76,42 @@ struct persistentDefectData {
 //        }
     }
 
+    void moveDataToPast() {
+        for (auto&& e : trueData) falseData.erase(e);
+        truePastData.insert(trueData.begin(), trueData.end());
+        falsePastData.insert(falseData.begin(), falseData.end());
+    }
+
     void forceDump() {
         if(usePersistentDefectData.get(false)) {
-            auto tpd = truePastData;
-            auto fpd = falsePastData;
-            for (auto&& e : trueData) falseData.erase(e);
-            tpd.insert(trueData.begin(), trueData.end());
-            fpd.insert(falseData.begin(), falseData.end());
+            moveDataToPast();
 
-            std::ofstream out{filename};
-            util::write_as_json(out, std::make_pair(std::move(tpd), std::move(fpd)));
+            while (true) {
+                llvm::LockFileManager fileLock(filename);
+                if (fileLock == llvm::LockFileManager::LFS_Shared) {
+                    fileLock.waitForUnlock();
+                    continue;
+                } else if (fileLock == llvm::LockFileManager::LFS_Error) {
+                    errs() << "error while trying to lock " << filename << " file" << endl;
+                    break;
+                }
+
+
+                std::ifstream in(filename);
+                DefectData tpdLoaded, fpdLoaded;
+                if(auto&& loaded = util::read_as_json<SimpleT>(in)) {
+                    tpdLoaded = std::move(loaded->first);
+                    fpdLoaded = std::move(loaded->second);
+                }
+
+                truePastData.insert(tpdLoaded.begin(), tpdLoaded.end());
+                falsePastData.insert(fpdLoaded.begin(), fpdLoaded.end());
+                for (auto&& e : truePastData) falsePastData.erase(e);
+
+                std::ofstream out{filename};
+                util::write_as_json(out, std::make_pair(std::move(truePastData), std::move(falsePastData)));
+                break;
+            }
         }
     }
 };
@@ -143,11 +170,11 @@ private:
 public:
 
     const DefectData& getData() const { return data.trueData; }
+
     void clearData() {
+        data.moveDataToPast();
         data.trueData.clear();
         data.falseData.clear();
-        data.truePastData.clear();
-        data.falsePastData.clear();
     }
 
 #include "Util/macros.h"
