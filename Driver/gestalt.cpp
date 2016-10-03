@@ -230,6 +230,21 @@ int gestalt::main(int argc, const char** argv) {
 
     // run post passes
 
+    auto&& runPostPipeline = [&] (llvm::Function& function) {
+        llvm_pipeline post_pipeline{module_ptr};
+        post_pipeline.assignLogger(*this);
+        post_pipeline.add(*annotatedModule->annotations);
+        post_pipeline.add(annotatedModule->extVars);
+        post_pipeline.add(files);
+        for (auto&& pass : postPasses) {
+            post_pipeline.add(pass);
+        }
+
+        post_pipeline.add(provideAsPass<llvm::Function>(&function));
+
+        post_pipeline.run();
+    };
+
     if (driver.isRoot()) {
         // verify we didn't screw up the module structure
         std::string err;
@@ -246,21 +261,6 @@ int gestalt::main(int argc, const char** argv) {
             out << "  " << pass << endl;
         }
     }
-
-    auto&& runPostPipeline = [&] (llvm::Function& function) {
-        llvm_pipeline post_pipeline{module_ptr};
-        post_pipeline.assignLogger(*this);
-        post_pipeline.add(*annotatedModule->annotations);
-        post_pipeline.add(annotatedModule->extVars);
-        post_pipeline.add(files);
-        for (auto&& pass : postPasses) {
-            post_pipeline.add(pass);
-        }
-
-        post_pipeline.add(provideAsPass<llvm::Function>(&function));
-
-        post_pipeline.run();
-    };
 
     // if we run without mpi
     if (not driver.isMPI()) {
