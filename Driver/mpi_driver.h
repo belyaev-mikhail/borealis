@@ -49,7 +49,7 @@ public:
     }
 
     void send(int receiver, Data data, Tag tag) const {
-        MPI_Rsend(&data, 1, MPI_INT, receiver, tag, MPI_COMM_WORLD);
+        MPI_Send(&data, 1, MPI_INT, receiver, tag, MPI_COMM_WORLD);
     }
 
     Data receive(int source = MPI_ANY_SOURCE) {

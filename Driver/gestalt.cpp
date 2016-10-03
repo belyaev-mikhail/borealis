@@ -276,14 +276,14 @@ int gestalt::main(int argc, const char** argv) {
     std::vector<llvm::Function*> functions;
     util::viewContainer(*module_ptr).foreach(
         [&functions](llvm::Function& function) {
-            functions.push_back(&function);
+            if (not function.isDeclaration())
+                functions.push_back(&function);
         }
     );
 
     std::sort(functions.begin(), functions.end(), [] (llvm::Function* a, llvm::Function* b) {
         return a->getName() < b->getName();
     });
-
     // produсer process
     if (driver.isRoot()) {
 
@@ -299,7 +299,7 @@ int gestalt::main(int argc, const char** argv) {
             // if we still have function to analyze, send it to consumer
             if (function != functions.end()) {
                 // sending a message to consumer
-                dbgs() << "Function " << (function - functions.begin() + 1) << " / " << functions.size() << endl;
+                errs() << "Function " << (function - functions.begin() + 1) << " / " << functions.size() << endl;
                 driver.send(status.MPI_SOURCE, function - functions.begin(), mpi::DataTag::FUNCTION);
                 ++function;
 
@@ -327,9 +327,9 @@ int gestalt::main(int argc, const char** argv) {
             ASSERTC(functionIndex >= 0);
 
             // analyze function
-            dbgs() << "Consumer " << driver.getRank() << " started function " << functionIndex << endl;
+            errs() << "Consumer " << driver.getRank() << " started function " << functions[functionIndex]->getName() << endl;
             runPostPipeline(*functions[functionIndex]);
-            dbgs() << "Consumer " << driver.getRank() << " finished function " << functionIndex << endl;
+            errs() << "Consumer " << driver.getRank() << " finished function " << functions[functionIndex]->getName() << endl;
         }
 
     }
