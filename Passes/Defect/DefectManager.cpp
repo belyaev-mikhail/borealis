@@ -11,7 +11,7 @@
 
 namespace borealis {
 
-DefectManager::DefectManager() : llvm::ModulePass(ID) {}
+DefectManager::DefectManager() : llvm::ModulePass(ID), data("persistentDefectData.json") {}
 
 void DefectManager::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
@@ -79,8 +79,5 @@ void DefectManager::print(llvm::raw_ostream&, const llvm::Module*) const {
 char DefectManager::ID;
 static RegisterPass<DefectManager>
 X("defect-manager", "Pass that collects and filters detected defects");
-
-DefectManager::AdditionalDefectData DefectManager::supplemental;
-impl_::persistentDefectData DefectManager::data("persistentDefectData.json");
 
 } /* namespace borealis */
