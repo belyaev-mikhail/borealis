@@ -239,8 +239,8 @@ int gestalt::main(int argc, const char** argv) {
         for (auto&& pass : postPasses) {
             post_pipeline.add(pass);
         }
-
-        post_pipeline.add(provideAsPass<llvm::Function>(&function));
+        // provide this function for PassModularizer using DataProviderPass
+        post_pipeline.add(function);
 
         post_pipeline.run();
     };

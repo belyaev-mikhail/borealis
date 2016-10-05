@@ -14,6 +14,7 @@
 #include <fstream>
 #include <Config/config.h>
 #include <llvm/Support/LockFileManager.h>
+#include <unistd.h>
 
 #include "Logging/logger.hpp"
 #include "Passes/Defect/DefectManager/DefectInfo.h"
@@ -46,7 +47,7 @@ struct persistentDefectData {
     std::string filename;
 
     persistentDefectData(const std::string& filename): filename(filename) {
-        if(usePersistentDefectData.get(false)) {
+        if(usePersistentDefectData.get(true)) {
             std::ifstream in(filename);
             if(auto&& loaded = util::read_as_json<SimpleT>(in)) {
                 truePastData = std::move(loaded->first);
@@ -56,7 +57,7 @@ struct persistentDefectData {
     }
 
     persistentDefectData(const char* filename): trueData(), falseData(), filename(filename) {
-        if(usePersistentDefectData.get(false)) {
+        if(usePersistentDefectData.get(true)) {
             std::ifstream in(filename);
             if (auto&& loaded = util::read_as_json<SimpleT>(in)) {
                 truePastData = std::move(loaded->first);
@@ -83,7 +84,7 @@ struct persistentDefectData {
     }
 
     void forceDump() {
-        if(usePersistentDefectData.get(false)) {
+        if(usePersistentDefectData.get(true)) {
             moveDataToPast();
 
             while (true) {
@@ -164,8 +165,8 @@ public:
 
 private:
 
-    static impl_::persistentDefectData data;
-    static AdditionalDefectData supplemental;
+    impl_::persistentDefectData data;
+    AdditionalDefectData supplemental;
 
 public:
 
