@@ -49,11 +49,15 @@ public:
     }
 
     void send(int receiver, Data data, Tag tag) const {
+        infos() << rank_ << " sending message " << DataTag(tag)
+                << " to " << receiver << endl;
         MPI_Send(&data, 1, MPI_INT, receiver, tag, MPI_COMM_WORLD);
     }
 
     Data receive(int source = MPI_ANY_SOURCE) {
         MPI_Recv(&buffer_, 1, MPI_INT, source, MPI_ANY_TAG, MPI_COMM_WORLD, &status_);
+        infos() << rank_ << " receiving message " << DataTag(status_.MPI_TAG)
+                << " from " << status_.MPI_SOURCE << endl;
         return buffer_;
     }
 
@@ -90,6 +94,33 @@ private:
 
 };
 
+std::ostream& operator<<(std::ostream& s, const DataTag& tag) {
+    switch (tag) {
+        case FUNCTION:
+            s << "[function]";
+            break;
+        case READY:
+            s << "[ready]";
+            break;
+        default:
+            s << "[terminate]";
+    }
+    return s;
+}
+
+borealis::logging::logstream& operator<<(borealis::logging::logstream& s, const DataTag& tag) {
+    switch (tag) {
+        case FUNCTION:
+            s << "[function]";
+            break;
+        case READY:
+            s << "[ready]";
+            break;
+        default:
+            s << "[terminate]";
+    }
+    return s;
+}
 
 }   /* namespace mpi */
 }   /* namespace borealis */
