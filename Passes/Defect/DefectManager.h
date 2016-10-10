@@ -85,6 +85,7 @@ struct persistentDefectData {
 
     void forceDump() {
         if(usePersistentDefectData.get(true)) {
+            llvm::errs() << getpid() << " dumping data\n";
             moveDataToPast();
 
             while (true) {
@@ -111,6 +112,7 @@ struct persistentDefectData {
 
                 std::ofstream out{filename};
                 util::write_as_json(out, std::make_pair(std::move(truePastData), std::move(falsePastData)));
+                llvm::errs() << getpid() << " dumped\n";
                 break;
             }
         }
@@ -137,11 +139,9 @@ public:
 
     DefectManager();
     virtual bool runOnModule(llvm::Module&) override { return false; }
+    virtual bool doFinalization(llvm::Module&) override;
     virtual void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
-    virtual ~DefectManager() {
-        // this is a bit fucked up
-        data.forceDump();
-    };
+    virtual ~DefectManager() {};
 
     void addDefect(DefectType type, llvm::Instruction* where);
     void addDefect(const std::string& type, llvm::Instruction* where);
@@ -165,12 +165,27 @@ public:
 
 private:
 
-    impl_::persistentDefectData data;
-    AdditionalDefectData supplemental;
+    static bool alwaysDumpDefectData;
+    static impl_::persistentDefectData data;
+    static AdditionalDefectData supplemental;
 
 public:
 
     const DefectData& getData() const { return data.trueData; }
+
+    static void initAdditionalDefectData() {
+        auto&& createFreeSupplemental = [&] (const DefectInfo& info) {
+            supplemental.insert({info, {}});
+        };
+
+        util::viewContainer(data.trueData).foreach(createFreeSupplemental);
+        util::viewContainer(data.truePastData).foreach(createFreeSupplemental);
+        util::viewContainer(data.falsePastData).foreach(createFreeSupplemental);
+    }
+
+    static void forceDump() {
+        data.forceDump();
+    }
 
     void clearData() {
         data.moveDataToPast();

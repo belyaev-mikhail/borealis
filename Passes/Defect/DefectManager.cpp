@@ -11,7 +11,17 @@
 
 namespace borealis {
 
-DefectManager::DefectManager() : llvm::ModulePass(ID), data("persistentDefectData.json") {}
+static config::BoolConfigEntry alwaysDumpData("analysis", "always-dump-defect-data");
+
+DefectManager::DefectManager() : llvm::ModulePass(ID) {}
+
+bool DefectManager::doFinalization(llvm::Module &) {
+    clearData();
+    if (alwaysDumpDefectData) {
+        data.forceDump();
+    }
+    return true;
+}
 
 void DefectManager::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
@@ -79,5 +89,9 @@ void DefectManager::print(llvm::raw_ostream&, const llvm::Module*) const {
 char DefectManager::ID;
 static RegisterPass<DefectManager>
 X("defect-manager", "Pass that collects and filters detected defects");
+
+bool DefectManager::alwaysDumpDefectData = alwaysDumpData.get(false);
+impl_::persistentDefectData DefectManager::data("persistentDefectData.json");
+DefectManager::AdditionalDefectData DefectManager::supplemental;
 
 } /* namespace borealis */
