@@ -61,6 +61,7 @@
 #include <llvm/Target/TargetMachine.h>
 
 #include <google/protobuf/stubs/common.h>
+#include <Passes/Defect/DefectManager.h>
 
 #include "Actions/GatherCommentsAction.h"
 #include "Config/config.h"
@@ -314,6 +315,7 @@ int gestalt::main(int argc, const char** argv) {
     // consumer processes
     } else {
 
+        DefectManager::initAdditionalDefectData();
         while (true) {
             driver.send(mpi::MPI_Driver::ROOT, 0, mpi::DataTag::READY);
             auto&& functionIndex = driver.receive(mpi::MPI_Driver::ROOT);
@@ -331,6 +333,7 @@ int gestalt::main(int argc, const char** argv) {
             runPostPipeline(*functions[functionIndex]);
             errs() << "Consumer " << driver.getRank() << " finished function " << functions[functionIndex]->getName() << endl;
         }
+        DefectManager::forceDump();
 
     }
 
