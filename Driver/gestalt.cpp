@@ -265,9 +265,12 @@ int gestalt::main(int argc, const char** argv) {
 
     // if we run without mpi
     if (not driver.isMPI()) {
+        DefectManager::initAdditionalDefectData();
+
         util::viewContainer(*module_ptr)
                 .foreach(runPostPipeline);
 
+        DefectManager::dumpPersistentDefectData();
         MPI::Finalize();
         return OK;
     }
@@ -300,7 +303,7 @@ int gestalt::main(int argc, const char** argv) {
             // if we still have function to analyze, send it to consumer
             if (function != functions.end()) {
                 // sending a message to consumer
-                errs() << "Function " << (function - functions.begin() + 1) << " / " << functions.size() << endl;
+                infos() << "Function " << (function - functions.begin() + 1) << " / " << functions.size() << endl;
                 driver.send(status.MPI_SOURCE, function - functions.begin(), mpi::DataTag::FUNCTION);
                 ++function;
 
@@ -329,11 +332,11 @@ int gestalt::main(int argc, const char** argv) {
             ASSERTC(functionIndex >= 0);
 
             // analyze function
-            errs() << "Consumer " << driver.getRank() << " started function " << functions[functionIndex]->getName() << endl;
+            infos() << "Consumer " << driver.getRank() << " started function " << functions[functionIndex]->getName() << endl;
             runPostPipeline(*functions[functionIndex]);
-            errs() << "Consumer " << driver.getRank() << " finished function " << functions[functionIndex]->getName() << endl;
+            infos() << "Consumer " << driver.getRank() << " finished function " << functions[functionIndex]->getName() << endl;
         }
-        DefectManager::forceDump();
+        DefectManager::dumpPersistentDefectData();
 
     }
 

@@ -12,6 +12,7 @@
 #include "Util/string_ref.hpp"
 #include "Util/json.hpp"
 #include "Util/hash.hpp"
+#include "Util/macros.h"
 
 namespace borealis {
 namespace util {
@@ -20,7 +21,7 @@ namespace impl_ {
 
 struct string_cache {
     std::vector<std::string> fwd;
-    std::unordered_map<string_ref, size_t> bwd;
+    std::unordered_map<std::string, size_t> bwd;
 
     size_t operator[](string_ref key) {
         auto it = bwd.find(key);
@@ -35,7 +36,6 @@ struct string_cache {
     const std::string& operator[](size_t key) {
         return fwd[key];
     }
-
 };
 
 } /* namespace impl_ */
@@ -119,5 +119,7 @@ struct hash<borealis::util::indexed_string> {
 };
 
 } /* namespace std */
+
+#include "Util/unmacros.h"
 
 #endif //INDEXED_STRING_HPP

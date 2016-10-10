@@ -15,12 +15,32 @@ static config::BoolConfigEntry alwaysDumpData("analysis", "always-dump-defect-da
 
 DefectManager::DefectManager() : llvm::ModulePass(ID) {}
 
+void DefectManager::initAdditionalDefectData() {
+    auto&& createFreeSupplemental = [&] (const DefectInfo& info) {
+        supplemental.insert({info, {}});
+    };
+
+    util::viewContainer(data.trueData).foreach(createFreeSupplemental);
+    util::viewContainer(data.truePastData).foreach(createFreeSupplemental);
+    util::viewContainer(data.falsePastData).foreach(createFreeSupplemental);
+}
+
+void DefectManager::dumpPersistentDefectData() {
+    data.forceDump();
+}
+
+void DefectManager::clearData() {
+    data.moveDataToPast();
+    data.trueData.clear();
+    data.falseData.clear();
+}
+
 bool DefectManager::doFinalization(llvm::Module &) {
     clearData();
     if (alwaysDumpDefectData) {
         data.forceDump();
     }
-    return true;
+    return false;
 }
 
 void DefectManager::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
@@ -90,7 +110,7 @@ char DefectManager::ID;
 static RegisterPass<DefectManager>
 X("defect-manager", "Pass that collects and filters detected defects");
 
-bool DefectManager::alwaysDumpDefectData = alwaysDumpData.get(false);
+bool DefectManager::alwaysDumpDefectData(alwaysDumpData.get(false));
 impl_::persistentDefectData DefectManager::data("persistentDefectData.json");
 DefectManager::AdditionalDefectData DefectManager::supplemental;
 
