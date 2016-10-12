@@ -288,28 +288,29 @@ int gestalt::main(int argc, const char** argv) {
     std::sort(functions.begin(), functions.end(), [] (llvm::Function* a, llvm::Function* b) {
         return a->getName() < b->getName();
     });
+
     // produсer process
     if (driver.isRoot()) {
 
         auto numOfFreeProc = driver.getSize() - 1;
-        auto&& function = functions.begin();
+        auto function = functions.begin();
 
         //process all functions of module
         while (true) {
             driver.receive();
-            auto&& status = driver.getStatus();
-            ASSERTC(status.MPI_TAG == mpi::DataTag::READY)
+            auto status = driver.getStatus();
+            ASSERT(status.tag_ == mpi::Tag::READY, "Unexpected message received by root")
 
             // if we still have function to analyze, send it to consumer
             if (function != functions.end()) {
                 // sending a message to consumer
-                infos() << "Function " << (function - functions.begin() + 1) << " / " << functions.size() << endl;
-                driver.send(status.MPI_SOURCE, function - functions.begin(), mpi::DataTag::FUNCTION);
+                infos() << "Function " << (function - functions.begin() + 1) << " out of " << functions.size() << endl;
+                driver.send(status.source_, { int(function - functions.begin()), mpi::Tag::FUNCTION });
                 ++function;
 
             // else just terminate consumer
             } else {
-                driver.terminate(status.MPI_SOURCE);
+                driver.terminate(status.source_);
                 // if there are no more consumers, terminate itself
                 if ( (--numOfFreeProc) == 0 ) break;
             }
@@ -320,21 +321,21 @@ int gestalt::main(int argc, const char** argv) {
 
         DefectManager::initAdditionalDefectData();
         while (true) {
-            driver.send(mpi::MPI_Driver::ROOT, 0, mpi::DataTag::READY);
-            auto&& functionIndex = driver.receive(mpi::MPI_Driver::ROOT);
-            auto&& status = driver.getStatus();
+            driver.send(mpi::Rank::ROOT, { mpi::MPI_Driver::ANY, mpi::Tag::READY });
+            auto functionIndex = (size_t) driver.receive(mpi::Rank::ROOT).data_;
+            auto status = driver.getStatus();
 
             // stop work if producer tells us to stop
-            if (status.MPI_TAG == mpi::DataTag::TERMINATE) break;
+            if (status.tag_ == mpi::Tag::TERMINATE) break;
 
             //check that we received correct message
-            ASSERTC(status.MPI_TAG == mpi::DataTag::FUNCTION);
-            ASSERTC(functionIndex >= 0);
+            ASSERT(status.tag_ == mpi::Tag::FUNCTION, "Unexpected message received by consumer");
+            ASSERT(functionIndex >= 0 && functionIndex < functions.size(), "Incorrect function index received by consumer");
 
             // analyze function
-            infos() << "Consumer " << driver.getRank() << " started function " << functions[functionIndex]->getName() << endl;
+            infos() << driver.getRank() << " started function " << functions[functionIndex]->getName() << endl;
             runPostPipeline(*functions[functionIndex]);
-            infos() << "Consumer " << driver.getRank() << " finished function " << functions[functionIndex]->getName() << endl;
+            infos() << driver.getRank() << " finished function " << functions[functionIndex]->getName() << endl;
         }
         DefectManager::dumpPersistentDefectData();
 
