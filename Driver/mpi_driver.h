@@ -14,9 +14,10 @@
 namespace borealis {
 namespace mpi {
 
-struct Tag {
+class Tag {
+public:
+
     enum DataTag { FUNCTION = 0, READY = 1, TERMINATE };
-    DataTag tag_;
 
     Tag() : tag_(TERMINATE) {}
     Tag(const DataTag tag) : tag_(tag) {}
@@ -29,6 +30,11 @@ struct Tag {
     }
 
     operator int() const { return tag_; }
+    DataTag get() const { return tag_; }
+
+private:
+
+    DataTag tag_;
 };
 
 class Rank {
@@ -51,16 +57,23 @@ private:
     int rank_;
 };
 
-struct Message {
-    int data_;
-    Tag tag_;
+class Message {
+public:
 
     Message(const int data, const Tag& tag): data_(data), tag_(tag) {}
 
     friend std::ostream& operator<<(std::ostream& s, const Message& msg);
     friend borealis::logging::logstream& operator<<(borealis::logging::logstream& s, const Message& msg);
 
+    int getData() const { return data_; }
+    const Tag& getTag() const { return tag_; }
+
     GENERATE_EQ(Message, data_, tag_);
+
+private:
+
+    int data_;
+    Tag tag_;
 };
 
 struct Status {
@@ -103,7 +116,6 @@ private:
 
     Rank rank_;
     int size_;
-    int buffer_;
     MPI_Status status_;
 };
 

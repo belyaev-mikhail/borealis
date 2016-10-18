@@ -28,12 +28,14 @@ bool MPI_Driver::isRoot() const {
 
 void MPI_Driver::send(const Rank receiver, const Message& msg) const {
     infos() << rank_ << " sending message " << msg << " to " << Rank(status_.MPI_SOURCE) << endl;
-    MPI_Send(&msg.data_, 1, MPI_INT, receiver, msg.tag_, MPI_COMM_WORLD);
+    auto buffer = msg.getData();
+    MPI_Send(&buffer, 1, MPI_INT, receiver, msg.getTag(), MPI_COMM_WORLD);
 }
 
 const Message MPI_Driver::receive(const Rank source) {
-    MPI_Recv(&buffer_, 1, MPI_INT, source, ANY, MPI_COMM_WORLD, &status_);
-    auto msg = Message{ buffer_, status_.MPI_TAG };
+    auto buffer = 0;
+    MPI_Recv(&buffer, 1, MPI_INT, source, ANY, MPI_COMM_WORLD, &status_);
+    auto msg = Message{ buffer, status_.MPI_TAG };
     infos() << rank_ << " receiving message " << msg << " from " << Rank(status_.MPI_SOURCE) << endl;
     return msg;
 }
@@ -92,7 +94,6 @@ std::ostream& operator<<(std::ostream& s, const Message& msg) {
     }
     return s;
 }
-
 
 borealis::logging::logstream& operator<<(borealis::logging::logstream& s, const Message& msg) {
     switch (msg.tag_) {
