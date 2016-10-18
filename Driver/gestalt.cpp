@@ -322,7 +322,7 @@ int gestalt::main(int argc, const char** argv) {
         DefectManager::initAdditionalDefectData();
         while (true) {
             driver.send(mpi::Rank::ROOT, { mpi::MPI_Driver::ANY, mpi::Tag::READY });
-            auto functionIndex = (size_t) driver.receive(mpi::Rank::ROOT).data_;
+            auto functionIndex = (size_t) driver.receive(mpi::Rank::ROOT).getData();
             auto status = driver.getStatus();
 
             // stop work if producer tells us to stop
