@@ -19,7 +19,6 @@
 #include "Logging/logger.hpp"
 #include "Passes/Defect/DefectManager/DefectInfo.h"
 #include "Util/json.hpp"
-#include "Util/json.h"
 
 namespace borealis {
 
