@@ -83,6 +83,7 @@ namespace driver {
 
 int gestalt::main(int argc, const char** argv) {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
+
     atexit(google::protobuf::ShutdownProtobufLibrary);
 
     borealis::util::initFilePaths(argv);
@@ -100,6 +101,7 @@ int gestalt::main(int argc, const char** argv) {
     const std::vector<std::string> empty;
 
     CommandLine args(argc, argv);
+
     std::string configPath = "wrapper.conf";
     std::string defaultLogIni = "log.ini";
     auto realConfigPath = util::getFilePathIfExists(configPath);
@@ -154,6 +156,9 @@ int gestalt::main(int argc, const char** argv) {
 
     auto compileCommands = nativeClang.getCompileCommands();
 
+    if(std::find_if(compileCommands.begin(), compileCommands.end(), [] (const command& cmd) {return(cmd.operation == command::LINK);}) != compileCommands.end()
+       && util::contains(args.stlRep(), "-onlyCompile")) return OK;
+
     if (!skipClang) if (nativeClang.run() == interviewer::status::FAILURE) return E_CLANG_INVOKE;
 
     // prep for borealis business
@@ -161,8 +166,9 @@ int gestalt::main(int argc, const char** argv) {
 
     if (compileCommands.empty()) return E_ILLEGAL_COMPILER_OPTIONS;
 
-    clang_pipeline clang { "clang" };
 
+
+    clang_pipeline clang { "clang" };
 
     clang.assignLogger(*this);
     clang.invoke(compileCommands);
@@ -174,7 +180,6 @@ int gestalt::main(int argc, const char** argv) {
     //       we were supposed to fuck up
 
     // collect passes
-
     auto module_ptr = annotatedModule->module;
 
     std::vector<StringRef> passes2run;
