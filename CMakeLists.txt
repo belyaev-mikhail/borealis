@@ -373,7 +373,7 @@ add_dependencies(wrapper
 target_link_libraries(wrapper ${ARCHIVES})
 target_link_libraries(wrapper ${SYSTEM_LIBS} ${CLANG_LIBS} ${LLVM_AVAILABLE_LIBS})
 
-#ar_wrapper
+# ar_wrapper
 add_executable(ar_wrapper ar_wrapper.cpp  $<TARGET_OBJECTS:SourceObjects>)
 
 target_compile_options(ar_wrapper PUBLIC ${COMPILER_FLAGS})

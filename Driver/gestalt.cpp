@@ -81,6 +81,8 @@
 namespace borealis {
 namespace driver {
 
+static config::BoolConfigEntry compileOnly("run", "compileOnly");
+
 int gestalt::main(int argc, const char** argv) {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
 
@@ -156,8 +158,11 @@ int gestalt::main(int argc, const char** argv) {
 
     auto compileCommands = nativeClang.getCompileCommands();
 
-    if(std::find_if(compileCommands.begin(), compileCommands.end(), [] (const command& cmd) {return(cmd.operation == command::LINK);}) != compileCommands.end()
-       && util::contains(args.stlRep(), "-onlyCompile")) return OK;
+    auto linkIt = std::find_if(compileCommands.begin(), compileCommands.end(), [] (const command& cmd) {
+        return cmd.operation == command::LINK;
+    });
+
+    if(linkIt != compileCommands.end() && compileOnly.get(false)) return OK;
 
     if (!skipClang) if (nativeClang.run() == interviewer::status::FAILURE) return E_CLANG_INVOKE;
 
