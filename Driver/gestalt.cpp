@@ -164,7 +164,23 @@ int gestalt::main(int argc, const char** argv) {
 
     if(linkIt != compileCommands.end() && compileOnly.get(false)) return OK;
 
-    if (!skipClang) if (nativeClang.run() == interviewer::status::FAILURE) return E_CLANG_INVOKE;
+#include "Util/macros.h"
+
+    if (!skipClang) {
+        auto lockFile = util::toString(args.hash()) + ".lock";
+        std::ofstream file(lockFile);
+
+        LockFileManager lock(lockFile);
+        if (lock == LockFileManager::LFS_Owned) {
+            if (nativeClang.run() == interviewer::status::FAILURE) return E_CLANG_INVOKE;
+
+        } else if (lock == LockFileManager::LFS_Error) {
+            BYE_BYE(int, "Error while trying to lock output file");
+
+        } else {
+            lock.waitForUnlock();
+        }
+    }
 
     // prep for borealis business
     // compile sources to llvm::Module
@@ -285,8 +301,6 @@ int gestalt::main(int argc, const char** argv) {
         return OK;
     }
 
-#include "Util/macros.h"
-
     std::vector<llvm::Function*> functions;
     util::viewContainer(*module_ptr).foreach(
         [&functions](llvm::Function& function) {
@@ -305,7 +319,7 @@ int gestalt::main(int argc, const char** argv) {
         auto numOfFreeProc = driver.getSize() - 1;
         auto function = functions.begin();
 
-        //process all functions of module
+        // process all functions of module
         while (true) {
             driver.receive();
             auto status = driver.getStatus();
