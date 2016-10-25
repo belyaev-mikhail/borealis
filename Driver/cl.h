@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "Util/util.h"
+#include "Util/hash.hpp"
 
 namespace borealis {
 namespace driver {
@@ -201,6 +202,10 @@ public:
         return std::move(ret);
     }
 
+    size_t hash() const noexcept {
+        return util::hash::simple_hash_value(args, additional_data);
+    }
+
     // FIXME: templated version broken due to operator ambiguity
     friend std::ostream& operator<<(std::ostream& str, const CommandLine& cl) {
         if (cl.empty()) {
@@ -218,5 +223,16 @@ public:
 
 } /* namespace driver */
 } /* namespace borealis */
+
+namespace std {
+
+template<>
+struct hash<borealis::driver::CommandLine> {
+    size_t operator()(const borealis::driver::CommandLine& cl) const noexcept {
+        return cl.hash();
+    }
+};
+
+} /* namespace std */
 
 #endif /* CL_H_ */

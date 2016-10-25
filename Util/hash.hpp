@@ -8,6 +8,8 @@
 #ifndef HASH_HPP_
 #define HASH_HPP_
 
+#include <cstring>
+#include <list>
 #include <utility>
 #include <vector>
 
@@ -94,6 +96,20 @@ inline size_t simple_hash_value(H&& h, H2&& h2, T&&... t) {
 
 namespace std {
 
+template<>
+struct hash< const char* > {
+    std::hash<char> h;
+
+    size_t operator()(const char* value) const noexcept {
+        size_t strl = strlen(value);
+        size_t res = 3;
+        for (auto it = value;  it != value + strl; ++it) {
+            res = 17 * res + h(*it);
+        }
+        return res;
+    }
+};
+
 template<class T>
 struct hash< std::vector<T> > {
     std::hash<T> h;
@@ -117,6 +133,31 @@ struct hash< const std::vector<T> > {
         return res;
     }
 };
+
+template<class T>
+struct hash< std::list<T> > {
+    std::hash<T> h;
+    size_t operator()(const std::list<T>& lst) const {
+        size_t res = 3;
+        for (const T& t : lst) {
+            res = 17 * res + h(t);
+        }
+        return res;
+    }
+};
+
+template<class T>
+struct hash< const std::list<T> > {
+    std::hash<T> h;
+    size_t operator()(const std::list<T>& lst) const {
+        size_t res = 3;
+        for (const T& t : lst) {
+            res = 17 * res + h(t);
+        }
+        return res;
+    }
+};
+
 
 template<>
 struct hash<std::tuple<>> {
