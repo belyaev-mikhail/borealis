@@ -108,10 +108,6 @@ int main(int argc, const char** argv) {
     pseudoLinker = pseudoLinker.push_back("-o").push_back(output) + CommandLine(inputs);
 
     infos() << pseudoLinker << endl;
-    auto lockFile = util::toString(pseudoLinker.hash()) + ".lock";
-    std::ofstream file(lockFile);
-
-    llvm::LockFileManager lock(lockFile);
     driver::command cmd;
     cmd.operation = command::LINK;
 
@@ -122,6 +118,10 @@ int main(int argc, const char** argv) {
 
     clang.invoke(cmd);
 
+    auto lockFile = util::toString(pseudoLinker.hash()) + ".lock";
+    std::ofstream file(lockFile);
+
+    llvm::LockFileManager lock(lockFile);
     if (lock == llvm::LockFileManager::LFS_Owned) {
         auto realAr = llvm::sys::FindProgramByName("ar");
         auto realArArgs = CommandLine(argc, argv).nullTerminated();
