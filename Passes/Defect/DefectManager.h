@@ -46,7 +46,7 @@ struct persistentDefectData {
     std::string filename;
 
     persistentDefectData(const std::string& filename): filename(filename) {
-        if(usePersistentDefectData.get(false)) {
+        if(usePersistentDefectData.get(true)) {
             std::ifstream in(filename);
             if(auto&& loaded = util::read_as_json<SimpleT>(in)) {
                 truePastData = std::move(loaded->first);
@@ -56,7 +56,7 @@ struct persistentDefectData {
     }
 
     persistentDefectData(const char* filename): trueData(), falseData(), filename(filename) {
-        if(usePersistentDefectData.get(false)) {
+        if(usePersistentDefectData.get(true)) {
             std::ifstream in(filename);
             if (auto&& loaded = util::read_as_json<SimpleT>(in)) {
                 truePastData = std::move(loaded->first);
@@ -76,28 +76,42 @@ struct persistentDefectData {
 //        }
     }
 
-    void forceDump() {
-        if(usePersistentDefectData.get(false)) {
-            auto tpd = truePastData;
-            auto fpd = falsePastData;
-            for (auto&& e : trueData) falseData.erase(e);
-            tpd.insert(trueData.begin(), trueData.end());
-            fpd.insert(falseData.begin(), falseData.end());
+    void moveDataToPast() {
+        for (auto&& e : trueData) falseData.erase(e);
+        truePastData.insert(trueData.begin(), trueData.end());
+        falsePastData.insert(falseData.begin(), falseData.end());
+    }
 
-            while(true) {
+    void forceDump() {
+        if(usePersistentDefectData.get(true)) {
+            moveDataToPast();
+
+            while (true) {
                 llvm::LockFileManager fileLock(filename);
-                if(fileLock == llvm::LockFileManager::LFS_Shared) {
+                if (fileLock == llvm::LockFileManager::LFS_Shared) {
                     fileLock.waitForUnlock();
                     continue;
+                } else if (fileLock == llvm::LockFileManager::LFS_Error) {
+                    errs() << "error while trying to lock " << filename << " file" << endl;
+                    break;
                 }
-                if(fileLock == llvm::LockFileManager::LFS_Error) {
-                    errs() << "error while trying to lock file \"" << filename << "\"" << endl;
+
+
+                std::ifstream in(filename);
+                DefectData tpdLoaded, fpdLoaded;
+                if(auto&& loaded = util::read_as_json<SimpleT>(in)) {
+                    tpdLoaded = std::move(loaded->first);
+                    fpdLoaded = std::move(loaded->second);
                 }
+
+                truePastData.insert(tpdLoaded.begin(), tpdLoaded.end());
+                falsePastData.insert(fpdLoaded.begin(), fpdLoaded.end());
+                for (auto&& e : truePastData) falsePastData.erase(e);
+
                 std::ofstream out{filename};
-                util::write_as_json(out, std::make_pair(std::move(tpd), std::move(fpd)));
+                util::write_as_json(out, std::make_pair(std::move(truePastData), std::move(falsePastData)));
                 break;
             }
-
         }
     }
 };
@@ -122,11 +136,9 @@ public:
 
     DefectManager();
     virtual bool runOnModule(llvm::Module&) override { return false; }
+    virtual bool doFinalization(llvm::Module&) override;
     virtual void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
-    virtual ~DefectManager() {
-        // this is a bit fucked up
-        data.forceDump();
-    };
+    virtual ~DefectManager() = default;
 
     void addDefect(DefectType type, llvm::Instruction* where);
     void addDefect(const std::string& type, llvm::Instruction* where);
@@ -150,12 +162,18 @@ public:
 
 private:
 
+    static bool alwaysDumpDefectData;
     static impl_::persistentDefectData data;
     static AdditionalDefectData supplemental;
 
 public:
 
     const DefectData& getData() const { return data.trueData; }
+
+    static void initAdditionalDefectData();
+    static void dumpPersistentDefectData();
+
+    void clearData();
 
 #include "Util/macros.h"
     auto begin() QUICK_CONST_RETURN(data.trueData.begin())

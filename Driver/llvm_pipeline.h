@@ -5,8 +5,8 @@
  *      Author: belyaev
  */
 
-#ifndef LLVM_PIPELINE_H_
-#define LLVM_PIPELINE_H_
+#ifndef LLVM_MODULE_PIPELINE_H_
+#define LLVM_MODULE_PIPELINE_H_
 
 #include "Logging/logger.hpp"
 #include "Passes/Util/DataProvider.hpp"
@@ -41,9 +41,10 @@ public:
     }
 
     status run();
+    std::shared_ptr<llvm::Module> get();
 };
 
 } // namespace driver
 } // namespace borealis
 
-#endif /* LLVM_PIPELINE_H_ */
+#endif /* LLVM_MODULE_PIPELINE_H_ */

@@ -61,6 +61,7 @@
 #include <llvm/Target/TargetMachine.h>
 
 #include <google/protobuf/stubs/common.h>
+#include <Passes/Defect/DefectManager.h>
 
 #include "Actions/GatherCommentsAction.h"
 #include "Config/config.h"
@@ -70,6 +71,7 @@
 #include "Driver/gestalt.h"
 #include "Driver/interviewer.h"
 #include "Driver/llvm_pipeline.h"
+#include "Driver/mpi_driver.h"
 #include "Driver/plugin_loader.h"
 #include "Logging/logger.hpp"
 #include "Passes/Misc/PrinterPasses.h"
@@ -79,8 +81,11 @@
 namespace borealis {
 namespace driver {
 
+static config::BoolConfigEntry compileOnly("run", "compileOnly");
+
 int gestalt::main(int argc, const char** argv) {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
+
     atexit(google::protobuf::ShutdownProtobufLibrary);
 
     borealis::util::initFilePaths(argv);
@@ -98,6 +103,7 @@ int gestalt::main(int argc, const char** argv) {
     const std::vector<std::string> empty;
 
     CommandLine args(argc, argv);
+
     std::string configPath = "wrapper.conf";
     std::string defaultLogIni = "log.ini";
     auto realConfigPath = util::getFilePathIfExists(configPath);
@@ -152,15 +158,38 @@ int gestalt::main(int argc, const char** argv) {
 
     auto compileCommands = nativeClang.getCompileCommands();
 
-    if (!skipClang) if (nativeClang.run() == interviewer::status::FAILURE) return E_CLANG_INVOKE;
+    auto linkIt = std::find_if(compileCommands.begin(), compileCommands.end(), [] (const command& cmd) {
+        return cmd.operation == command::LINK;
+    });
+
+    if(linkIt != compileCommands.end() && compileOnly.get(false)) return OK;
+
+#include "Util/macros.h"
+
+    if (!skipClang) {
+        auto lockFile = util::toString(args.hash()) + ".lock";
+        std::ofstream file(lockFile);
+
+        LockFileManager lock(lockFile);
+        if (lock == LockFileManager::LFS_Owned) {
+            if (nativeClang.run() == interviewer::status::FAILURE) return E_CLANG_INVOKE;
+
+        } else if (lock == LockFileManager::LFS_Error) {
+            BYE_BYE(int, "Error while trying to lock output file");
+
+        } else {
+            lock.waitForUnlock();
+        }
+    }
 
     // prep for borealis business
     // compile sources to llvm::Module
 
     if (compileCommands.empty()) return E_ILLEGAL_COMPILER_OPTIONS;
 
-    clang_pipeline clang { "clang" };
 
+
+    clang_pipeline clang { "clang" };
 
     clang.assignLogger(*this);
     clang.invoke(compileCommands);
@@ -172,37 +201,39 @@ int gestalt::main(int argc, const char** argv) {
     //       we were supposed to fuck up
 
     // collect passes
-
     auto module_ptr = annotatedModule->module;
 
     std::vector<StringRef> passes2run;
     passes2run.insert(passes2run.end(), prePasses.begin(), prePasses.end());
     passes2run.insert(passes2run.end(), inPasses.begin(), inPasses.end());
-    passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
 
     std::vector<StringRef> libs2load;
     libs2load.insert(libs2load.end(), libs.begin(), libs.end());
 
-    {
-        borealis::logging::log_entry out(infos());
-        out << "Passes:" << endl;
-        if (passes2run.empty()) out << "  " << "None" << endl;
-        for (const auto& pass : passes2run) {
-            out << "  " << pass << endl;
-        }
-    }
+    // Start up MPI
+    MPI::Init();
+    mpi::MPI_Driver driver{};
 
-    {
-        borealis::logging::log_entry out(infos());
-        out << "Dynamic libraries:" << endl;
-        if (libs2load.empty()) out << "  " << "None" << endl;
+    // if we are root, print log
+    if (driver.isRoot()) {
+        // print list of pre passes
+        borealis::logging::log_entry passes(infos());
+        passes << "Passes:" << endl;
+        if (passes2run.empty()) passes << "  " << "None" << endl;
+        for (const auto& pass : passes2run) {
+            passes << "  " << pass << endl;
+        }
+
+        // print list of dynamic libraries
+        borealis::logging::log_entry libs(infos());
+        libs << "Dynamic libraries:" << endl;
+        if (libs2load.empty()) libs << "  " << "None" << endl;
         for (const auto& lib : libs2load) {
-            out << "  " << lib << endl;
+            libs << "  " << lib << endl;
         }
     }
 
     // load .so plugins
-
     plugin_loader pl;
     pl.assignLogger(*this);
     for (const auto& lib : libs2load) {
@@ -210,28 +241,134 @@ int gestalt::main(int argc, const char** argv) {
     }
     pl.run();
 
-    // run llvm passes
+    // run pre passes
+    llvm_pipeline pre_pipeline { module_ptr };
+    pre_pipeline.assignLogger(*this);
 
-    llvm_pipeline llvm { module_ptr };
-    llvm.assignLogger(*this);
-
-    llvm.add(*annotatedModule->annotations);
-    llvm.add(annotatedModule->extVars);
+    pre_pipeline.add(*annotatedModule->annotations);
+    pre_pipeline.add(annotatedModule->extVars);
     clang::FileManager files{ FileSystemOptions() };
-    llvm.add(files);
-    for (StringRef pass : passes2run) {
-        llvm.add(pass.str());
+    pre_pipeline.add(files);
+    for (auto&& pass : passes2run) {
+        pre_pipeline.add(pass.str());
     }
 
-    llvm.run();
+    pre_pipeline.run();
 
-    // verify we didn't screw up the module structure
+    // run post passes
 
-    std::string err;
-    llvm::raw_string_ostream rso{err};
-    if (verifyModule(*module_ptr, &rso)) {
-        errs() << "Module errors detected: " << rso.str() << endl;
+    auto&& runPostPipeline = [&] (llvm::Function& function) {
+        llvm_pipeline post_pipeline{module_ptr};
+        post_pipeline.assignLogger(*this);
+        post_pipeline.add(*annotatedModule->annotations);
+        post_pipeline.add(annotatedModule->extVars);
+        post_pipeline.add(files);
+        for (auto&& pass : postPasses) {
+            post_pipeline.add(pass);
+        }
+        // provide this function for PassModularizer using DataProviderPass
+        post_pipeline.add(function);
+
+        post_pipeline.run();
+    };
+
+    if (driver.isRoot()) {
+        // verify we didn't screw up the module structure
+        std::string err;
+        llvm::raw_string_ostream rso{err};
+        if (verifyModule(*module_ptr, &rso)) {
+            errs() << "Module errors detected: " << rso.str() << endl;
+        }
+
+        // print list of post passes
+        borealis::logging::log_entry out(infos());
+        out << "Post passes:" << endl;
+        if (postPasses.empty()) out << "  " << "None" << endl;
+        for (const auto& pass : postPasses) {
+            out << "  " << pass << endl;
+        }
     }
+
+    std::vector<llvm::Function*> functions;
+    util::viewContainer(*module_ptr).foreach(
+            [&functions](llvm::Function& function) {
+                if (not function.isDeclaration())
+                    functions.push_back(&function);
+            }
+    );
+
+    std::sort(functions.begin(), functions.end(), [] (llvm::Function* a, llvm::Function* b) {
+        return a->getName() < b->getName();
+    });
+
+    // if we run without mpi
+    if (not driver.isMPI()) {
+        DefectManager::initAdditionalDefectData();
+
+        util::viewContainer(functions)
+                .map(ops::dereference)
+                .foreach(runPostPipeline);
+
+        DefectManager::dumpPersistentDefectData();
+        MPI::Finalize();
+        return OK;
+    }
+
+    // produсer process
+    if (driver.isRoot()) {
+
+        auto numOfFreeProc = driver.getSize() - 1;
+        auto function = functions.begin();
+
+        // process all functions of module
+        while (true) {
+            driver.receive();
+            auto status = driver.getStatus();
+            ASSERT(status.tag_ == mpi::Tag::READY, "Unexpected message received by root")
+
+            // if we still have function to analyze, send it to consumer
+            if (function != functions.end()) {
+                // sending a message to consumer
+                infos() << "Function " << (function - functions.begin() + 1) << " out of " << functions.size() << endl;
+                driver.send(status.source_, { int(function - functions.begin()), mpi::Tag::FUNCTION });
+                ++function;
+
+            // else just terminate consumer
+            } else {
+                driver.terminate(status.source_);
+                // if there are no more consumers, terminate itself
+                if ( (--numOfFreeProc) == 0 ) break;
+            }
+        }
+
+    // consumer processes
+    } else {
+
+        DefectManager::initAdditionalDefectData();
+        while (true) {
+            driver.send(mpi::Rank::ROOT, { mpi::MPI_Driver::ANY, mpi::Tag::READY });
+            auto functionIndex = (size_t) driver.receive(mpi::Rank::ROOT).getData();
+            auto status = driver.getStatus();
+
+            // stop work if producer tells us to stop
+            if (status.tag_ == mpi::Tag::TERMINATE) break;
+
+            //check that we received correct message
+            ASSERT(status.tag_ == mpi::Tag::FUNCTION, "Unexpected message received by consumer");
+            ASSERT(functionIndex >= 0 && functionIndex < functions.size(), "Incorrect function index received by consumer");
+
+            // analyze function
+            infos() << driver.getRank() << " started function " << functions[functionIndex]->getName() << endl;
+            runPostPipeline(*functions[functionIndex]);
+            infos() << driver.getRank() << " finished function " << functions[functionIndex]->getName() << endl;
+        }
+        DefectManager::dumpPersistentDefectData();
+
+    }
+
+    MPI::Finalize();
+
+#include "Util/unmacros.h"
 
     return OK;
 }
