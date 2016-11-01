@@ -180,6 +180,18 @@ target_compile_options(SourceObjects PUBLIC ${COMPILER_FLAGS})
 target_compile_definitions(SourceObjects PUBLIC ${COMPILER_DEFINITIONS})
 
 ################################################################################
+# header files
+################################################################################
+
+foreach(dir ${SOURCE_DIRS})
+    file(GLOB_RECURSE SRC ${dir}/*.h
+            ${dir}/*.hpp)
+    foreach(file ${SRC})
+        list(APPEND HEADERS "${file}")
+    endforeach()
+endforeach()
+
+################################################################################
 # Test sources
 ################################################################################
 set(TEST_DIRS ${PROJECT_SOURCE_DIR}/test)
@@ -359,7 +371,7 @@ set(CLANG_LIBS
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 # wrapper
-add_executable(wrapper wrapper.cpp $<TARGET_OBJECTS:SourceObjects>)
+add_executable(wrapper wrapper.cpp $<TARGET_OBJECTS:SourceObjects> ${HEADERS})
 
 target_compile_options(wrapper PUBLIC ${COMPILER_FLAGS})
 target_compile_definitions(wrapper PUBLIC ${COMPILER_DEFINITIONS})
@@ -374,7 +386,7 @@ target_link_libraries(wrapper ${ARCHIVES})
 target_link_libraries(wrapper ${SYSTEM_LIBS} ${CLANG_LIBS} ${LLVM_AVAILABLE_LIBS})
 
 # ar_wrapper
-add_executable(ar_wrapper ar_wrapper.cpp  $<TARGET_OBJECTS:SourceObjects>)
+add_executable(ar_wrapper ar_wrapper.cpp  $<TARGET_OBJECTS:SourceObjects> ${HEADERS})
 
 target_compile_options(ar_wrapper PUBLIC ${COMPILER_FLAGS})
 target_compile_definitions(ar_wrapper PUBLIC ${COMPILER_DEFINITIONS})
@@ -395,7 +407,7 @@ set(TEST_OUTPUT test_results.xml)
 set(TEST_EXE wrapper-tests)
 set(RUN_TEST_EXES ${PROJECT_SOURCE_DIR}/${TEST_EXE} --gtest_output="xml:${TEST_OUTPUT}" --gtest_color=yes)
 
-add_executable(${TEST_EXE} EXCLUDE_FROM_ALL $<TARGET_OBJECTS:SourceObjects> $<TARGET_OBJECTS:TestObjects>)
+add_executable(${TEST_EXE} EXCLUDE_FROM_ALL $<TARGET_OBJECTS:SourceObjects> $<TARGET_OBJECTS:TestObjects> ${HEADERS})
 add_dependencies(${TEST_EXE}
         yaml-cpp
         .cfgparser

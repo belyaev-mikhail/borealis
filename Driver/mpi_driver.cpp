@@ -27,7 +27,7 @@ bool MPI_Driver::isRoot() const {
 }
 
 void MPI_Driver::send(const Rank receiver, const Message& msg) const {
-    infos() << rank_ << " sending message " << msg << " to " << Rank(status_.MPI_SOURCE) << endl;
+    infos() << rank_ << " sending message " << msg << " to " << receiver << endl;
     auto buffer = msg.getData();
     MPI_Send(&buffer, 1, MPI_INT, receiver, msg.getTag(), MPI_COMM_WORLD);
 }
@@ -78,7 +78,6 @@ borealis::logging::logstream& operator<<(borealis::logging::logstream& s, const 
     else
         s << "[Consumer " << rank.get() << "]";
     return s;
-
 }
 
 std::ostream& operator<<(std::ostream& s, const Message& msg) {
