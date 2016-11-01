@@ -8,8 +8,8 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
-#include <cfgparser.h>
-#include <configwrapper.h>
+#include <cfgparser/include/cfgparser.h>
+#include <cfgparser/include/configwrapper.h>
 
 #include <sstream>
 #include <string>

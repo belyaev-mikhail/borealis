@@ -87,13 +87,17 @@ struct persistentDefectData {
 //        }
     }
 
+    void moveDataToPast() {
+        for (auto&& e : trueData) falseData.erase(e);
+        truePastData.insert(trueData.begin(), trueData.end());
+        falsePastData.insert(falseData.begin(), falseData.end());
+    }
+
     void forceDump() {
         if(usePersistentDefectData.get(false)) {
             auto tpd = truePastData;
             auto fpd = falsePastData;
-            for (auto&& e : trueData) falseData.erase(e);
-            tpd.insert(trueData.begin(), trueData.end());
-            fpd.insert(falseData.begin(), falseData.end());
+            moveDataToPast();
 
             locked([&](){
                 {
@@ -133,13 +137,10 @@ public:
     DefectManager();
     virtual bool runOnModule(llvm::Module&) override { return false; }
 
-    virtual bool doFinalization(llvm::Module &module) override;
+    virtual bool doFinalization(llvm::Module& M) override;
 
     virtual void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
-    virtual ~DefectManager() {
-        // this is a bit fucked up
-        getStaticData().forceDump();
-    };
+    virtual ~DefectManager() = default;
 
     void addDefect(DefectType type, llvm::Instruction* where);
     void addDefect(const std::string& type, llvm::Instruction* where);
@@ -163,6 +164,11 @@ public:
 
 private:
 
+    static bool alwaysDumpDefectData() {
+        static config::BoolConfigEntry alwaysDumpData("analysis", "always-dump-defect-data");
+        return alwaysDumpData.get(false);
+    }
+
     static impl_::persistentDefectData& getStaticData() {
         static impl_::persistentDefectData data("persistentDefectData.json");
         return data;
@@ -176,6 +182,10 @@ private:
 public:
 
     const DefectData& getData() const { return getStaticData().trueData; }
+    static void initAdditionalDefectData();
+    static void dumpPersistentDefectData();
+
+    void clearData();
 
 #include "Util/macros.h"
     auto begin() QUICK_CONST_RETURN(getStaticData().trueData.begin())

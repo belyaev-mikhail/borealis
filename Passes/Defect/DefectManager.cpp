@@ -13,6 +13,33 @@ namespace borealis {
 
 DefectManager::DefectManager() : llvm::ModulePass(ID) {}
 
+void DefectManager::initAdditionalDefectData() {
+    auto&& createFreeSupplemental = [&] (const DefectInfo& info) {
+        getSupplemental().insert({info, {}});
+    };
+
+    util::viewContainer(getStaticData().trueData).foreach(createFreeSupplemental);
+    util::viewContainer(getStaticData().truePastData).foreach(createFreeSupplemental);
+    util::viewContainer(getStaticData().falsePastData).foreach(createFreeSupplemental);
+}
+
+void DefectManager::dumpPersistentDefectData() {
+    getStaticData().forceDump();
+}
+
+void DefectManager::clearData() {
+    auto& staticData = getStaticData();
+    staticData.moveDataToPast();
+    staticData.trueData.clear();
+    staticData.falseData.clear();
+}
+
+bool DefectManager::doFinalization(llvm::Module& M) {
+    clearData();
+    if (alwaysDumpDefectData()) getStaticData().forceDump();
+    return llvm::Pass::doFinalization(M);
+}
+
 void DefectManager::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
 
@@ -80,11 +107,6 @@ void DefectManager::print(llvm::raw_ostream&, const llvm::Module*) const {
     for (const auto& defect : getStaticData().trueData) {
         infos() << defect.type << " at " << defect.location << endl;
     }
-}
-
-bool DefectManager::doFinalization(llvm::Module &module) {
-    getStaticData().forceDump();
-    return llvm::Pass::doFinalization(module);
 }
 
 char DefectManager::ID;

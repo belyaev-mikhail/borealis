@@ -13,7 +13,9 @@
 #include <unordered_map>
 #include <utility>
 
+#include "Config/config.h"
 #include "Passes/Util/SCCPass.h"
+#include "Passes/Util/DataProvider.hpp"
 #include "Util/util.h"
 
 #include "Util/macros.h"
@@ -45,12 +47,17 @@ public:
         using namespace llvm;
 
         if (Lazy) return false;
+        llvm::Function* analyzableFunction = nullptr;
+        if (auto&& provider = getAnalysisIfAvailable< DataProvider<llvm::Function> >()) {
+            analyzableFunction = const_cast<llvm::Function*>(&provider->provide());
+        }
 
         bool changed = false;
         for (CallGraphSCCNode node : SCC) {
             Function* F = node->getFunction();
+            bool isAnalyzable = !analyzableFunction || (analyzableFunction == F);
             // Do not run on declarations
-            if (F && !F->isDeclaration()) {
+            if (F && !F->isDeclaration() && isAnalyzable) {
                 subptr ptr(createSubPass(*F->getParent()));
                 changed |= ptr->runOnFunction(*F);
                 passes[F] = std::move(ptr);
