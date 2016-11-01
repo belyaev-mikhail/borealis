@@ -89,5 +89,9 @@ llvm_pipeline::status llvm_pipeline::run() {
     else return status::FAILURE;
 }
 
+std::shared_ptr<llvm::Module> llvm_pipeline::get() {
+    return pimpl->module;
+}
+
 } // namespace driver
 } // namespace borealis

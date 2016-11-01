@@ -1,5 +1,6 @@
 syntax: glob
 
+a.out*
 *.o
 *.a
 *.d
@@ -7,8 +8,6 @@ syntax: glob
 .*
 *.log
 *.pyc
-
-CMakeLists.txt
 
 wrapper
 ar_wrapper
@@ -23,8 +22,11 @@ Protobuf/Gen/*
 
 *.png
 
+build/
+
 lib/yaml-cpp/build
 lib/andersen
 lib/backward-cpp
 lib/cfgparser
 lib/dbglog
+lib/boolector
