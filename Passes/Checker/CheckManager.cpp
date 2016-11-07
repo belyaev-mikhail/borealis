@@ -31,7 +31,6 @@ void CheckManager::initializePass() {
 bool CheckManager::shouldSkipFunction(llvm::Function* F) const {
     auto&& cgs = GetAnalysis<CallGraphSlicer>::doit(this);
     if(cgs.doSlicing() && !cgs.getSlice().count(F)) return true;
-
     IntrinsicsManager& im = IntrinsicsManager::getInstance();
 
     if (function_type::UNKNOWN != im.getIntrinsicType(F)) return true;

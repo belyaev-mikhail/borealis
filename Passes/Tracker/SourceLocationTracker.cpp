@@ -145,6 +145,7 @@ const std::vector<llvm::BasicBlock*>& SourceLocationTracker::getLoopFor(const Lo
 
 void SourceLocationTracker::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
+
     AUX<llvm::LoopInfo>::addRequired(AU);
 }
 

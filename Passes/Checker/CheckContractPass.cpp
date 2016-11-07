@@ -162,7 +162,7 @@ void CheckContractPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 bool CheckContractPass::runOnFunction(llvm::Function& F) {
 
     CM = &GetAnalysis<CheckManager>::doit(this, F);
-    if (CM->shouldSkipFunction(&F)) return false;
+    //if (CM->shouldSkipFunction(&F)) return false;
 
     AA = getAnalysisIfAvailable<llvm::AliasAnalysis>();
     DM = &GetAnalysis<DefectManager>::doit(this, F);
