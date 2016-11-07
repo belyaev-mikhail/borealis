@@ -209,6 +209,7 @@ int gestalt::main(int argc, const char** argv) {
     std::vector<StringRef> passes2run;
     passes2run.insert(passes2run.end(), prePasses.begin(), prePasses.end());
     passes2run.insert(passes2run.end(), inPasses.begin(), inPasses.end());
+    passes2run.insert(passes2run.end(), postPasses.begin(), postPasses.end());
 
     std::vector<StringRef> libs2load;
     libs2load.insert(libs2load.end(), libs.begin(), libs.end());
@@ -255,9 +256,7 @@ int gestalt::main(int argc, const char** argv) {
     for (auto&& pass : passes2run) {
         pipeline.add(pass.str());
     }
-    for (auto&& pass : postPasses) {
-        pipeline.add(pass);
-    }
+
     pipeline.run();
 
     DefectManager::dumpPersistentDefectData();
