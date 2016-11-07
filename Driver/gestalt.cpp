@@ -244,131 +244,23 @@ int gestalt::main(int argc, const char** argv) {
     }
     pl.run();
 
-    // run pre passes
-    llvm_pipeline pre_pipeline { module_ptr };
-    pre_pipeline.assignLogger(*this);
+    DefectManager::initAdditionalDefectData();
 
-    pre_pipeline.add(*annotatedModule->annotations);
-    pre_pipeline.add(annotatedModule->extVars);
+    llvm_pipeline pipeline { module_ptr };
+    pipeline.assignLogger(*this);
+    pipeline.add(*annotatedModule->annotations);
+    pipeline.add(annotatedModule->extVars);
     clang::FileManager files{ FileSystemOptions() };
-    pre_pipeline.add(files);
+    pipeline.add(files);
     for (auto&& pass : passes2run) {
-        pre_pipeline.add(pass.str());
+        pipeline.add(pass.str());
     }
-
-    pre_pipeline.run();
-
-    // run post passes
-
-    auto&& runPostPipeline = [&] (llvm::Function& function) {
-        llvm_pipeline post_pipeline{module_ptr};
-        post_pipeline.assignLogger(*this);
-        post_pipeline.add(*annotatedModule->annotations);
-        post_pipeline.add(annotatedModule->extVars);
-        post_pipeline.add(files);
-        for (auto&& pass : postPasses) {
-            post_pipeline.add(pass);
-        }
-        // provide this function for PassModularizer using DataProviderPass
-        post_pipeline.add(function);
-
-        post_pipeline.run();
-    };
-
-    if (driver.isRoot()) {
-        // verify we didn't screw up the module structure
-        std::string err;
-        llvm::raw_string_ostream rso{err};
-        if (verifyModule(*module_ptr, &rso)) {
-            errs() << "Module errors detected: " << rso.str() << endl;
-        }
-
-        // print list of post passes
-        borealis::logging::log_entry out(infos());
-        out << "Post passes:" << endl;
-        if (postPasses.empty()) out << "  " << "None" << endl;
-        for (const auto& pass : postPasses) {
-            out << "  " << pass << endl;
-        }
+    for (auto&& pass : postPasses) {
+        pipeline.add(pass);
     }
+    pipeline.run();
 
-    std::vector<llvm::Function*> functions;
-    util::viewContainer(*module_ptr).foreach(
-            [&functions](llvm::Function& function) {
-                if (not function.isDeclaration())
-                    functions.push_back(&function);
-            }
-    );
-
-    std::sort(functions.begin(), functions.end(), [] (llvm::Function* a, llvm::Function* b) {
-        return a->getName() < b->getName();
-    });
-
-    // if we run without mpi
-    if (not driver.isMPI()) {
-        DefectManager::initAdditionalDefectData();
-
-        util::viewContainer(functions)
-                .map(ops::dereference)
-                .foreach(runPostPipeline);
-
-        DefectManager::dumpPersistentDefectData();
-        MPI::Finalize();
-        return OK;
-    }
-
-    // produсer process
-    if (driver.isRoot()) {
-
-        auto numOfFreeProc = driver.getSize() - 1;
-        auto function = functions.begin();
-
-        // process all functions of module
-        while (true) {
-            driver.receive();
-            auto status = driver.getStatus();
-            ASSERT(status.tag_ == mpi::Tag::READY, "Unexpected message received by root")
-
-            // if we still have function to analyze, send it to consumer
-            if (function != functions.end()) {
-                // sending a message to consumer
-                infos() << "Function " << (function - functions.begin() + 1) << " out of " << functions.size() << endl;
-                driver.send(status.source_, { int(function - functions.begin()), mpi::Tag::FUNCTION });
-                ++function;
-
-            // else just terminate consumer
-            } else {
-                driver.terminate(status.source_);
-                // if there are no more consumers, terminate itself
-                if ( (--numOfFreeProc) == 0 ) break;
-            }
-        }
-
-    // consumer processes
-    } else {
-
-        DefectManager::initAdditionalDefectData();
-        while (true) {
-            driver.send(mpi::Rank::ROOT, { mpi::MPI_Driver::ANY, mpi::Tag::READY });
-            auto functionIndex = (size_t) driver.receive(mpi::Rank::ROOT).getData();
-            auto status = driver.getStatus();
-
-            // stop work if producer tells us to stop
-            if (status.tag_ == mpi::Tag::TERMINATE) break;
-
-            //check that we received correct message
-            ASSERT(status.tag_ == mpi::Tag::FUNCTION, "Unexpected message received by consumer");
-            ASSERT(functionIndex >= 0 && functionIndex < functions.size(), "Incorrect function index received by consumer");
-
-            // analyze function
-            infos() << driver.getRank() << " started function " << functions[functionIndex]->getName() << endl;
-            runPostPipeline(*functions[functionIndex]);
-            infos() << driver.getRank() << " finished function " << functions[functionIndex]->getName() << endl;
-        }
-        DefectManager::dumpPersistentDefectData();
-
-    }
-
+    DefectManager::dumpPersistentDefectData();
     MPI::Finalize();
 
 #include "Util/unmacros.h"

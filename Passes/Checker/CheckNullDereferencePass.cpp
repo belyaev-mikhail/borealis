@@ -139,7 +139,7 @@ void CheckNullDereferencePass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 bool CheckNullDereferencePass::runOnFunction(llvm::Function& F) {
 
     CM = &GetAnalysis<CheckManager>::doit(this, F);
-    if (CM->shouldSkipFunction(&F)) return false;
+    //if (CM->shouldSkipFunction(&F)) return false;
 
     PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, F);
 

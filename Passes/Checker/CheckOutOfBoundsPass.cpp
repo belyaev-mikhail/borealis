@@ -6,6 +6,7 @@
  */
 
 #include <llvm/IR/InstVisitor.h>
+#include <mpi.h>
 
 #include "Passes/Checker/CheckHelper.hpp"
 #include "Passes/Checker/CheckOutOfBoundsPass.h"
@@ -99,8 +100,12 @@ void CheckOutOfBoundsPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 
 bool CheckOutOfBoundsPass::runOnFunction(llvm::Function& F) {
 
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+
     CM = &GetAnalysis<CheckManager>::doit(this, F);
-    if (CM->shouldSkipFunction(&F)) return false;
+
+    //if (CM->shouldSkipFunction(&F)) return false;
 
     AA = getAnalysisIfAvailable<llvm::AliasAnalysis>();
     DM = &GetAnalysis<DefectManager>::doit(this, F);
