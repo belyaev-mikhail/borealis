@@ -31,11 +31,11 @@ bool FunAnalyzeChoicer::runOnModule(llvm::Module& M) {
         }
     }
     std::sort(dif.begin(),dif.end(),[](std::pair<llvm::Function*,float> a, std::pair<llvm::Function*,float> b){return a.second>b.second;});
-    int rank, world_size, index;
-    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-    std::vector<float>curConsDiff(world_size);
-    std::vector<std::vector<llvm::Function*>>funcForConsumers(world_size);
+    long index;
+    mpi::MPI_Driver driver{};
+    auto rank = driver.getRank();
+    std::vector<float>curConsDiff( (unsigned)driver.getSize() );
+    std::vector<std::vector<llvm::Function*>>funcForConsumers( (unsigned)driver.getSize() );
     for(auto&& it : dif){
         auto minIndex = std::min_element(curConsDiff.begin(),curConsDiff.end());
         index = std::distance(curConsDiff.begin(), minIndex);
@@ -43,17 +43,18 @@ bool FunAnalyzeChoicer::runOnModule(llvm::Module& M) {
         *minIndex=*minIndex+it.second;
     }
     for(auto&& it : M){
-        if(std::find(funcForConsumers[rank].begin(),funcForConsumers[rank].end(),&it) == funcForConsumers[rank].end()){
+        if(std::find(funcForConsumers[rank.get()].begin(),funcForConsumers[rank.get()].end(),&it) == funcForConsumers[rank.get()].end()){
             it.deleteBody();
         }
     }
     //Stupid distribute
-    /*int rank, world_size, index;
-    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    /*
+    long index;
+    mpi::MPI_Driver driver{};
+    auto rank = driver.getRank();
     int i = 0;
     for(auto&& it : M){
-        if(it.isDeclaration() || i%world_size != rank){
+        if(it.isDeclaration() || i%driver.getSize() != rank.get()){
             it.deleteBody();
         }
         ++i;
