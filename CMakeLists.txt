@@ -426,6 +426,8 @@ set(RUN_TEST_EXES ${PROJECT_SOURCE_DIR}/${TEST_EXE} --gtest_output="xml:${TEST_O
 
 add_executable(${TEST_EXE} EXCLUDE_FROM_ALL $<TARGET_OBJECTS:SourceObjects> $<TARGET_OBJECTS:TestObjects> ${HEADERS})
 add_dependencies(${TEST_EXE}
+        wrapper
+        ar_wrapper
         yaml-cpp
         .cfgparser
         Andersen
@@ -461,6 +463,7 @@ foreach(def_file_dir ${TEST_DEF_FILES})
 
     execute_process(COMMAND grep -v -x -f ${def_file_dir}/tests.def.long.all ${def_file_dir}/tests.def.all
             OUTPUT_VARIABLE RUNNING_TESTS)
+    list(SORT RUNNING_TESTS)
     file(WRITE ${def_file_dir}/tests.def ${RUNNING_TESTS})
 endforeach()
 
