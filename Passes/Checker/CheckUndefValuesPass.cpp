@@ -66,7 +66,7 @@ void CheckUndefValuesPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 bool CheckUndefValuesPass::runOnFunction(llvm::Function& F) {
 
     CM = &GetAnalysis<CheckManager>::doit(this, F);
-    if (CM->shouldSkipFunction(&F)) return false;
+    //if (CM->shouldSkipFunction(&F)) return false;
 
     DM = &GetAnalysis<DefectManager>::doit(this, F);
 
