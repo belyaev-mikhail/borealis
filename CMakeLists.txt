@@ -98,6 +98,7 @@ set(INCLUDE_DIRS
         ${PROJECT_SOURCE_DIR}/lib/cfgparser/include
         ${PROJECT_SOURCE_DIR}/lib/backward-cpp
         ${PROJECT_SOURCE_DIR}/lib/boolector
+        ${PROJECT_SOURCE_DIR}/lib/leveldb-mp
         ${PROJECT_SOURCE_DIR}/lib/leveldb-mp/include
         ${PROJECT_SOURCE_DIR}/lib/leveldb-mp/libsocket/headers)
 
