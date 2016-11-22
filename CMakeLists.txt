@@ -67,11 +67,12 @@ endif ()
 # compiler flags
 ################################################################################
 add_definitions(${LLVM_DEFINITIONS}
-    -std=c++14)
+        -std=c++14)
 
 set(COMPILER_DEFINITIONS
         -D_GLIBCXX_USE_CXX11_ABI=1
         -DGOOGLE_PROTOBUF_NO_RTTI
+        -DPROTOBUF_INLINE_NOT_IN_HEADERS=0
         -DNO_TRACING)
 
 set(COMPILER_FLAGS
@@ -92,6 +93,7 @@ set(INCLUDE_DIRS
         ${PROJECT_SOURCE_DIR}/Protobuf/Gen
         ${PROJECT_SOURCE_DIR}/lib
         ${PROJECT_SOURCE_DIR}/lib/pegtl/include
+        ${PROJECT_SOURCE_DIR}/lib/rapidjson/include
         ${PROJECT_SOURCE_DIR}/lib/google-test/include
         ${PROJECT_SOURCE_DIR}/lib/yaml-cpp/include
         ${PROJECT_SOURCE_DIR}/lib/yaml-cpp/test
@@ -144,7 +146,7 @@ set(PROTOC protoc --proto_path=${PROJECT_SOURCE_DIR} --cpp_out=${PROTO_SOURCE_DI
 set(PROTOEXT ${PROJECT_SOURCE_DIR}/extract-protobuf-desc.awk)
 
 if (NOT EXISTS "${PROJECT_SOURCE_DIR}/.protobuf")
-    message("Generating protobuf files")
+    message("-- Generating protobuf files")
     file(MAKE_DIRECTORY ${PROTO_SOURCE_DIR})
     file(GLOB_RECURSE PROTO_DESC_FILES ${PROJECT_SOURCE_DIR}/*.cpp
             ${PROJECT_SOURCE_DIR}/*.h

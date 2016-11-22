@@ -39,11 +39,11 @@ void AbstractPredicateStateAnalysis::printInstructionStates(llvm::raw_ostream&, 
     infos() << "End of predicate state analysis results" << endl;
 }
 
-PredicateState::Ptr AbstractPredicateStateAnalysis::getInitialState() const {
+PredicateState::Ptr AbstractPredicateStateAnalysis::getInitialState() {
     return initialState;
 }
 
-PredicateState::Ptr AbstractPredicateStateAnalysis::getInstructionState(const llvm::Instruction* I) const {
+PredicateState::Ptr AbstractPredicateStateAnalysis::getInstructionState(const llvm::Instruction* I) {
     if (borealis::util::containsKey(instructionStates, I)) {
         return instructionStates.at(I);
     } else {
@@ -92,7 +92,8 @@ bool PredicateStateAnalysis::runOnFunction(llvm::Function& F) {
         updateInterpolSummary(F);
     }
 
-    updateVisitedLocs(F);
+    // FIXME: do not trigger PS instantiation
+    // updateVisitedLocs(F);
 
     return false;
 }
