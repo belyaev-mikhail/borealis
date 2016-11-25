@@ -242,38 +242,28 @@ struct clang_pipeline::impl: public DelegateLogging {
         auto typetablefile = fname + ".ctypetable";
         auto vartablefile = fname + ".cvartable";
 
+        llvm::LockFileManager lockManager(fname);
+        if (lockManager != llvm::LockFileManager::LFS_Owned) return;
+
         auto annotatedModule = fileCache[fname];
         ASSERTC(annotatedModule != nullptr);
 
-        while(true) {
-            llvm::LockFileManager fileLock(fname);
-            if(fileLock == llvm::LockFileManager::LFS_Shared) {
-                fileLock.waitForUnlock();
-                continue;
-            }
-            if(fileLock == llvm::LockFileManager::LFS_Error) {
-                errs() << "error while trying to lock aux files for \"" << fname << "\"" << endl;
-            }
-
-            std::string error;
-            llvm::raw_fd_ostream bc_stream(bcfile.c_str(), error, llvm::sys::fs::F_Text | llvm::sys::fs::F_RW);
-            if (error != "") {
-                errs() << error << endl;
-            } else {
-                llvm::WriteBitcodeToFile(annotatedModule->module.get(), bc_stream);
-            }
-
-            std::ofstream annoStream(annofile, std::iostream::out | std::iostream::binary);
-            util::write_as_protobuf(annoStream, *annotatedModule->annotations);
-
-            std::ofstream varStream(vartablefile);
-            util::write_as_json(varStream, annotatedModule->extVars.vars );
-
-            std::ofstream typeStream(typetablefile);
-            util::write_as_protobuf(typeStream, *annotatedModule->extVars.types );
-            break;
+        std::string error;
+        llvm::raw_fd_ostream bc_stream(bcfile.c_str(), error, llvm::sys::fs::F_Text | llvm::sys::fs::F_RW);
+        if (error != "") {
+            errs() << error << endl;
+        } else {
+            llvm::WriteBitcodeToFile(annotatedModule->module.get(), bc_stream);
         }
 
+        std::ofstream annoStream(annofile, std::iostream::out | std::iostream::binary);
+        util::write_as_protobuf(annoStream, *annotatedModule->annotations);
+
+        std::ofstream varStream(vartablefile);
+        util::write_as_json(varStream, annotatedModule->extVars.vars );
+
+        std::ofstream typeStream(typetablefile);
+        util::write_as_protobuf(typeStream, *annotatedModule->extVars.types );
     }
 
     PortableModule::Ptr get(const std::string& name) {
