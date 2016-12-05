@@ -12,7 +12,6 @@
 
 #include "Codegen/llvm.h"
 #include "Config/config.h"
-#include "Driver/mpi_driver.h"
 #include "Passes/Checker/Defines.def"
 #include "Passes/Defect/DefectSummaryPass.h"
 #include "Passes/Util/DataProvider.hpp"
@@ -41,13 +40,7 @@ bool DefectSummaryPass::runOnModule(llvm::Module& M) {
 
     auto* mainFileEntry = M.getModuleIdentifier().c_str();
 
-    std::vector<DefectInfo> defects;
     for (auto& defect : dm) {
-        defects.push_back(defect);
-    }
-    std::sort(defects.begin(),defects.end());
-
-    for (auto& defect : defects) {
         Locus origin = defect.location;
 
         if (!origin) {
@@ -99,7 +92,7 @@ bool DefectSummaryPass::runOnModule(llvm::Module& M) {
 
         if ("json" == DumpOutput) {
             std::ofstream json(DumpOutputFile);
-            json << util::jsonify(defects);
+            json << util::jsonify(dm.getData());
             json.close();
         } else if ("xml" == DumpOutput) {
             std::ofstream xml(DumpOutputFile);

@@ -33,7 +33,7 @@ bool FunAnalyzeChoicer::runOnModule(llvm::Module& M) {
     std::sort(dif.begin(), dif.end(), [](std::pair<llvm::Function*, float> a, std::pair<llvm::Function*, float> b){return a.second > b.second;});
     long index;
     mpi::MPI_Driver driver{};
-    auto rank = driver.getGlobalRank();
+    auto rank = driver.getRank();
     std::vector<float>curConsDiff( (unsigned)driver.getSize() );
     std::vector<std::vector<llvm::Function*>>funcForConsumers( (unsigned)driver.getSize() );
     for(auto&& it : dif){

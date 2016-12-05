@@ -87,7 +87,7 @@ public:
     friend std::ostream& operator<<(std::ostream& s, const BytesArrayMessage& msg);
     friend borealis::logging::logstream& operator<<(borealis::logging::logstream& s, const BytesArrayMessage& msg);
 
-    std::string getData() const { return data_; }
+    const std::string& getData() const { return data_; }
 
     const Tag& getTag() const { return tag_; }
 
@@ -119,11 +119,17 @@ public:
     static constexpr int ANY = -1;
 
     MPI_Driver();
-    MPI_Driver(Rank rank, int size);
 
-    bool isMPI() const;
-    bool isGlobalRoot() const;
-    bool isLocalRoot() const;
+    bool isMPI() const { return globalSize_ > 1; }
+    bool isRoot() const { return globalRank_.isRoot(); }
+    bool isLocalRoot() const { return localRank_.isRoot(); }
+
+    const Rank& getRank() const { return globalRank_; }
+    const Rank& getLocalRank() const { return localRank_; }
+    Rank getLocalRoot() const { return globalRank_ - localRank_; }
+    int getSize() const { return globalSize_; }
+    int getNodeSize() const { return localSize_; }
+    Status getStatus() const { return status_; }
 
     void sendInteger(const Rank receiver, const IntegerMessage& msg) const;
     const IntegerMessage receiveInteger(const Rank source = ANY);
@@ -135,20 +141,13 @@ public:
     // should be root to call that
     void terminateAll() const;
 
-    Rank getGlobalRank() const;
-    Rank getLocalRank() const;
-    Rank getGlobalRankOfLocalRoot() const;
-    int getSize() const;
-    int getNodeSize() const;
-    Status getStatus() const;
-
 private:
 
     Rank globalRank_;
-    int size_;
-    MPI_Status status_;
-    MPI::Intracomm intra_;
     Rank localRank_;
+    int globalSize_;
+    int localSize_;
+    MPI_Status status_;
 };
 
 }   /* namespace mpi */

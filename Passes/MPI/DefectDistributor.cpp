@@ -36,7 +36,7 @@ void DefectDistributor::dumpDefectsInFile(SimpleT& defects){
 
 bool DefectDistributor::runOnModule(llvm::Module&){
     DM = &GetAnalysis<DefectManager>::doit(this);
-    const int localRoot = driver.getGlobalRankOfLocalRoot();
+    const int localRoot = driver.getLocalRoot();
     const int nodeSize = driver.getNodeSize();
     const int size = driver.getSize();
     const int numOfNodes = size/nodeSize;
@@ -50,7 +50,7 @@ bool DefectDistributor::runOnModule(llvm::Module&){
         for(auto&& i = 0; i < driver.getNodeSize()-1; ++i){
             receiveDefects(localRootDefects);
         }
-        if(not(driver.isGlobalRoot())){
+        if(not(driver.isRoot())){
             sendDefects(localRootDefects, mpi::Rank::ROOT);
             //receive merged defects and dump it's to file
             SimpleT mergedDefects;

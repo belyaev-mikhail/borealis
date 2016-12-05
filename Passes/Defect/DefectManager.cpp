@@ -83,6 +83,7 @@ bool DefectManager::hasInfo(const DefectInfo& di) const {
     return util::contains(getStaticData().trueData, di) || util::contains(getStaticData().truePastData, di) || util::contains(getStaticData().falsePastData, di);
 }
 
+
 void DefectManager::print(llvm::raw_ostream&, const llvm::Module*) const {
     for (const auto& defect : getStaticData().trueData) {
         infos() << defect.type << " at " << defect.location << endl;
@@ -90,8 +91,12 @@ void DefectManager::print(llvm::raw_ostream&, const llvm::Module*) const {
 }
 
 bool DefectManager::doFinalization(llvm::Module &module) {
-    //getStaticData().forceDump();
-    return llvm::Pass::doFinalization(module);
+    static bool finalized = false;
+    if (not finalized) {
+        finalized = true;
+        getStaticData().forceDump();
+        return llvm::Pass::doFinalization(module);
+    } else return llvm::Pass::doFinalization(module);
 }
 
 char DefectManager::ID;
