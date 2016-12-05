@@ -7,8 +7,8 @@
 #include "Driver/mpi_driver.h"
 #include "Passes/Checker/CheckManager.h"
 #include "Passes/Transform/CallGraphChopper.h"
-#include "Passes/Util/FunAnalyzeChoicer.h"
-#include "Passes/Util/MPIMetricsEval.h"
+#include "Passes/MPI/FunAnalyzeChoicer.h"
+#include "Passes/MPI/MPIMetricsEval.h"
 #include "Util/passes.hpp"
 
 namespace borealis {
@@ -30,27 +30,27 @@ bool FunAnalyzeChoicer::runOnModule(llvm::Module& M) {
             dif.push_back(std::make_pair<llvm::Function*, float>(&it,difficult.getDifficult()));
         }
     }
-    std::sort(dif.begin(),dif.end(),[](std::pair<llvm::Function*,float> a, std::pair<llvm::Function*,float> b){return a.second>b.second;});
+    std::sort(dif.begin(), dif.end(), [](std::pair<llvm::Function*, float> a, std::pair<llvm::Function*, float> b){return a.second > b.second;});
     long index;
     mpi::MPI_Driver driver{};
-    auto rank = driver.getRank();
+    auto rank = driver.getGlobalRank();
     std::vector<float>curConsDiff( (unsigned)driver.getSize() );
     std::vector<std::vector<llvm::Function*>>funcForConsumers( (unsigned)driver.getSize() );
     for(auto&& it : dif){
         auto minIndex = std::min_element(curConsDiff.begin(),curConsDiff.end());
         index = std::distance(curConsDiff.begin(), minIndex);
         funcForConsumers[index].push_back(it.first);
-        *minIndex=*minIndex+it.second;
+        *minIndex = *minIndex+it.second;
     }
     for(auto&& it : M){
         if(std::find(funcForConsumers[rank.get()].begin(),funcForConsumers[rank.get()].end(),&it) == funcForConsumers[rank.get()].end()){
             it.deleteBody();
         }
     }
+    if(rank == 0) errs()<<"Distrib= "<<curConsDiff<<endl;
     //Stupid distribute
-    /*
-    long index;
-    mpi::MPI_Driver driver{};
+
+    /*mpi::MPI_Driver driver{};
     auto rank = driver.getRank();
     int i = 0;
     for(auto&& it : M){
