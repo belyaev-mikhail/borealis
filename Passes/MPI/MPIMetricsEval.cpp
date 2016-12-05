@@ -20,8 +20,8 @@ bool MPIMetricsEval::runOnFunction(llvm::Function& F){
     float koefInst = 0.13;
     int size = 0;
     int loads=0, stores = 0, gep = 0;
-    for(auto&& bb = F.begin(), end = F.end(); bb != end; ++bb)
-        for(auto&& it = bb->begin(), it_end = bb->end(); it != it_end; ++it) {
+    for(auto&& bb : F)
+        for(auto&& it : bb) {
             ++size;
             if (llvm::isa<llvm::StoreInst>(it))
                 ++stores;
@@ -30,8 +30,8 @@ bool MPIMetricsEval::runOnFunction(llvm::Function& F){
             else if (llvm::isa<llvm::GetElementPtrInst>(it))
                 ++gep;
         }
-    difficult = size * koefSize + (loads + stores+gep) * koefInst;
-    if(difficult < 0) difficult = 0.001;
+    difficult = size * koefSize + (loads + stores + gep) * koefInst;
+    if(difficult <= 0) difficult = 0.001;
     return false;
 }
 

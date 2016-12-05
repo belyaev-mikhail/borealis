@@ -10,6 +10,7 @@
 
 #include "Util/disjoint_sets.hpp"
 
+#include "Driver/mpi_driver.h"
 #include "Codegen/intrinsics_manager.h"
 #include "Passes/Checker/CheckHelper.hpp"
 #include "Passes/Checker/CheckNullDereferencePass.h"

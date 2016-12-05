@@ -165,7 +165,7 @@ public:
     virtual void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
     virtual ~DefectManager() {
         // this is a bit fucked up
-        getStaticData().forceDump();
+        //getStaticData().forceDump();
     };
 
     void addDefect(DefectType type, llvm::Instruction* where);
@@ -209,6 +209,10 @@ private:
 public:
 
     const DefectData& getData() const { return getStaticData().trueData; }
+    impl_::persistentDefectData::SimpleT getAllData() const { return std::make_pair(std::move(getStaticData().trueData),
+                                                                                    std::move(getStaticData().falseData));}
+    impl_::persistentDefectData::SimpleT getAllPastData() const { return std::make_pair(std::move(getStaticData().truePastData),
+                                                                                        std::move(getStaticData().falsePastData));}
 
 #include "Util/macros.h"
     auto begin() QUICK_CONST_RETURN(getStaticData().trueData.begin())

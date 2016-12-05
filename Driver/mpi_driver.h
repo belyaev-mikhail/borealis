@@ -6,6 +6,7 @@
 #define BOREALIS_MPI_DRIVER_H
 
 #include <mpi.h>
+#include <string>
 
 #include "Logging/logger.hpp"
 #include "Util/generate_macros.h"
@@ -17,7 +18,7 @@ namespace mpi {
 class Tag {
 public:
 
-    enum DataTag { FUNCTION = 0, READY = 1, TERMINATE };
+    enum DataTag { FUNCTION = 0, READY = 1, BYTEARRAY = 2, TERMINATE };
 
     Tag() : tag_(TERMINATE) {}
     Tag(const DataTag tag) : tag_(tag) {}
@@ -25,6 +26,7 @@ public:
         switch (tag) {
             case 0: tag_ = FUNCTION; break;
             case 1: tag_ = READY; break;
+            case 2: tag_ = BYTEARRAY; break;
             default: tag_ = TERMINATE;
         }
     }
@@ -57,22 +59,43 @@ private:
     int rank_;
 };
 
-class Message {
+class IntegerMessage {
 public:
 
-    Message(const int data, const Tag& tag): data_(data), tag_(tag) {}
+    IntegerMessage(const int data, const Tag& tag): data_(data), tag_(tag) {}
 
-    friend std::ostream& operator<<(std::ostream& s, const Message& msg);
-    friend borealis::logging::logstream& operator<<(borealis::logging::logstream& s, const Message& msg);
+    friend std::ostream& operator<<(std::ostream& s, const IntegerMessage& msg);
+    friend borealis::logging::logstream& operator<<(borealis::logging::logstream& s, const IntegerMessage& msg);
 
     int getData() const { return data_; }
     const Tag& getTag() const { return tag_; }
 
-    GENERATE_EQ(Message, data_, tag_);
+    GENERATE_EQ(IntegerMessage, data_, tag_);
 
 private:
 
     int data_;
+    Tag tag_;
+};
+
+class BytesArrayMessage {
+
+public:
+
+    BytesArrayMessage(const std::string data, const Tag& tag): data_(data), tag_(tag) {}
+
+    friend std::ostream& operator<<(std::ostream& s, const BytesArrayMessage& msg);
+    friend borealis::logging::logstream& operator<<(borealis::logging::logstream& s, const BytesArrayMessage& msg);
+
+    std::string getData() const { return data_; }
+
+    const Tag& getTag() const { return tag_; }
+
+    GENERATE_EQ(BytesArrayMessage, data_, tag_);
+
+private:
+
+    std::string data_;
     Tag tag_;
 };
 
@@ -99,24 +122,33 @@ public:
     MPI_Driver(Rank rank, int size);
 
     bool isMPI() const;
-    bool isRoot() const;
+    bool isGlobalRoot() const;
+    bool isLocalRoot() const;
 
-    void send(const Rank receiver, const Message& msg) const;
-    const Message receive(const Rank source = ANY);
+    void sendInteger(const Rank receiver, const IntegerMessage& msg) const;
+    const IntegerMessage receiveInteger(const Rank source = ANY);
+
+    void sendBytesArray(const Rank receiver, const BytesArrayMessage& msg) const;
+    const BytesArrayMessage receiveBytesArray(const Rank source = ANY);
 
     void terminate(const Rank receiver) const;
     // should be root to call that
     void terminateAll() const;
 
-    Rank getRank() const;
+    Rank getGlobalRank() const;
+    Rank getLocalRank() const;
+    Rank getGlobalRankOfLocalRoot() const;
     int getSize() const;
+    int getNodeSize() const;
     Status getStatus() const;
 
 private:
 
-    Rank rank_;
+    Rank globalRank_;
     int size_;
     MPI_Status status_;
+    MPI::Intracomm intra_;
+    Rank localRank_;
 };
 
 }   /* namespace mpi */

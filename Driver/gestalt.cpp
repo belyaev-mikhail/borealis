@@ -221,7 +221,7 @@ int gestalt::main(int argc, const char** argv) {
     mpi::MPI_Driver driver{};
 
     // if we are root, print log
-    if (driver.isRoot()) {
+    if (driver.isGlobalRoot()) {
         // print list of pre passes
         borealis::logging::log_entry passes(infos());
         passes << "Passes:" << endl;
@@ -264,7 +264,7 @@ int gestalt::main(int argc, const char** argv) {
 
     // verify we didn't screw up the module structure
 
-    if (driver.isRoot()) {
+    if (driver.isGlobalRoot()) {
 	    std::string err;
 	    llvm::raw_string_ostream rso{err};
 	    if (verifyModule(*module_ptr, &rso)) {
