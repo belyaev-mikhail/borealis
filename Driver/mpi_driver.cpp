@@ -13,9 +13,19 @@ namespace mpi {
 MPI_Driver::MPI_Driver() : ObjectLevelLogging("mpi"),
                            globalRank_(MPI::COMM_WORLD.Get_rank()),
                            globalSize_(MPI::COMM_WORLD.Get_size()) {
-    static MPI::Intracomm intra_ = MPI::COMM_WORLD.Split(MPI_COMM_TYPE_SHARED, 0);
-    localRank_ = intra_.Get_rank();
-    localSize_ = intra_.Get_size();
+    static MPI_Comm* shmcomm = nullptr;
+    if (not shmcomm) {
+        shmcomm = new MPI_Comm;
+        MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0,
+                            MPI_INFO_NULL, shmcomm);
+    }
+    int shmrank, shmsize;
+    MPI_Comm_rank(*shmcomm, &shmrank);
+    MPI_Comm_size(*shmcomm, &shmsize);
+
+
+    localRank_ = shmrank;
+    localSize_ = shmsize;
 }
 
 void MPI_Driver::sendInteger(const Rank receiver, const IntegerMessage& msg) const {
