@@ -33,27 +33,25 @@ void MPI_Driver::sendInteger(const Rank receiver, const IntegerMessage& msg) con
     MPI_Send(&buffer, 1, MPI_INT, receiver, msg.getTag(), MPI_COMM_WORLD);
 }
 
-const IntegerMessage MPI_Driver::receiveInteger(const Rank source) {
+IntegerMessage MPI_Driver::receiveInteger(const Rank source) {
     auto buffer = 0;
     MPI_Recv(&buffer, 1, MPI_INT, source, ANY, MPI_COMM_WORLD, &status_);
-    auto msg = IntegerMessage{ buffer, status_.MPI_TAG };
-    return msg;
+    return IntegerMessage{ buffer, status_.MPI_TAG };
 }
 
 void MPI_Driver::sendBytesArray(const Rank receiver, const BytesArrayMessage& msg) const {
     int size = msg.getData().size();
-    sendInteger(receiver, {size, status_.MPI_TAG});
+    sendInteger(receiver, {size, msg.getTag()});
     MPI_Send(msg.getData().c_str(), size, MPI_BYTE, receiver, msg.getTag(), MPI_COMM_WORLD);
 }
 
-const BytesArrayMessage MPI_Driver::receiveBytesArray(const Rank source) {
+BytesArrayMessage MPI_Driver::receiveBytesArray(const Rank source) {
     auto size = receiveInteger(source).getData();
     char* buffer = new char[size];
     MPI_Recv(buffer, size, MPI_BYTE, getStatus().source_, ANY, MPI_COMM_WORLD, &status_);
     std::string res(buffer);
     delete[] buffer;
-    auto msg = BytesArrayMessage{ res.substr(0, size), status_.MPI_TAG };
-    return msg;
+    return BytesArrayMessage{ res.substr(0, size), status_.MPI_TAG };
 }
 
 void MPI_Driver::terminateAll() const {

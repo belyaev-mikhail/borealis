@@ -15,20 +15,24 @@ namespace borealis {
 
 static config::BoolConfigEntry uniquePersistentDefectData("analysis", "unique-persistent-defect-data");
 
-PersistentDefectDataMerger::PersistentDefectDataMerger() : ModulePass(ID) {}
+PersistentDefectDataMerger::PersistentDefectDataMerger() : ModulePass(ID), globalReady(false) {}
 
 void PersistentDefectDataMerger::mergeLocal(Data& pdd) {
     // merge local persistentDefectData
     if (driver_.isLocalRoot()) {
         std::ifstream own("persistent" + std::to_string(driver_.getRank()) + ".json");
-        pdd = *(util::read_as_json<Data>(own));
+        if (auto&& loaded = util::read_as_json<Data>(own)) merge(pdd, *loaded);
 
         for (auto i = 1; i < driver_.getNodeSize(); ++i) {
             auto&& msg = driver_.receiveInteger(mpi::MPI_Driver::ANY);
             ASSERTC(msg.getTag() == mpi::Tag::READY);
-
-            std::ifstream in("persistent" + std::to_string(driver_.getStatus().source_) + ".json");
-            if (auto&& loaded = util::read_as_json<Data>(in)) merge(pdd, *loaded);
+            if (driver_.getStatus().source_ == mpi::Rank::ROOT) {
+                globalReady = true;
+                --i;
+            } else {
+                std::ifstream in("persistent" + std::to_string(driver_.getStatus().source_) + ".json");
+                if (auto &&loaded = util::read_as_json<Data>(in)) merge(pdd, *loaded);
+            }
         }
     } else {
         driver_.sendInteger(mpi::Rank::ROOT, {mpi::MPI_Driver::ANY, mpi::Tag::READY});
@@ -44,10 +48,18 @@ void PersistentDefectDataMerger::mergeGlobal(Data& pdd) {
         auto&& data = util::read_as_json<Data>(in);
         if (data) merge(pdd, *data);
 
+        // say to local roots that global root is ready
+        for(auto i = driver_.getNodeSize(); i < driver_.getSize(); i += driver_.getNodeSize())
+            driver_.sendInteger(i, {mpi::MPI_Driver::ANY, mpi::Tag::READY});
+
         for(auto&& i = 1; i < numOfNodes; ++i) merge(pdd, receiveDefects());
         for(auto i = driver_.getNodeSize(); i < driver_.getSize(); i += driver_.getNodeSize()) sendDefects(i, pdd);
 
     } else if (driver_.isLocalRoot()) {
+        if (not globalReady) {
+            auto&& msg = driver_.receiveInteger(mpi::Rank::ROOT);
+            ASSERTC(msg.getTag() == mpi::Tag::READY);
+        }
         sendDefects(mpi::Rank::ROOT, pdd);
         pdd = receiveDefects();
     }
@@ -82,8 +94,8 @@ void PersistentDefectDataMerger::merge(Data &to, const Data &from) {
 }
 
 PersistentDefectDataMerger::Data PersistentDefectDataMerger::receiveDefects() {
-    auto& dataBytes = driver_.receiveBytesArray().getData();
-    std::istringstream in(dataBytes);
+    auto&& dataBytes = driver_.receiveBytesArray();
+    std::istringstream in(dataBytes.getData());
     auto&& data = util::read_as_json<Data>(in);
     return (data) ? std::move(*data) : Data();
 }

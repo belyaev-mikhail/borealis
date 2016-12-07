@@ -132,10 +132,10 @@ public:
     Status getStatus() const { return status_; }
 
     void sendInteger(const Rank receiver, const IntegerMessage& msg) const;
-    const IntegerMessage receiveInteger(const Rank source = ANY);
+    IntegerMessage receiveInteger(const Rank source = ANY);
 
     void sendBytesArray(const Rank receiver, const BytesArrayMessage& msg) const;
-    const BytesArrayMessage receiveBytesArray(const Rank source = ANY);
+    BytesArrayMessage receiveBytesArray(const Rank source = ANY);
 
     void terminate(const Rank receiver) const;
     // should be root to call that
