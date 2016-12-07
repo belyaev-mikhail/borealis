@@ -16,11 +16,11 @@ void DefectDistributor::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 }
 
 void DefectDistributor::receiveDefects(SimpleT& reciever){
-    auto&& recArray = driver.receiveBytesArray().getData();
-    std::istringstream in(recArray);
+    auto&& recArray = driver.receiveBytesArray();
+    std::istringstream in(recArray.getData());
     auto&& recDefects = util::read_as_json<SimpleT>(in);
-    reciever.first.insert(recDefects->first.begin(), recDefects->first.end());
-    reciever.second.insert(recDefects->second.begin(), recDefects->second.end());
+    reciever.first.insert(std::move(recDefects->first.begin()), std::move(recDefects->first.end()));
+    reciever.second.insert(std::move(recDefects->second.begin()), std::move(recDefects->second.end()));
 }
 
 void DefectDistributor::sendDefects(SimpleT& defects, mpi::Rank recRank){

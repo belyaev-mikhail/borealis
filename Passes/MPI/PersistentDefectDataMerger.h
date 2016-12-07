@@ -35,6 +35,7 @@ private:
 private:
 
     mpi::MPI_Driver driver_;
+    bool globalReady;
 };
 
 }   /* namespace borealis */
