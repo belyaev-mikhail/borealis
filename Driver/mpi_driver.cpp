@@ -33,6 +33,12 @@ void MPI_Driver::sendInteger(const Rank receiver, const IntegerMessage& msg) con
     MPI_Send(&buffer, 1, MPI_INT, receiver, msg.getTag(), MPI_COMM_WORLD);
 }
 
+
+void MPI_Driver::broadcastInteger(const Communicator comm, const IntegerMessage& msg) const {
+    auto buffer = msg.getData();
+    MPI_Bcast(&buffer, 1, MPI_INT, globalRank_, comm.communicator_);
+}
+
 IntegerMessage MPI_Driver::receiveInteger(const Rank source) {
     auto buffer = 0;
     MPI_Recv(&buffer, 1, MPI_INT, source, ANY, MPI_COMM_WORLD, &status_);
@@ -43,6 +49,13 @@ void MPI_Driver::sendBytesArray(const Rank receiver, const BytesArrayMessage& ms
     int size = msg.getData().size();
     sendInteger(receiver, {size, msg.getTag()});
     MPI_Send(msg.getData().c_str(), size, MPI_BYTE, receiver, msg.getTag(), MPI_COMM_WORLD);
+}
+
+
+void MPI_Driver::broadcastBytesArray(const Communicator comm, const BytesArrayMessage& msg) const {
+    int size = msg.getData().size();
+    broadcastInteger(comm, {size, msg.getTag()});
+    MPI_Bcast(const_cast<char*>(msg.getData().c_str()), size, MPI_BYTE, globalRank_, comm.communicator_);
 }
 
 BytesArrayMessage MPI_Driver::receiveBytesArray(const Rank source) {
@@ -64,6 +77,16 @@ void MPI_Driver::terminateAll() const {
 void MPI_Driver::terminate(Rank receiver) const {
     ASSERT(not receiver.isRoot(), "Trying to terminate root");
     sendInteger(receiver, { ANY, Tag::TERMINATE });
+}
+
+Communicator MPI_Driver::getRootsCommunicator() const {
+    int color = (localRank_ == 0) ? 0 : MPI_UNDEFINED;
+    static MPI_Comm* communicator = nullptr;
+    if (not communicator) {
+        communicator = new MPI_Comm;
+        MPI_Comm_split_type(MPI_COMM_WORLD, color, 0, MPI_INFO_NULL, communicator);
+    }
+    return Communicator{*communicator};
 }
 
 std::ostream& operator<<(std::ostream& s, const Rank& rank) {

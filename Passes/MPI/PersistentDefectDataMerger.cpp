@@ -41,6 +41,7 @@ void PersistentDefectDataMerger::mergeLocal(Data& pdd) {
 
 void PersistentDefectDataMerger::mergeGlobal(Data& pdd) {
     // merge persistentDefectData on nodes
+    auto&& comm = driver_.getRootsCommunicator();
     if (driver_.isRoot()) {
         const int numOfNodes = driver_.getSize() / driver_.getNodeSize();
 
@@ -49,11 +50,14 @@ void PersistentDefectDataMerger::mergeGlobal(Data& pdd) {
         if (data) merge(pdd, *data);
 
         // say to local roots that global root is ready
-        for(auto i = driver_.getNodeSize(); i < driver_.getSize(); i += driver_.getNodeSize())
-            driver_.sendInteger(i, {mpi::MPI_Driver::ANY, mpi::Tag::READY});
+        driver_.broadcastInteger(comm, {mpi::MPI_Driver::ANY, mpi::Tag::READY});
 
         for(auto&& i = 1; i < numOfNodes; ++i) merge(pdd, receiveDefects());
-        for(auto i = driver_.getNodeSize(); i < driver_.getSize(); i += driver_.getNodeSize()) sendDefects(i, pdd);
+
+        // send PDD to local roots
+        std::stringstream json;
+        util::write_as_json(json, pdd);
+        driver_.broadcastBytesArray(comm, {json.str(), mpi::Tag::DataTag::BYTEARRAY});
 
     } else if (driver_.isLocalRoot()) {
         if (not globalReady) {
@@ -72,10 +76,9 @@ bool PersistentDefectDataMerger::runOnModule(llvm::Module& M) {
 
         Data pdd;
         mergeLocal(pdd);
-        if (driver_.isLocalRoot()) {
-            mergeGlobal(pdd);
+        mergeGlobal(pdd);
+        if (driver_.isLocalRoot())
             dump(pdd);
-        }
     }
     return false;
 }
