@@ -139,11 +139,11 @@ public:
     Status getStatus() const { return status_; }
 
     void sendInteger(const Rank receiver, const IntegerMessage& msg) const;
-    void broadcastInteger(const Communicator comm, const IntegerMessage& msg) const;
+    IntegerMessage broadcastInteger(const Communicator comm, const IntegerMessage& msg) const;
     IntegerMessage receiveInteger(const Rank source = ANY);
 
     void sendBytesArray(const Rank receiver, const BytesArrayMessage& msg) const;
-    void broadcastBytesArray(const Communicator comm, const BytesArrayMessage& msg) const;
+    BytesArrayMessage broadcastBytesArray(const Communicator comm, const BytesArrayMessage& msg) const;
     BytesArrayMessage receiveBytesArray(const Rank source = ANY);
 
     Communicator getRootsCommunicator() const;
