@@ -34,9 +34,10 @@ void MPI_Driver::sendInteger(const Rank receiver, const IntegerMessage& msg) con
 }
 
 
-void MPI_Driver::broadcastInteger(const Communicator comm, const IntegerMessage& msg) const {
+IntegerMessage MPI_Driver::broadcastInteger(const Communicator comm, const IntegerMessage& msg) const {
     auto buffer = msg.getData();
-    MPI_Bcast(&buffer, 1, MPI_INT, globalRank_, comm.communicator_);
+    MPI_Bcast(&buffer, 1, MPI_INT, mpi::Rank::ROOT, comm.communicator_);
+    return IntegerMessage{buffer, Tag::READY};
 }
 
 IntegerMessage MPI_Driver::receiveInteger(const Rank source) {
@@ -52,10 +53,15 @@ void MPI_Driver::sendBytesArray(const Rank receiver, const BytesArrayMessage& ms
 }
 
 
-void MPI_Driver::broadcastBytesArray(const Communicator comm, const BytesArrayMessage& msg) const {
+BytesArrayMessage MPI_Driver::broadcastBytesArray(const Communicator comm, const BytesArrayMessage& msg) const {
     int size = msg.getData().size();
-    broadcastInteger(comm, {size, msg.getTag()});
-    MPI_Bcast(const_cast<char*>(msg.getData().c_str()), size, MPI_BYTE, globalRank_, comm.communicator_);
+    auto&& sizeMsg = broadcastInteger(comm, {size, msg.getTag()});
+    char* buffer = new char[sizeMsg.getData()];
+    memcpy(buffer, msg.getData().c_str(), sizeMsg.getData());
+    MPI_Bcast(buffer, sizeMsg.getData(), MPI_BYTE, mpi::Rank::ROOT, comm.communicator_);
+    std::string res(buffer);
+    delete[] buffer;
+    return BytesArrayMessage{ res.substr(0, msg.getData().size()), status_.MPI_TAG };
 }
 
 BytesArrayMessage MPI_Driver::receiveBytesArray(const Rank source) {
