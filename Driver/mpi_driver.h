@@ -113,6 +113,13 @@ struct Status {
     GENERATE_PRINT(Status, source_, tag_, error_);
 };
 
+struct Communicator {
+    MPI_Comm communicator_;
+
+    Communicator();
+    Communicator(const MPI_Comm& comm) : communicator_(comm) {}
+};
+
 class MPI_Driver : public logging::ObjectLevelLogging<MPI_Driver> {
 public:
 
@@ -132,10 +139,14 @@ public:
     Status getStatus() const { return status_; }
 
     void sendInteger(const Rank receiver, const IntegerMessage& msg) const;
+    void broadcastInteger(const Communicator comm, const IntegerMessage& msg) const;
     IntegerMessage receiveInteger(const Rank source = ANY);
 
     void sendBytesArray(const Rank receiver, const BytesArrayMessage& msg) const;
+    void broadcastBytesArray(const Communicator comm, const BytesArrayMessage& msg) const;
     BytesArrayMessage receiveBytesArray(const Rank source = ANY);
+
+    Communicator getRootsCommunicator() const;
 
     void terminate(const Rank receiver) const;
     // should be root to call that
