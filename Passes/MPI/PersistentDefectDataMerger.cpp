@@ -35,7 +35,7 @@ void PersistentDefectDataMerger::mergeLocal(Data& pdd) {
             }
         }
     } else {
-        driver_.sendInteger(mpi::Rank::ROOT, {mpi::MPI_Driver::ANY, mpi::Tag::READY});
+        driver_.sendInteger(driver_.getLocalRoot(), {mpi::MPI_Driver::ANY, mpi::Tag::READY});
     }
 }
 
