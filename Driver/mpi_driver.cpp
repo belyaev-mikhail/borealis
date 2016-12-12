@@ -37,7 +37,7 @@ void MPI_Driver::sendInteger(const Rank receiver, const IntegerMessage& msg) con
 IntegerMessage MPI_Driver::broadcastInteger(const Communicator comm, const IntegerMessage& msg) const {
     auto buffer = msg.getData();
     MPI_Bcast(&buffer, 1, MPI_INT, mpi::Rank::ROOT, comm.communicator_);
-    return IntegerMessage{buffer, Tag::READY};
+    return IntegerMessage{buffer, msg.getTag()};
 }
 
 IntegerMessage MPI_Driver::receiveInteger(const Rank source) {
@@ -57,11 +57,11 @@ BytesArrayMessage MPI_Driver::broadcastBytesArray(const Communicator comm, const
     int size = msg.getData().size();
     auto&& sizeMsg = broadcastInteger(comm, {size, msg.getTag()});
     char* buffer = new char[sizeMsg.getData()];
-    memcpy(buffer, msg.getData().c_str(), sizeMsg.getData());
+    msg.getData().copy(buffer, sizeMsg.getData());
     MPI_Bcast(buffer, sizeMsg.getData(), MPI_BYTE, mpi::Rank::ROOT, comm.communicator_);
     std::string res(buffer);
     delete[] buffer;
-    return BytesArrayMessage{ res.substr(0, msg.getData().size()), status_.MPI_TAG };
+    return BytesArrayMessage{ res.substr(0, sizeMsg.getData()), status_.MPI_TAG };
 }
 
 BytesArrayMessage MPI_Driver::receiveBytesArray(const Rank source) {
