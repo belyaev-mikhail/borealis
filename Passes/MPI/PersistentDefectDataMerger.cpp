@@ -64,9 +64,9 @@ void PersistentDefectDataMerger::mergeGlobal(Data& pdd) {
     if (driver_.isLocalRoot()) {
         std::stringstream json;
         util::write_as_json(json, pdd);
-        auto &&res = driver_.broadcastBytesArray(comm, {json.str(), mpi::Tag::DataTag::BYTEARRAY});
+        auto&& res = driver_.broadcastBytesArray(comm, {json.str(), mpi::Tag::DataTag::BYTEARRAY});
         std::istringstream in(res.getData());
-        auto &&data = util::read_as_json<Data>(in);
+        auto&& data = util::read_as_json<Data>(in);
         if (data) pdd = *data;
     }
 }
