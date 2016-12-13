@@ -324,6 +324,7 @@ set(SYSTEM_LIBS
         protobuf
         tinyxml2
         mathsat
+        stp
         gmpxx
         gmp
         uuid
@@ -490,3 +491,11 @@ add_custom_target(check-all
 add_dependencies(check-all
         .regenerate-test-defs
         ${TEST_EXE})
+
+################################################################################
+# Custom clean target
+################################################################################
+add_custom_target(clean-all
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMAND make clean.cfgparser
+        COMMAND make clean)
