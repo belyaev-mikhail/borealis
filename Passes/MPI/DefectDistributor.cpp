@@ -68,10 +68,10 @@ bool DefectDistributor::runOnModule(llvm::Module&){
             //erase
             for(auto&& d:rootDefects.first) rootDefects.second.erase(d);
             //dump into file in send merged defects to others local roots
-            dumpDefectsInFile(rootDefects);
             for(auto i = nodeSize; i < size; i+=nodeSize){
                 sendDefects(rootDefects, i);
             }
+            dumpDefectsInFile(rootDefects);
         }
     }
     return false;

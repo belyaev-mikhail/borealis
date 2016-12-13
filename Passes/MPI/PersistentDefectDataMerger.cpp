@@ -41,7 +41,6 @@ void PersistentDefectDataMerger::mergeLocal(Data& pdd) {
 
 void PersistentDefectDataMerger::mergeGlobal(Data& pdd) {
     // merge persistentDefectData on nodes
-    auto&& comm = driver_.getRootsCommunicator();
     if (driver_.isRoot()) {
         const int numOfNodes = driver_.getSize() / driver_.getNodeSize();
 
@@ -50,7 +49,8 @@ void PersistentDefectDataMerger::mergeGlobal(Data& pdd) {
         if (data) merge(pdd, *data);
 
         // say to local roots that global root is ready
-        for (auto i = 1; i < numOfNodes; ++i) driver_.sendInteger(i, {mpi::MPI_Driver::ANY, mpi::Tag::READY});
+        for (auto i = driver_.getNodeSize(); i < driver_.getSize(); i += driver_.getNodeSize())
+            driver_.sendInteger(i, {mpi::MPI_Driver::ANY, mpi::Tag::READY});
 
         for(auto i = 1; i < numOfNodes; ++i) merge(pdd, receiveDefects());
 
@@ -61,10 +61,10 @@ void PersistentDefectDataMerger::mergeGlobal(Data& pdd) {
         }
         sendDefects(mpi::Rank::ROOT, pdd);
     }
+    std::stringstream json;
+    util::write_as_json(json, pdd);
+    auto&& res = driver_.broadcastBytesArray({json.str(), mpi::Tag::DataTag::BYTEARRAY});
     if (driver_.isLocalRoot()) {
-        std::stringstream json;
-        util::write_as_json(json, pdd);
-        auto&& res = driver_.broadcastBytesArray(comm, {json.str(), mpi::Tag::DataTag::BYTEARRAY});
         std::istringstream in(res.getData());
         auto&& data = util::read_as_json<Data>(in);
         if (data) pdd = *data;

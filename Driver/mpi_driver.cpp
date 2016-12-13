@@ -33,10 +33,9 @@ void MPI_Driver::sendInteger(const Rank receiver, const IntegerMessage& msg) con
     MPI_Send(&buffer, 1, MPI_INT, receiver, msg.getTag(), MPI_COMM_WORLD);
 }
 
-
-IntegerMessage MPI_Driver::broadcastInteger(const Communicator comm, const IntegerMessage& msg) const {
+IntegerMessage MPI_Driver::broadcastInteger(const IntegerMessage& msg) const {
     auto buffer = msg.getData();
-    MPI_Bcast(&buffer, 1, MPI_INT, mpi::Rank::ROOT, comm.communicator_);
+    MPI_Bcast(&buffer, 1, MPI_INT, mpi::Rank::ROOT, MPI_COMM_WORLD);
     return IntegerMessage{buffer, msg.getTag()};
 }
 
@@ -52,16 +51,18 @@ void MPI_Driver::sendBytesArray(const Rank receiver, const BytesArrayMessage& ms
     MPI_Send(msg.getData().c_str(), size, MPI_BYTE, receiver, msg.getTag(), MPI_COMM_WORLD);
 }
 
+BytesArrayMessage MPI_Driver::broadcastBytesArray(const BytesArrayMessage& msg) const {
+    // sync size
+    int initSize = msg.getData().size();
+    auto&& bcastSize = broadcastInteger({ initSize, msg.getTag() }).getData();
 
-BytesArrayMessage MPI_Driver::broadcastBytesArray(const Communicator comm, const BytesArrayMessage& msg) const {
-    int size = msg.getData().size();
-    auto&& sizeMsg = broadcastInteger(comm, {size, msg.getTag()});
-    char* buffer = new char[sizeMsg.getData()];
-    msg.getData().copy(buffer, sizeMsg.getData());
-    MPI_Bcast(buffer, sizeMsg.getData(), MPI_BYTE, mpi::Rank::ROOT, comm.communicator_);
+    // bcast data
+    char* buffer = new char[bcastSize];
+    msg.getData().copy(buffer, bcastSize);
+    MPI_Bcast(buffer, bcastSize, MPI_BYTE, mpi::Rank::ROOT, MPI_COMM_WORLD);
     std::string res(buffer);
     delete[] buffer;
-    return BytesArrayMessage{ res.substr(0, sizeMsg.getData()), status_.MPI_TAG };
+    return BytesArrayMessage{ res.substr(0, bcastSize), status_.MPI_TAG };
 }
 
 BytesArrayMessage MPI_Driver::receiveBytesArray(const Rank source) {
@@ -83,16 +84,6 @@ void MPI_Driver::terminateAll() const {
 void MPI_Driver::terminate(Rank receiver) const {
     ASSERT(not receiver.isRoot(), "Trying to terminate root");
     sendInteger(receiver, { ANY, Tag::TERMINATE });
-}
-
-Communicator MPI_Driver::getRootsCommunicator() const {
-    int color = (localRank_ == 0) ? 0 : MPI_UNDEFINED;
-    static MPI_Comm* communicator = nullptr;
-    if (not communicator) {
-        communicator = new MPI_Comm;
-        MPI_Comm_split_type(MPI_COMM_WORLD, color, 0, MPI_INFO_NULL, communicator);
-    }
-    return Communicator{*communicator};
 }
 
 std::ostream& operator<<(std::ostream& s, const Rank& rank) {
