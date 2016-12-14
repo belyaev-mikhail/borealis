@@ -1,0 +1,14 @@
+[
+	{
+		"location" : 
+		{
+			"filename" : "test/testcases/misc/adaptor.c",
+			"loc" : 
+			{
+				"col" : 9,
+				"line" : 24
+			}
+		},
+		"type" : "UNK-99"
+	}
+]

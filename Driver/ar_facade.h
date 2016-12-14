@@ -29,6 +29,7 @@
 #include <llvm/Support/Host.h>
 #include <llvm/Support/Program.h>
 #include <llvm/IRReader/IRReader.h>
+#include <llvm/Support/LockFileManager.h>
 #include <llvm/Support/ManagedStatic.h>
 #include <llvm/Support/PrettyStackTrace.h>
 #include <llvm/Support/Signals.h>
@@ -40,6 +41,7 @@
 
 #include <google/protobuf/stubs/common.h>
 #include <clang/Driver/Options.h>
+#include <fstream>
 
 #include "Actions/GatherCommentsAction.h"
 #include "Config/config.h"
@@ -56,6 +58,8 @@
 
 #include "Util/util.h"
 #include "Driver/cl.h"
+
+#include "Util/macros.h"
 
 namespace borealis {
 
@@ -114,9 +118,19 @@ public:
 
         clang.invoke(cmd);
 
-        auto realAr = llvm::sys::FindProgramByName("ar");
-        auto realArArgs = CommandLine(argc, argv).nullTerminated();
-        return llvm::sys::ExecuteAndWait(realAr, const_cast<const char**>(realArArgs.argv()));
+        auto lockFile = util::toString(pseudoLinker.hash()) + ".lock";
+        std::ofstream file(lockFile);
+    	llvm::LockFileManager lock(lockFile);
+    	if (lock == llvm::LockFileManager::LFS_Owned) {
+		auto realAr = llvm::sys::FindProgramByName("ar");
+		auto realArArgs = CommandLine(argc, argv).nullTerminated();
+        return llvm::sys::ExecuteAndWait(realAr, const_cast<const char **>(realArArgs.argv()));
+    	} else if (lock == llvm::LockFileManager::LFS_Error) {
+        	BYE_BYE(int, "Error while trying to lock output file");
+    	} else {
+        	lock.waitForUnlock();
+        	return 0;
+    	}
     }
 
 };
@@ -124,5 +138,7 @@ public:
 } /* namespace driver */
 
 } /* namespace borealis */
+
+#include "Util/unmacros.h"
 
 #endif //AURORA_SANDBOX_AR_FACADE_HPP
