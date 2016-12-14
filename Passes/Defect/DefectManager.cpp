@@ -11,7 +11,15 @@
 
 namespace borealis {
 
-DefectManager::DefectManager() : llvm::ModulePass(ID) {}
+DefectManager::DefectManager() : llvm::ModulePass(ID) {
+    auto&& createFreeSupplemental = [&] (const DefectInfo& info) {
+        getSupplemental().insert({info, {}});
+    };
+
+    util::viewContainer(getStaticData().trueData).foreach(createFreeSupplemental);
+    util::viewContainer(getStaticData().truePastData).foreach(createFreeSupplemental);
+    util::viewContainer(getStaticData().falsePastData).foreach(createFreeSupplemental);
+}
 
 void DefectManager::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
@@ -83,8 +91,12 @@ void DefectManager::print(llvm::raw_ostream&, const llvm::Module*) const {
 }
 
 bool DefectManager::doFinalization(llvm::Module &module) {
-    getStaticData().forceDump();
-    return llvm::Pass::doFinalization(module);
+    static bool finalized = false;
+    if (not finalized) {
+        finalized = true;
+        getStaticData().forceDump();
+        return llvm::Pass::doFinalization(module);
+    } else return llvm::Pass::doFinalization(module);
 }
 
 char DefectManager::ID;

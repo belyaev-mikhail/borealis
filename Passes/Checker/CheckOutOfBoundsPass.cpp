@@ -6,6 +6,7 @@
  */
 
 #include <llvm/IR/InstVisitor.h>
+#include <mpi.h>
 
 #include "Passes/Checker/CheckHelper.hpp"
 #include "Passes/Checker/CheckOutOfBoundsPass.h"
@@ -100,7 +101,8 @@ void CheckOutOfBoundsPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 bool CheckOutOfBoundsPass::runOnFunction(llvm::Function& F) {
 
     CM = &GetAnalysis<CheckManager>::doit(this, F);
-    if (CM->shouldSkipFunction(&F)) return false;
+
+    //if (CM->shouldSkipFunction(&F)) return false;
 
     AA = getAnalysisIfAvailable<llvm::AliasAnalysis>();
     DM = &GetAnalysis<DefectManager>::doit(this, F);

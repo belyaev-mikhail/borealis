@@ -52,6 +52,7 @@
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/Host.h>
+#include <llvm/Support/LockFileManager.h>
 #include <llvm/Support/Program.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/ManagedStatic.h>
@@ -74,6 +75,7 @@
 #include "Driver/gestalt.h"
 #include "Driver/interviewer.h"
 #include "Driver/llvm_pipeline.h"
+#include "Driver/mpi_driver.h"
 #include "Driver/plugin_loader.h"
 #include "Logging/logger.hpp"
 #include "Passes/Misc/PrinterPasses.h"
@@ -82,6 +84,8 @@
 
 namespace borealis {
 namespace driver {
+
+static config::BoolConfigEntry compileOnly("run", "compileOnly");
 
 int gestalt::main(int argc, const char** argv) {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
@@ -158,11 +162,30 @@ int gestalt::main(int argc, const char** argv) {
 
     auto compileCommands = nativeClang.getCompileCommands();
 
+    auto linkIt = std::find_if(compileCommands.begin(), compileCommands.end(), [] (const command& cmd) {
+        return cmd.operation == command::LINK;
+    });
+
+    if(linkIt != compileCommands.end() && compileOnly.get(false)) return OK;
+
+#include "Util/macros.h"
+
     std::future<int> clangRes;
     if (!skipClang) {
-        clangRes = std::async(std::launch::async, [&nativeClang]{
-            if (nativeClang.run() == interviewer::status::FAILURE) return (int)E_CLANG_INVOKE;
-            return (int)OK;
+        clangRes = std::async(std::launch::async, [&nativeClang, &args]{
+            auto lockFile = util::toString(args.hash()) + ".lock";
+            std::ofstream file(lockFile);
+
+            LockFileManager lock(lockFile);
+            if (lock == LockFileManager::LFS_Owned) {
+                if (nativeClang.run() == interviewer::status::FAILURE) return (int)E_CLANG_INVOKE;
+                return (int)OK;
+            } else if (lock == LockFileManager::LFS_Error) {
+                BYE_BYE(int, "Error while trying to lock output file");
+            } else {
+                lock.waitForUnlock();
+                return (int)OK;
+            }
         });
     }
 
@@ -172,7 +195,6 @@ int gestalt::main(int argc, const char** argv) {
     if (compileCommands.empty()) return E_ILLEGAL_COMPILER_OPTIONS;
 
     clang_pipeline clang { "clang" };
-
 
     clang.assignLogger(*this);
     clang.invoke(compileCommands);
@@ -184,7 +206,6 @@ int gestalt::main(int argc, const char** argv) {
     //       we were supposed to fuck up
 
     // collect passes
-
     auto module_ptr = annotatedModule->module;
 
     std::vector<StringRef> passes2run;
@@ -195,26 +216,30 @@ int gestalt::main(int argc, const char** argv) {
     std::vector<StringRef> libs2load;
     libs2load.insert(libs2load.end(), libs.begin(), libs.end());
 
-    {
-        borealis::logging::log_entry out(infos());
-        out << "Passes:" << endl;
-        if (passes2run.empty()) out << "  " << "None" << endl;
-        for (const auto& pass : passes2run) {
-            out << "  " << pass << endl;
-        }
-    }
+    // Start up MPI
+    MPI::Init();
+    mpi::MPI_Driver driver{};
 
-    {
-        borealis::logging::log_entry out(infos());
-        out << "Dynamic libraries:" << endl;
-        if (libs2load.empty()) out << "  " << "None" << endl;
+    // if we are root, print log
+    if (driver.isRoot()) {
+        // print list of pre passes
+        borealis::logging::log_entry passes(infos());
+        passes << "Passes:" << endl;
+        if (passes2run.empty()) passes << "  " << "None" << endl;
+        for (const auto& pass : passes2run) {
+            passes << "  " << pass << endl;
+        }
+
+        // print list of dynamic libraries
+        borealis::logging::log_entry libs(infos());
+        libs << "Dynamic libraries:" << endl;
+        if (libs2load.empty()) libs << "  " << "None" << endl;
         for (const auto& lib : libs2load) {
-            out << "  " << lib << endl;
+            libs << "  " << lib << endl;
         }
     }
 
     // load .so plugins
-
     plugin_loader pl;
     pl.assignLogger(*this);
     for (const auto& lib : libs2load) {
@@ -239,11 +264,17 @@ int gestalt::main(int argc, const char** argv) {
 
     // verify we didn't screw up the module structure
 
-    std::string err;
-    llvm::raw_string_ostream rso{err};
-    if (verifyModule(*module_ptr, &rso)) {
-        errs() << "Module errors detected: " << rso.str() << endl;
+    if (driver.isRoot()) {
+	    std::string err;
+	    llvm::raw_string_ostream rso{err};
+	    if (verifyModule(*module_ptr, &rso)) {
+		    errs() << "Module errors detected: " << rso.str() << endl;
+	    }
     }
+
+    MPI::Finalize();
+
+#include "Util/unmacros.h"
 
     if (!skipClang) return clangRes.get();
     return OK;
