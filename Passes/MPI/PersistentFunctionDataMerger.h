@@ -7,19 +7,23 @@
 
 #include <llvm/Pass.h>
 
+#include "Passes/Defect/PersistentFunctionData.h"
+
 namespace borealis {
 
-class PersistentDefectDataMerger : public llvm::ModulePass {
+class PersistentFunctionDataMerger : public llvm::ModulePass {
 public:
 
-    using Data = impl_::persistentDefectData::SimpleT;
+    using Data = PersistentFunctionData::Data;
 
     static char ID;
-    static const std::string defectFile;
+    static const std::string defectFile_;
+    static const std::string prefix_;
+    static const std::string postfix_;
 
-    PersistentDefectDataMerger();
+    PersistentFunctionDataMerger();
 
-    virtual bool runOnModule(llvm::Module& M) override;
+    virtual bool runOnModule(llvm::Module&) override;
     virtual void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
 
 private:
@@ -35,7 +39,7 @@ private:
 private:
 
     mpi::MPI_Driver driver_;
-    bool globalReady;
+    bool globalReady_;
 };
 
 }   /* namespace borealis */

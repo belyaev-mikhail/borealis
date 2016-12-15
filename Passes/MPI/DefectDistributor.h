@@ -20,7 +20,7 @@ namespace borealis{
 class DefectDistributor : public llvm::ModulePass {
 
     using DefectData = std::unordered_set<DefectInfo>;
-    using SimpleT =  std::pair< DefectData, DefectData>;
+    using SimpleT = std::pair<DefectData, DefectData>;
 
 public:
     static char ID;

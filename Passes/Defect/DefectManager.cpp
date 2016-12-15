@@ -91,12 +91,8 @@ void DefectManager::print(llvm::raw_ostream&, const llvm::Module*) const {
 }
 
 bool DefectManager::doFinalization(llvm::Module &module) {
-    static bool finalized = false;
-    if (not finalized) {
-        finalized = true;
-        getStaticData().forceDump();
-        return llvm::Pass::doFinalization(module);
-    } else return llvm::Pass::doFinalization(module);
+    getStaticData().forceDump();
+    return llvm::Pass::doFinalization(module);
 }
 
 char DefectManager::ID;

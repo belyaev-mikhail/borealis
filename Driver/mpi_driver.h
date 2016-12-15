@@ -140,8 +140,6 @@ public:
     BytesArrayMessage receiveBytesArray(const Rank source = ANY);
 
     void terminate(const Rank receiver) const;
-    // should be root to call that
-    void terminateAll() const;
 
 private:
 

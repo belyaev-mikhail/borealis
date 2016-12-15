@@ -74,13 +74,6 @@ BytesArrayMessage MPI_Driver::receiveBytesArray(const Rank source) {
     return BytesArrayMessage{ res.substr(0, size), status_.MPI_TAG };
 }
 
-void MPI_Driver::terminateAll() const {
-    ASSERT(globalRank_.isRoot(), "Trying to terminate all from not-root");
-    for (auto receiver = 1; receiver < globalSize_; ++receiver) {
-        sendInteger(receiver, { 0, Tag::TERMINATE });
-    }
-}
-
 void MPI_Driver::terminate(Rank receiver) const {
     ASSERT(not receiver.isRoot(), "Trying to terminate root");
     sendInteger(receiver, { ANY, Tag::TERMINATE });

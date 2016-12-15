@@ -35,7 +35,6 @@ namespace impl_ {
 
 static config::BoolConfigEntry usePersistentDefectData("analysis", "persistent-defect-data");
 static config::BoolConfigEntry persistentDefectDataSync("analysis", "persistent-defect-data-sync");
-static config::BoolConfigEntry uniquePersistentDefectData("analysis", "unique-persistent-defect-data");
 
 struct persistentDefectData {
     using DefectData = std::unordered_set<DefectInfo>;
@@ -124,30 +123,21 @@ struct persistentDefectData {
             tpd.insert(trueData.begin(), trueData.end());
             fpd.insert(falseData.begin(), falseData.end());
 
-            if (uniquePersistentDefectData.get(false)) {
-                mpi::MPI_Driver driver{};
-                auto&& dumpFile = "persistent" + std::to_string(driver.getRank()) + ".json";
 
-                std::ofstream out{dumpFile};
-                util::write_as_json(out, std::make_pair(std::move(trueData), std::move(falseData)));
-
-            } else {
-
-                locked([&]() {
-                    {
-                        std::ifstream in{filename};
-                        if (auto existing = util::read_as_json<SimpleT>(in)) {
-                            tpd.insert(std::make_move_iterator(existing->first.begin()),
-                                       std::make_move_iterator(existing->first.end()));
-                            fpd.insert(std::make_move_iterator(existing->second.begin()),
-                                       std::make_move_iterator(existing->second.end()));
-                        }
+            locked([&]() {
+                {
+                    std::ifstream in{filename};
+                    if (auto existing = util::read_as_json<SimpleT>(in)) {
+                        tpd.insert(std::make_move_iterator(existing->first.begin()),
+                                   std::make_move_iterator(existing->first.end()));
+                        fpd.insert(std::make_move_iterator(existing->second.begin()),
+                                   std::make_move_iterator(existing->second.end()));
                     }
+                }
 
-                    std::ofstream out{filename};
-                    util::write_as_json(out, std::make_pair(std::move(tpd), std::move(fpd)));
-                });
-            }
+                std::ofstream out{filename};
+                util::write_as_json(out, std::make_pair(std::move(tpd), std::move(fpd)));
+            });
         }
     }
 };
@@ -178,7 +168,7 @@ public:
     virtual void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
     virtual ~DefectManager() {
         // this is a bit fucked up
-        // getStaticData().forceDump();
+        getStaticData().forceDump();
     };
 
     void addDefect(DefectType type, llvm::Instruction* where);
