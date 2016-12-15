@@ -40,23 +40,6 @@ private:
 
     void read();
 
-    template<class Body>
-    void locked(Body body) {
-        while(true) {
-            llvm::LockFileManager fileLock(filename_);
-            if(fileLock == llvm::LockFileManager::LFS_Shared) {
-                fileLock.waitForUnlock();
-                continue;
-            }
-            if(fileLock == llvm::LockFileManager::LFS_Error) {
-                errs() << "error while trying to lock file \"" << filename_ << "\"" << endl;
-            }
-
-            body();
-            break;
-        }
-    }
-
 private:
 
     static Data functionData_;
