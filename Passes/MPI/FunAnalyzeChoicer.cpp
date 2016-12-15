@@ -3,6 +3,7 @@
 //
 
 #include <llvm/Pass.h>
+#include <Passes/Defect/PersistentFunctionData.h>
 
 #include "Driver/mpi_driver.h"
 #include "Passes/Checker/CheckManager.h"
@@ -17,49 +18,41 @@ void FunAnalyzeChoicer::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
     AUX<MPIMetricsEval>::addRequiredTransitive(AU);
     AUX<CallGraphChopper>::addRequiredTransitive(AU);
+    AUX<PersistentFunctionData>::addRequiredTransitive(AU);
 }
 
 
 bool FunAnalyzeChoicer::runOnModule(llvm::Module& M) {
+    auto&& PFD = &GetAnalysis<PersistentFunctionData>::doit(this);
     CGC = &GetAnalysis<CallGraphChopper>::doit(this);
     CGC->runOnModule(M);
     std::vector<std::pair<llvm::Function*,float>> dif;
-    for(auto&& it : M){
-        if(!it.isDeclaration()){
+    for (auto&& it : M) {
+        if (not it.isDeclaration() && not PFD->hasFunction(it)) {
             auto&& difficult = GetAnalysis<MPIMetricsEval>::doit(this,it);
-            dif.push_back(std::make_pair<llvm::Function*, float>(&it,difficult.getDifficult()));
+            dif.push_back(std::make_pair<llvm::Function*, float>(&it, difficult.getDifficult()));
         }
     }
-    std::sort(dif.begin(), dif.end(), [](std::pair<llvm::Function*, float> a, std::pair<llvm::Function*, float> b){return a.second > b.second;});
+    std::sort(dif.begin(), dif.end(), [](std::pair<llvm::Function*, float> a, std::pair<llvm::Function*, float> b) {
+        return a.second > b.second;
+    });
     long index;
     mpi::MPI_Driver driver{};
     auto rank = driver.getRank();
-    std::vector<float>curConsDiff( (unsigned)driver.getSize() );
-    std::vector<std::vector<llvm::Function*>>funcForConsumers( (unsigned)driver.getSize() );
-    for(auto&& it : dif){
-        auto minIndex = std::min_element(curConsDiff.begin(),curConsDiff.end());
+    std::vector<float> curConsDiff((unsigned)driver.getSize());
+    std::vector<std::vector<llvm::Function*>> funcForConsumers{ (unsigned)driver.getSize() };
+    for (auto&& it : dif) {
+        auto minIndex = std::min_element(curConsDiff.begin(), curConsDiff.end());
         index = std::distance(curConsDiff.begin(), minIndex);
         funcForConsumers[index].push_back(it.first);
-        *minIndex = *minIndex+it.second;
+        *minIndex = *minIndex + it.second;
     }
-    for(auto&& it : M){
-        if(std::find(funcForConsumers[rank.get()].begin(),funcForConsumers[rank.get()].end(),&it) == funcForConsumers[rank.get()].end()){
+    for (auto&& it : M) {
+        if (std::find(funcForConsumers[rank.get()].begin(), funcForConsumers[rank.get()].end(), &it) == funcForConsumers[rank.get()].end())
             it.deleteBody();
-        }
+        else
+            PFD->addFunction(it);
     }
-    if(rank == 0) errs()<<"Distrib= "<<curConsDiff<<endl;
-    //Stupid distribute
-
-    /*mpi::MPI_Driver driver{};
-    auto rank = driver.getRank();
-    int i = 0;
-    for(auto&& it : M){
-        if(it.isDeclaration() || i%driver.getSize() != rank.get()){
-            it.deleteBody();
-        }
-        ++i;
-    }*/
-
     return false;
 }
 

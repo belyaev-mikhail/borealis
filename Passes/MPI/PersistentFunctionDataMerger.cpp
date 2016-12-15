@@ -7,30 +7,30 @@
 #include "Passes/Defect/DefectManager.h"
 #include "Util/passes.hpp"
 
-#include "PersistentDefectDataMerger.h"
+#include "PersistentFunctionDataMerger.h"
 
 #include "Util/macros.h"
 
 namespace borealis {
 
-static config::BoolConfigEntry uniquePersistentDefectData("analysis", "unique-persistent-defect-data");
+static config::BoolConfigEntry usePersistentFunctionData("analysis", "persistent-function-data");
 
-PersistentDefectDataMerger::PersistentDefectDataMerger() : ModulePass(ID), globalReady(false) {}
+PersistentFunctionDataMerger::PersistentFunctionDataMerger() : ModulePass(ID), globalReady_(false) {}
 
-void PersistentDefectDataMerger::mergeLocal(Data& pdd) {
+void PersistentFunctionDataMerger::mergeLocal(Data& pdd) {
     // merge local persistentDefectData
     if (driver_.isLocalRoot()) {
-        std::ifstream own("persistent" + std::to_string(driver_.getRank()) + ".json");
+        std::ifstream own(prefix_ + std::to_string(driver_.getRank()) + postfix_);
         if (auto&& loaded = util::read_as_json<Data>(own)) merge(pdd, *loaded);
 
         for (auto i = 1; i < driver_.getNodeSize(); ++i) {
             auto&& msg = driver_.receiveInteger(mpi::MPI_Driver::ANY);
             ASSERTC(msg.getTag() == mpi::Tag::READY);
             if (driver_.getStatus().source_ == mpi::Rank::ROOT) {
-                globalReady = true;
+                globalReady_ = true;
                 --i;
             } else {
-                std::ifstream in("persistent" + std::to_string(driver_.getStatus().source_) + ".json");
+                std::ifstream in(prefix_ + std::to_string(driver_.getStatus().source_) + postfix_);
                 if (auto &&loaded = util::read_as_json<Data>(in)) merge(pdd, *loaded);
             }
         }
@@ -39,12 +39,12 @@ void PersistentDefectDataMerger::mergeLocal(Data& pdd) {
     }
 }
 
-void PersistentDefectDataMerger::mergeGlobal(Data& pdd) {
+void PersistentFunctionDataMerger::mergeGlobal(Data& pdd) {
     // merge persistentDefectData on nodes
     if (driver_.isRoot()) {
         const int numOfNodes = driver_.getSize() / driver_.getNodeSize();
 
-        std::ifstream in{defectFile};
+        std::ifstream in{defectFile_};
         auto&& data = util::read_as_json<Data>(in);
         if (data) merge(pdd, *data);
 
@@ -55,7 +55,7 @@ void PersistentDefectDataMerger::mergeGlobal(Data& pdd) {
         for(auto i = 1; i < numOfNodes; ++i) merge(pdd, receiveDefects());
 
     } else if (driver_.isLocalRoot()) {
-        if (not globalReady) {
+        if (not globalReady_) {
             auto&& msg = driver_.receiveInteger(mpi::Rank::ROOT);
             ASSERTC(msg.getTag() == mpi::Tag::READY);
         }
@@ -71,10 +71,10 @@ void PersistentDefectDataMerger::mergeGlobal(Data& pdd) {
     }
 }
 
-bool PersistentDefectDataMerger::runOnModule(llvm::Module& M) {
-    if (uniquePersistentDefectData.get(false)) {
-        auto& dm = GetAnalysis<DefectManager>::doit(this);
-        dm.doFinalization(M);
+bool PersistentFunctionDataMerger::runOnModule(llvm::Module&) {
+    if (usePersistentFunctionData.get(false)) {
+        auto& pfd = GetAnalysis<PersistentFunctionData>::doit(this);
+        pfd.forceDump();
 
         Data pdd;
         mergeLocal(pdd);
@@ -85,42 +85,41 @@ bool PersistentDefectDataMerger::runOnModule(llvm::Module& M) {
     return false;
 }
 
-void PersistentDefectDataMerger::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
+void PersistentFunctionDataMerger::getAnalysisUsage(llvm::AnalysisUsage &AU) const {
     AU.setPreservesAll();
 
-    AUX<DefectManager>::addRequiredTransitive(AU);
+    AUX<PersistentFunctionData>::addRequiredTransitive(AU);
 }
 
-void PersistentDefectDataMerger::merge(Data &to, const Data &from) {
-    to.first.insert(std::make_move_iterator(from.first.begin()),
-                    std::make_move_iterator(from.first.end()));
-    to.second.insert(std::make_move_iterator(from.second.begin()),
-                     std::make_move_iterator(from.second.end()));
+void PersistentFunctionDataMerger::merge(Data &to, const Data &from) {
+    to.insert(std::make_move_iterator(from.begin()),
+              std::make_move_iterator(from.end()));
 }
 
-PersistentDefectDataMerger::Data PersistentDefectDataMerger::receiveDefects() {
+PersistentFunctionDataMerger::Data PersistentFunctionDataMerger::receiveDefects() {
     auto&& dataBytes = driver_.receiveBytesArray();
     std::istringstream in(dataBytes.getData());
     auto&& data = util::read_as_json<Data>(in);
     return (data) ? std::move(*data) : Data();
 }
 
-void PersistentDefectDataMerger::sendDefects(mpi::Rank rank, Data& defects) {
+void PersistentFunctionDataMerger::sendDefects(mpi::Rank rank, Data& defects) {
     std::stringstream json;
     util::write_as_json(json, defects);
     driver_.sendBytesArray(rank, {json.str(), mpi::Tag::DataTag::BYTEARRAY} );
 }
 
-void PersistentDefectDataMerger::dump(Data& defects) {
-    std::ofstream out{ defectFile };
+void PersistentFunctionDataMerger::dump(Data& defects) {
+    std::ofstream out{ defectFile_ };
     util::write_as_json(out, defects);
 }
 
+const std::string PersistentFunctionDataMerger::defectFile_ = PersistentFunctionData::filename_;
+const std::string PersistentFunctionDataMerger::prefix_ = PersistentFunctionData::prefix_;
+const std::string PersistentFunctionDataMerger::postfix_ = PersistentFunctionData::postfix_;
 
-const std::string PersistentDefectDataMerger::defectFile = "persistentDefectData.json";
-
-char PersistentDefectDataMerger::ID;
-static RegisterPass<PersistentDefectDataMerger>
+char PersistentFunctionDataMerger::ID;
+static RegisterPass<PersistentFunctionDataMerger>
         X("defect-data-merger", "Pass that merges persistent defect data of all borealis instances");
 
 }   /* namespace borealis */
