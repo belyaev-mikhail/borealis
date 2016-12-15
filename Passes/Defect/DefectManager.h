@@ -47,26 +47,9 @@ struct persistentDefectData {
 
     std::string filename;
 
-    template<class Body>
-    void locked(Body body) {
-        while(true) {
-            llvm::LockFileManager fileLock(filename);
-            if(fileLock == llvm::LockFileManager::LFS_Shared) {
-                fileLock.waitForUnlock();
-                continue;
-            }
-            if(fileLock == llvm::LockFileManager::LFS_Error) {
-                errs() << "error while trying to lock file \"" << filename << "\"" << endl;
-            }
-
-            body();
-            break;
-        }
-    }
-
     persistentDefectData(const std::string& filename): trueData(), falseData(), filename(filename) {
         if(usePersistentDefectData.get(false)) {
-            locked([&](){
+            util::locked(filename, [&](){
                 std::ifstream in(filename);
                 if(auto&& loaded = util::read_as_json<SimpleT>(in)) {
                     truePastData = std::move(loaded->first);
@@ -97,7 +80,7 @@ struct persistentDefectData {
             fpd.insert(falseData.begin(), falseData.end());
             for (auto&& e : tpd) fpd.erase(e);
 
-            locked([&](){
+            util::locked(filename, [&](){
                 {
                     std::ifstream in{filename};
                     if(auto existing = util::read_as_json<SimpleT>(in)) {
@@ -124,7 +107,7 @@ struct persistentDefectData {
             fpd.insert(falseData.begin(), falseData.end());
 
 
-            locked([&]() {
+            util::locked(filename, [&]() {
                 {
                     std::ifstream in{filename};
                     if (auto existing = util::read_as_json<SimpleT>(in)) {
