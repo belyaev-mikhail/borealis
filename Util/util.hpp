@@ -8,6 +8,8 @@
 #ifndef UTIL_HPP_
 #define UTIL_HPP_
 
+#include <llvm/Support/LockFileManager.h>
+
 #include "Logging/logger.hpp"
 #include "Util/meta.hpp"
 #include "Util/streams.hpp"
@@ -27,6 +29,23 @@ template<class T>
 T& threadLocalInstance() {
     thread_local static T instance;
     return instance;
+}
+
+template<class Body>
+void locked(const std::string& filename, Body body) {
+    while(true) {
+        llvm::LockFileManager fileLock(filename);
+        if(fileLock == llvm::LockFileManager::LFS_Shared) {
+            fileLock.waitForUnlock();
+            continue;
+        }
+        if(fileLock == llvm::LockFileManager::LFS_Error) {
+            errs() << "error while trying to lock file \"" << filename << "\"" << endl;
+        }
+
+        body();
+        break;
+    }
 }
 
 template<class ...T>
