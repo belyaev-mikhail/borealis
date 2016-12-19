@@ -13,8 +13,9 @@
 
 #include <set>
 #include <fstream>
-#include <Config/config.h>
 
+#include "Config/config.h"
+#include "Driver/mpi_driver.h"
 #include "Logging/logger.hpp"
 #include "Passes/Defect/DefectManager/DefectInfo.h"
 #include "Util/json.hpp"
@@ -46,26 +47,9 @@ struct persistentDefectData {
 
     std::string filename;
 
-    template<class Body>
-    void locked(Body body) {
-        while(true) {
-            llvm::LockFileManager fileLock(filename);
-            if(fileLock == llvm::LockFileManager::LFS_Shared) {
-                fileLock.waitForUnlock();
-                continue;
-            }
-            if(fileLock == llvm::LockFileManager::LFS_Error) {
-                errs() << "error while trying to lock file \"" << filename << "\"" << endl;
-            }
-
-            body();
-            break;
-        }
-    }
-
     persistentDefectData(const std::string& filename): trueData(), falseData(), filename(filename) {
         if(usePersistentDefectData.get(false)) {
-            locked([&](){
+            util::locked(filename, [&](){
                 std::ifstream in(filename);
                 if(auto&& loaded = util::read_as_json<SimpleT>(in)) {
                     truePastData = std::move(loaded->first);
@@ -96,7 +80,7 @@ struct persistentDefectData {
             fpd.insert(falseData.begin(), falseData.end());
             for (auto&& e : tpd) fpd.erase(e);
 
-            locked([&](){
+            util::locked(filename, [&](){
                 {
                     std::ifstream in{filename};
                     if(auto existing = util::read_as_json<SimpleT>(in)) {
@@ -122,19 +106,21 @@ struct persistentDefectData {
             tpd.insert(trueData.begin(), trueData.end());
             fpd.insert(falseData.begin(), falseData.end());
 
-            locked([&](){
+
+            util::locked(filename, [&]() {
                 {
                     std::ifstream in{filename};
-                    if(auto existing = util::read_as_json<SimpleT>(in)) {
-                        tpd.insert(std::make_move_iterator(existing->first.begin()), std::make_move_iterator(existing->first.end()));
-                        fpd.insert(std::make_move_iterator(existing->second.begin()), std::make_move_iterator(existing->second.end()));
+                    if (auto existing = util::read_as_json<SimpleT>(in)) {
+                        tpd.insert(std::make_move_iterator(existing->first.begin()),
+                                   std::make_move_iterator(existing->first.end()));
+                        fpd.insert(std::make_move_iterator(existing->second.begin()),
+                                   std::make_move_iterator(existing->second.end()));
                     }
                 }
 
                 std::ofstream out{filename};
                 util::write_as_json(out, std::make_pair(std::move(tpd), std::move(fpd)));
-             });
-
+            });
         }
     }
 };
@@ -209,6 +195,16 @@ private:
 public:
 
     const DefectData& getData() const { return getStaticData().trueData; }
+    
+    impl_::persistentDefectData::SimpleT getAllData() const {
+        return std::make_pair(std::move(getStaticData().trueData),
+                              std::move(getStaticData().falseData));
+    }
+
+    impl_::persistentDefectData::SimpleT getAllPastData() const {
+        return std::make_pair(std::move(getStaticData().truePastData),
+                              std::move(getStaticData().falsePastData));
+    }
 
 #include "Util/macros.h"
     auto begin() QUICK_CONST_RETURN(getStaticData().trueData.begin())
