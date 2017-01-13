@@ -46,10 +46,12 @@ Type::Ptr TypeFactory::getUnknownType() const {
     else return theUnknown;
 }
 
-Type::Ptr TypeFactory::getPointer(Type::Ptr to) const {
+Type::Ptr TypeFactory::getPointer(Type::Ptr to, size_t memspace) const {
     if (TypeUtils::isInvalid(to)) return to;
-    if (auto existing = util::at(pointers, to)) return existing.getUnsafe();
-    else return pointers[to] = Type::Ptr(new type::Pointer(to));
+    auto key = std::make_pair(to, memspace);
+
+    if (auto existing = util::at(pointers, key)) return existing.getUnsafe();
+    else return pointers[key] = Type::Ptr(new type::Pointer(to, memspace));
 }
 
 Type::Ptr TypeFactory::getArray(Type::Ptr elem, size_t size) const {
@@ -146,6 +148,8 @@ Type::Ptr TypeFactory::cast(const llvm::Type* type, const llvm::DataLayout* dl, 
         return getPointer(cast(type->getPointerElementType(), dl));
     else if (type->isArrayTy())
         return getArray(cast(type->getArrayElementType(), dl), type->getArrayNumElements());
+    else if (type->isVectorTy())
+        return getArray(cast(type->getVectorElementType(), dl), type->getVectorNumElements());
     else if (auto* str = llvm::dyn_cast<llvm::StructType>(type)) {
         auto&& name = str->hasName() ? str->getStructName().str() : util::toString(*str);
         return getRecord(name, str, dl);

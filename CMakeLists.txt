@@ -3,21 +3,28 @@ set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 
 project(borealis)
 
+################################################################################
+# Link directories
+################################################################################
+link_directories(/usr/lib)                              # system libraries directory
+link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib)       # subprojects output directory
+
+################################################################################
+# LLVM
+################################################################################
 find_package(LLVM QUIET REQUIRED COMPONENTS ALL
         CONFIG
         PATHS /opt/clang/3.5.1/share/llvm/cmake/
         NO_DEFAULT_PATH)
 
 link_directories(${LLVM_LIBRARY_DIRS})
-link_directories(/usr/lib)
-link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib)
 
 if (NOT ${LLVM_FOUND})
     message(FATAL_ERROR "LLVM libraries not found")
 endif ()
 
 ################################################################################
-# warnings
+# Warnings
 ################################################################################
 set(WARNINGS_ON all extra cast-qual float-equal switch
         undef init-self pointer-arith cast-align effc++
@@ -43,7 +50,7 @@ if (${CMAKE_CXX_COMPILER} STREQUAL "/usr/bin/clang++")
 endif ()
 
 ################################################################################
-# compiler flags
+# Compiler flags
 ################################################################################
 add_definitions(${LLVM_DEFINITIONS}
         -std=c++14)
@@ -51,58 +58,67 @@ add_definitions(${LLVM_DEFINITIONS}
 set(COMPILER_DEFINITIONS
         -D_GLIBCXX_USE_CXX11_ABI=1
         -DGOOGLE_PROTOBUF_NO_RTTI
+        -DPROTOBUF_INLINE_NOT_IN_HEADERS=0
         -DNO_TRACING)
 
 set(COMPILER_FLAGS
         ${CMAKE_CXX_FLAGS}
         ${LLVM_CXX_FLAGS}
         ${LLVM_LD_FLAGS}
-        -fuse-ld=gold
-        -rdynamic
         -O0
+        -g
         -fPIC
         -fno-rtti
         ${COMPILER_WARNINGS})
 
+set(PROTO_COMPILER_FLAGS
+        ${CMAKE_CXX_FLAGS}
+        -O0
+        -g
+        -fPIC
+        -fno-rtti)
+
 ################################################################################
-# include directories
+# Include directories
 ################################################################################
 set(INCLUDE_DIRS
         ${PROJECT_SOURCE_DIR}/Protobuf/Gen
         ${PROJECT_SOURCE_DIR}/lib
         ${PROJECT_SOURCE_DIR}/lib/pegtl/include
+        ${PROJECT_SOURCE_DIR}/lib/rapidjson/include
         ${PROJECT_SOURCE_DIR}/lib/google-test/include
         ${PROJECT_SOURCE_DIR}/lib/yaml-cpp/include
         ${PROJECT_SOURCE_DIR}/lib/yaml-cpp/test
-        ${PROJECT_SOURCE_DIR}/lib/cfgparser/include
         ${PROJECT_SOURCE_DIR}/lib/backward-cpp
         ${PROJECT_SOURCE_DIR}/lib/leveldb-mp/include
         ${PROJECT_SOURCE_DIR}/lib/leveldb-mp/libsocket/headers)
 
 include_directories(${PROJECT_SOURCE_DIR} ./ ../)
 
+include_directories(SYSTEM /usr/include/)
 include_directories(SYSTEM /usr/include/z3)             # using SYSTEM parameter to exclude
 include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})        # compiler warnings on include libraries
 include_directories(SYSTEM ${INCLUDE_DIRS})
 
 ################################################################################
-# source directories
+# Source directories
 ################################################################################
 
 set(SOURCE_DIRS
-#       ${PROJECT_SOURCE_DIR}
+        # ${PROJECT_SOURCE_DIR}
         ${PROJECT_SOURCE_DIR}/Actions
         ${PROJECT_SOURCE_DIR}/Anno
         ${PROJECT_SOURCE_DIR}/Annotation
         ${PROJECT_SOURCE_DIR}/Codegen
         ${PROJECT_SOURCE_DIR}/Config
+        ${PROJECT_SOURCE_DIR}/Database
         ${PROJECT_SOURCE_DIR}/Driver
         ${PROJECT_SOURCE_DIR}/Executor
         ${PROJECT_SOURCE_DIR}/Factory
         ${PROJECT_SOURCE_DIR}/Logging
         ${PROJECT_SOURCE_DIR}/Passes
         ${PROJECT_SOURCE_DIR}/Predicate
-        ${PROJECT_SOURCE_DIR}/Protobuf
+        # ${PROJECT_SOURCE_DIR}/Protobuf
         ${PROJECT_SOURCE_DIR}/Reanimator
         ${PROJECT_SOURCE_DIR}/SMT
         ${PROJECT_SOURCE_DIR}/State
@@ -112,14 +128,14 @@ set(SOURCE_DIRS
         ${PROJECT_SOURCE_DIR}/Util)
 
 ################################################################################
-# Protobuf
+# Protobuf generation
 ################################################################################
 set(PROTO_SOURCE_DIR ${PROJECT_SOURCE_DIR}/Protobuf/Gen)
 set(PROTOC protoc --proto_path=${PROJECT_SOURCE_DIR} --cpp_out=${PROTO_SOURCE_DIR})
 set(PROTOEXT ${PROJECT_SOURCE_DIR}/extract-protobuf-desc.awk)
 
 if (NOT EXISTS "${PROJECT_SOURCE_DIR}/.protobuf")
-    message("Generating protobuf files")
+    message("-- Generating protobuf files")
     file(MAKE_DIRECTORY ${PROTO_SOURCE_DIR})
     file(GLOB_RECURSE PROTO_DESC_FILES ${PROJECT_SOURCE_DIR}/*.cpp
             ${PROJECT_SOURCE_DIR}/*.h
@@ -141,19 +157,57 @@ add_custom_target(clean.protobuf
         COMMAND find ${PROJECT_SOURCE_DIR} -name *.proto -delete
         COMMAND rm -rf ${PROTO_SOURCE_DIR})
 
+add_custom_target(regenerate_protobuf
+        COMMAND make clean.protobuf
+        COMMAND cmake ${PROJECT_SOURCE_DIR})
+
 ################################################################################
-# source files
+# Protobuf sources
+################################################################################
+
+set(PROTO_DIR ${PROJECT_SOURCE_DIR}/Protobuf)
+file(GLOB_RECURSE PROTO_SRC ${PROTO_DIR}/*.cc
+                            ${PROTO_DIR}/*.cpp
+                            ${PROTO_DIR}/*.h
+                            ${PROTO_DIR}/*.hpp)
+
+foreach(file ${PROTO_SRC})
+    list(APPEND PROTO_SOURCES "${file}")
+endforeach()
+
+add_library(protobuf_objects OBJECT ${PROTO_SOURCES})
+
+target_compile_options(protobuf_objects PUBLIC ${PROTO_COMPILER_FLAGS})
+target_compile_definitions(protobuf_objects PUBLIC ${COMPILER_DEFINITIONS})
+
+################################################################################
+# Source files
 ################################################################################
 
 foreach(dir ${SOURCE_DIRS})
     file(GLOB_RECURSE SRC ${dir}/*.cc
-                  ${dir}/*.cpp)
+            ${dir}/*.cpp)
     foreach(file ${SRC})
         list(APPEND SOURCES "${file}")
     endforeach()
 endforeach()
 
-add_library(SourceObjects OBJECT ${SOURCES})
+add_library(source_objects OBJECT ${SOURCES})
+
+target_compile_options(source_objects PUBLIC ${COMPILER_FLAGS})
+target_compile_definitions(source_objects PUBLIC ${COMPILER_DEFINITIONS})
+
+################################################################################
+# Header files
+################################################################################
+
+foreach(dir ${SOURCE_DIRS})
+    file(GLOB_RECURSE SRC ${dir}/*.h
+            ${dir}/*.hpp)
+    foreach(file ${SRC})
+        list(APPEND HEADERS "${file}")
+    endforeach()
+endforeach()
 
 ################################################################################
 # Test sources
@@ -167,7 +221,10 @@ foreach(dir ${TEST_DIRS})
     endforeach()
 endforeach()
 
-add_library(TestObjects OBJECT ${TEST_SOURCES})
+add_library(test_objects OBJECT ${TEST_SOURCES})
+
+target_compile_options(test_objects PUBLIC ${COMPILER_FLAGS})
+target_compile_definitions(test_objects PUBLIC ${COMPILER_DEFINITIONS})
 
 ################################################################################
 # Google Test
@@ -190,60 +247,6 @@ link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib/yaml-cpp)
 list(APPEND ARCHIVES yaml-cpp)
 
 ################################################################################
-# dbglog
-################################################################################
-# cfgparser needs dbglog, but we don't
-set(DBGLOG_DIR ${PROJECT_SOURCE_DIR}/lib/dbglog)
-set(DBGLOG_DIST ${DBGLOG_DIR}/dist)
-set(DBGLOG_LIB ${DBGLOG_DIST}/lib/)
-
-add_custom_command(OUTPUT ${DBGLOG_DIR}/.dbglog
-        COMMAND ./configure CXX=${CMAKE_CXX_COMPILER} --prefix=${DBGLOG_DIST}
-        COMMAND make CXX=${CMAKE_CXX_COMPILER} -C ${DBGLOG_DIR} install
-        COMMAND touch ${DBGLOG_DIR}/.dbglog
-        WORKING_DIRECTORY ${DBGLOG_DIR})
-
-add_custom_target(.dbglog
-        DEPENDS ${DBGLOG_DIR}/.dbglog)
-
-add_custom_target(clean.dbglog
-        COMMAND rm ${DBGLOG_DIR}/.dbglog || true
-        COMMAND make -C ${DBGLOG_DIR} clean
-        COMMAND make -C ${DBGLOG_DIR} distclean
-        COMMAND rm -rf ${DBGLOG_DIST})
-
-link_directories(${DBGLOG_LIB})
-list(APPEND ARCHIVES dbglog)
-
-################################################################################
-# cfgparser
-################################################################################
-set(CFGPARSER_DIR ${PROJECT_SOURCE_DIR}/lib/cfgparser)
-set(CFGPARSER_LIB ${CFGPARSER_DIR}/dist/lib/)
-
-add_custom_command(OUTPUT ${CFGPARSER_DIR}/.cfgparser
-        COMMAND ./configure --prefix=${CFGPARSER_DIR}/dist --with-dbglog=${DBGLOG_DIST}
-        COMMAND make CXX=${CMAKE_CXX_COMPILER} -C ${CFGPARSER_DIR} install
-        COMMAND touch ${CFGPARSER_DIR}/.cfgparser
-        WORKING_DIRECTORY ${CFGPARSER_DIR})
-
-add_custom_target(.cfgparser
-        DEPENDS ${CFGPARSER_DIR}/.cfgparser)
-
-add_custom_target(clean.cfgparser
-        COMMAND rm ${CFGPARSER_DIR}/.cfgparser || true
-        COMMAND make CXX=${CMAKE_CXX_COMPILER} -C ${CFGPARSER_DIR} clean
-        COMMAND make CXX=${CMAKE_CXX_COMPILER} -C ${CFGPARSER_DIR} distclean
-        COMMAND rm -rf ${CFGPARSER_DIR}/dist)
-
-#dependencies with dbglog
-add_dependencies(.cfgparser .dbglog)
-add_dependencies(clean.cfgparser clean.dbglog)
-
-link_directories(${CFGPARSER_LIB})
-list(APPEND ARCHIVES cfgparser)
-
-################################################################################
 # LevelDB-MP
 ################################################################################
 set(LEVELDB_MP_SOURCE_DIR ${PROJECT_SOURCE_DIR}/lib/leveldb-mp)
@@ -255,7 +258,7 @@ link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib/leveldb-mp)
 link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib/leveldb-mp/libsocket/C++)
 
 list(APPEND ARCHIVES socket++)          #needed for leveldb-mp
-list(APPEND ARCHIVES leveldb_client)
+list(APPEND ARCHIVES leveldb_mp)
 
 ################################################################################
 # andersen
@@ -268,21 +271,36 @@ link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib/andersen/lib)
 list(APPEND ARCHIVES libAndersen.so)
 
 ################################################################################
+# inih
+################################################################################
+set(INIH_CPP_DIR ${PROJECT_SOURCE_DIR}/lib/inih)
+
+add_subdirectory(${INIH_CPP_DIR})
+
+link_directories(${CMAKE_CURRENT_BINARY_DIR}/lib/inih)
+list(APPEND ARCHIVES libinih.a)
+
+################################################################################
 # Valgrind
 ################################################################################
 set(VALGRIND "valgrind --leak-check=yes --suppressions=valgrind.supp")
 
 ################################################################################
-# libraries
+# Libraries
 ################################################################################
 set(SYSTEM_LIBS
         z3
+        cvc4
+        boolector
+        lgl
+        cln
         log4cpp
         profiler
         jsoncpp
         protobuf
         tinyxml2
         mathsat
+        stp
         gmpxx
         gmp
         uuid
@@ -314,49 +332,58 @@ set(CLANG_LIBS
         clangBasic)
 
 ################################################################################
-# executables
+# Executables
 ################################################################################
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 # wrapper
-add_executable(wrapper wrapper.cpp $<TARGET_OBJECTS:SourceObjects>)
+add_executable(wrapper wrapper.cpp $<TARGET_OBJECTS:source_objects>
+                                   $<TARGET_OBJECTS:protobuf_objects>
+                                   ${HEADERS})
 
 target_compile_options(wrapper PUBLIC ${COMPILER_FLAGS})
 target_compile_definitions(wrapper PUBLIC ${COMPILER_DEFINITIONS})
 
 add_dependencies(wrapper
+        inih
         yaml-cpp
-        .cfgparser
         Andersen)
 
 target_link_libraries(wrapper ${ARCHIVES})
 target_link_libraries(wrapper ${SYSTEM_LIBS} ${CLANG_LIBS} ${LLVM_AVAILABLE_LIBS})
 
-#ar_wrapper
-add_executable(ar_wrapper ar_wrapper.cpp  $<TARGET_OBJECTS:SourceObjects>)
+# ar_wrapper
+add_executable(ar_wrapper ar_wrapper.cpp $<TARGET_OBJECTS:source_objects>
+                                         $<TARGET_OBJECTS:protobuf_objects>
+                                         ${HEADERS})
 
 target_compile_options(ar_wrapper PUBLIC ${COMPILER_FLAGS})
 target_compile_definitions(ar_wrapper PUBLIC ${COMPILER_DEFINITIONS})
 
 add_dependencies(ar_wrapper
+        inih
         yaml-cpp
-        .cfgparser
         Andersen)
 
 target_link_libraries(ar_wrapper ${ARCHIVES})
 target_link_libraries(ar_wrapper ${SYSTEM_LIBS} ${CLANG_LIBS} ${LLVM_AVAILABLE_LIBS})
 
 ################################################################################
-# test executable
+# Test executable
 ################################################################################
 set(TEST_OUTPUT test_results.xml)
 set(TEST_EXE wrapper-tests)
 set(RUN_TEST_EXES ${PROJECT_SOURCE_DIR}/${TEST_EXE} --gtest_output="xml:${TEST_OUTPUT}" --gtest_color=yes)
 
-add_executable(${TEST_EXE} EXCLUDE_FROM_ALL $<TARGET_OBJECTS:SourceObjects> $<TARGET_OBJECTS:TestObjects>)
+add_executable(${TEST_EXE} EXCLUDE_FROM_ALL $<TARGET_OBJECTS:source_objects>
+                                            $<TARGET_OBJECTS:test_objects>
+                                            $<TARGET_OBJECTS:protobuf_objects>
+                                            ${HEADERS})
 add_dependencies(${TEST_EXE}
+        wrapper
+        ar_wrapper
+        inih
         yaml-cpp
-        .cfgparser
         Andersen
         gtest)
 
@@ -367,7 +394,7 @@ target_link_libraries(${TEST_EXE} ${ARCHIVES} ${TEST_ARCHIVES})
 target_link_libraries(${TEST_EXE} ${SYSTEM_LIBS} ${CLANG_LIBS} ${LLVM_AVAILABLE_LIBS})
 
 ################################################################################
-# regenerate tests.def files
+# Regenerate tests.def files
 ################################################################################
 
 execute_process(COMMAND find ${TEST_DIRS} -name "tests.def" -printf "%h;" OUTPUT_VARIABLE TEST_DEF_FILES)
@@ -376,22 +403,26 @@ foreach(def_file_dir ${TEST_DEF_FILES})
     file(GLOB_RECURSE SRC ${def_file_dir}/*.c)
     file(WRITE ${def_file_dir}/tests.def.all "")
     file(WRITE ${def_file_dir}/tests.def.long.all "")
+
     foreach(test_file ${SRC})
         get_filename_component(name ${test_file} NAME)
         file(APPEND ${def_file_dir}/tests.def.all "${name}\n")
     endforeach()
+
     file(READ ${def_file_dir}/tests.def.long FILECONTENT)
     if (NOT (FILECONTENT STREQUAL ""))
         string(REGEX REPLACE "#[ \t]*" "" CONTENT_WITHOUT_COMM ${FILECONTENT})
         file(APPEND ${def_file_dir}/tests.def.long.all ${CONTENT_WITHOUT_COMM})
     endif ()
+
     execute_process(COMMAND grep -v -x -f ${def_file_dir}/tests.def.long.all ${def_file_dir}/tests.def.all
             OUTPUT_VARIABLE RUNNING_TESTS)
+    list(SORT RUNNING_TESTS)
     file(WRITE ${def_file_dir}/tests.def ${RUNNING_TESTS})
 endforeach()
 
 ################################################################################
-# testing targets
+# Testing targets
 ################################################################################
 add_custom_target(.regenerate-test-defs
         COMMAND find ${TEST_DIRS} -name "*.tmp" -delete)
@@ -439,7 +470,7 @@ add_dependencies(check-all
         ${TEST_EXE})
 
 ################################################################################
-# custom clean target
+# Custom clean target
 ################################################################################
 add_custom_target(clean-all
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}

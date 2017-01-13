@@ -225,7 +225,9 @@ void ContractManager::printSummaries() const {
 }
 
 void ContractManager::syncWithDB() {
-    auto&& db = leveldb_daemon::DB::getInstance();
+    using namespace leveldb_mp::serializer;
+
+    auto&& db = leveldb_mp::DB::getInstance();
     for (auto&& it : contracts->data()) {
         auto&& F = it.first;
         auto&& contract = it.second;
@@ -247,12 +249,16 @@ void ContractManager::syncWithDB() {
 }
 
 ContractContainer::Ptr ContractManager::readFromDB() {
-    auto&& db = leveldb_daemon::DB::getInstance();
+    using namespace leveldb_mp::serializer;
+
+    auto&& db = leveldb_mp::DB::getInstance();
     return db->read<ContractContainer, FactoryNest>(PROTOBUF_FILE, FN);
 }
 
 void ContractManager::writeToDB() const {
-    auto&& db = leveldb_daemon::DB::getInstance();
+    using namespace leveldb_mp::serializer;
+
+    auto&& db = leveldb_mp::DB::getInstance();
     db->write(PROTOBUF_FILE, *contracts);
 }
 

@@ -5,6 +5,9 @@
  *      Author: belyaev
  */
 
+#include <thread>
+#include <future>
+
 #include <clang/AST/ASTConsumer.h>
 #include <clang/AST/ASTContext.h>
 #include <clang/Basic/Diagnostic.h>
@@ -65,6 +68,7 @@
 #include "Actions/GatherCommentsAction.h"
 #include "Config/config.h"
 #include "Codegen/DiagnosticLogger.h"
+#include "Database/Util.hpp"
 #include "Driver/cl.h"
 #include "Driver/clang_pipeline.h"
 #include "Driver/gestalt.h"
@@ -100,16 +104,19 @@ int gestalt::main(int argc, const char** argv) {
     CommandLine args(argc, argv);
     std::string configPath = "wrapper.conf";
     std::string defaultLogIni = "log.ini";
+    auto realConfigPath = util::getFilePathIfExists(configPath);
 
     AppConfiguration::initialize(
         new CommandLineConfigSource{ args.suffixes("---").stlRep() },
-        new FileConfigSource{ args.suffixes("---config:").single(util::getFilePathIfExists(configPath).c_str()) }
+        new FileConfigSource{ args.suffixes("---config:").single(realConfigPath.c_str()) }
     );
 
     CommandLine opt = CommandLine("wrapper") +
         args.suffixes("---opt:") +
         MultiConfigEntry("opt", "load").get();
     llvm::cl::ParseCommandLineOptions(opt.argc(), opt.argv());
+
+    borealis::startDatabaseDaemon();
 
     StringConfigEntry logFile("logging", "ini");
     StringConfigEntry z3log("logging", "z3log");
@@ -122,6 +129,8 @@ int gestalt::main(int argc, const char** argv) {
     for (const auto& op : z3log) {
         borealis::logging::configureZ3Log(util::getFilePathIfExists(op));
     }
+
+    infos() << "Using config at " << realConfigPath << endl;
 
     auto prePasses = MultiConfigEntry("passes", "pre").get();
     auto inPasses = MultiConfigEntry("passes", "in").get();
@@ -149,7 +158,13 @@ int gestalt::main(int argc, const char** argv) {
 
     auto compileCommands = nativeClang.getCompileCommands();
 
-    if (!skipClang) if (nativeClang.run() == interviewer::status::FAILURE) return E_CLANG_INVOKE;
+    std::future<int> clangRes;
+    if (!skipClang) {
+        clangRes = std::async(std::launch::async, [&nativeClang]{
+            if (nativeClang.run() == interviewer::status::FAILURE) return (int)E_CLANG_INVOKE;
+            return (int)OK;
+        });
+    }
 
     // prep for borealis business
     // compile sources to llvm::Module
@@ -230,6 +245,7 @@ int gestalt::main(int argc, const char** argv) {
         errs() << "Module errors detected: " << rso.str() << endl;
     }
 
+    if (!skipClang) return clangRes.get();
     return OK;
 }
 

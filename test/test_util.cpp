@@ -12,9 +12,13 @@
 
 #include <unordered_set>
 
+#include <debugbreak/debugbreak.h>
+
 #include "Util/iterators.hpp"
 #include "Util/util.h"
 #include "Util/hash.hpp"
+#include "Util/hamt.hpp"
+
 
 namespace {
 
@@ -377,6 +381,215 @@ TEST(Util, indexed_string) {
     }
 }
 
+struct hash_colliding {
+    size_t value;
+    hash_colliding(size_t value): value(value) {}
+
+    friend bool operator==(const hash_colliding& l, const hash_colliding& r) { return l.value == r.value; }
+    friend std::ostream& operator<< (std::ostream& ost, const hash_colliding& hc) {
+        return ost << "hc<" << hc.value << ">";
+    }
+};
+
+namespace std {
+
+template<>
+struct hash<hash_colliding> {
+    size_t operator()(const hash_colliding& hc) const noexcept {
+        return hc.value > 25? 42 : 23; // sic!
+    }
+};
+
+} /* namespace std */
+
+TEST(Util, hamt) {
+    {
+        hamt_set<size_t> s;
+
+        auto s0 = s.insert(2);
+        ASSERT_EQ(viewContainer(s0).toHashSet(), (std::unordered_set<size_t>{2}));
+        auto s1 = s0.insert(4);
+        ASSERT_EQ(viewContainer(s1).toHashSet(), (std::unordered_set<size_t>{2, 4}));
+        auto s2 = s1.insert(666);
+        ASSERT_EQ(viewContainer(s2).toHashSet(), (std::unordered_set<size_t>{2, 4, 666}));
+        auto s3 = s2.insert(20);
+        ASSERT_EQ(viewContainer(s3).toHashSet(), (std::unordered_set<size_t>{2, 4, 666, 20}));
+        auto s4 = s3.insert(2);
+        ASSERT_EQ(viewContainer(s4).toHashSet(), (std::unordered_set<size_t>{2, 4, 666, 20}));
+        auto s5 = s4.insert(4);
+        ASSERT_EQ(viewContainer(s5).toHashSet(), (std::unordered_set<size_t>{2, 4, 666, 20}));
+        auto s6 = s5.insert(13);
+        ASSERT_EQ(viewContainer(s6).toHashSet(), (std::unordered_set<size_t>{2, 4, 666, 20, 13}));
+        auto s7 = s6.insert(84);
+        ASSERT_EQ(viewContainer(s7).toHashSet(), (std::unordered_set<size_t>{2, 4, 666, 20, 13, 84}));
+        auto s8 = s7.erase(4);
+        ASSERT_EQ(viewContainer(s8).toHashSet(), (std::unordered_set<size_t>{2, 666, 20, 13, 84}));
+        auto s9 = s8.erase(18);
+        ASSERT_EQ(viewContainer(s9).toHashSet(), (std::unordered_set<size_t>{2, 666, 20, 13, 84}));
+        auto s10 = s9.erase(666);
+        ASSERT_EQ(viewContainer(s10).toHashSet(), (std::unordered_set<size_t>{2, 20, 13, 84}));
+        auto s11 = s10.insert(~size_t(0));
+        ASSERT_EQ(viewContainer(s11).toHashSet(), (std::unordered_set<size_t>{2, 20, 13, 84, ~size_t(0)}));
+
+        hamt_set<hash_colliding> hc;
+        auto hc2 = hc.insert(1).insert(2).insert(3).insert(4).insert(5).erase(3);
+        ASSERT_EQ(viewContainer(hc2).toHashSet(), (std::unordered_set<hash_colliding>{1, 2, 4, 5}));
+
+    }
+}
+
+#include "Util/macros.h"
+
+TEST(Util, hamt_complex) {
+    {
+        hamt_set<size_t> s;
+
+        for(auto&& e : range(1, 50000)) {
+            s = s.insert(e);
+        }
+        for(auto&& e : range(1, 50000)) {
+            ASSERT_TRUE(s.count(e));
+        }
+        ASSERT_EQ(viewContainer(s).toHashSet(), range(size_t(1), size_t(50000)).toHashSet());
+    }
+
+    {
+        hamt_set<hash_colliding> s;
+
+        for(auto&& e : range(1, 50)) {
+            s = s.insert(e);
+        }
+
+        for(auto&& e : range(1, 50)) {
+            ASSERT_TRUE(s.count(e));
+        }
+
+        auto actual = viewContainer(s).map(LAM(hc, hc.value)).toHashSet();
+        ASSERT_EQ(actual, range(size_t(1), size_t(50)).toHashSet());
+    }
+
+    {
+        hamt_set<size_t> s;
+
+        for(auto&& e : range(1, 50000)) {
+            s = s.insert(e);
+        }
+        for(auto&& e : range(1, 20000)) {
+            s = s.erase(e);
+        }
+        for(auto&& e : range(50000, 150000)) {
+            s = s.erase(e);
+        }
+        for(auto&& e : range(20000, 50000)) {
+            ASSERT_TRUE(s.count(e));
+        }
+
+        ASSERT_EQ(viewContainer(s).toHashSet(), range(size_t(20000), size_t(50000)).toHashSet());
+    }
+
+    {
+        hamt_set<hash_colliding> s;
+
+        for(auto&& e : range(1, 50)) {
+            s = s.insert(e);
+        }
+        for(auto&& e : range(1, 20)) {
+            s = s.erase(e);
+        }
+        for(auto&& e : range(50, 150)) {
+            s = s.erase(e);
+        }
+        for(auto&& e : range(size_t(20), size_t(50))) {
+            ASSERT_TRUE(s.count(e));
+        }
+
+        auto actual = viewContainer(s).map(LAM(hc, hc.value)).toHashSet();
+        ASSERT_EQ(actual, range(size_t(20), size_t(50)).toHashSet());
+    }
+
+    {
+        hamt_set<size_t> s;
+
+        for(auto&& e : range(1, 50000)) {
+            s = s.insert(e);
+        }
+
+        auto s1 = s;
+        auto s2 = s;
+
+        for(auto&& e : range(1, 15000)) {
+            s1 = s1.erase(e);
+        }
+
+        for(auto&& e : range(50000, 60000)) {
+            s2 = s2.insert(e);
+        }
+
+        s = unite(s1, s2);
+
+        for(auto&& e : range(size_t(1), size_t(60000))) {
+            ASSERT_TRUE(s.count(e));
+        }
+
+        ASSERT_EQ(viewContainer(s).toHashSet(), range(size_t(1), size_t(60000)).toHashSet());
+    }
+
+    {
+        hamt_set<hash_colliding> s;
+
+        for(auto&& e : range(1, 50)) {
+            s = s.insert(e);
+        }
+
+        auto s1 = s;
+        auto s2 = s;
+
+        for(auto&& e : range(1, 15)) {
+            s1 = s1.erase(e);
+        }
+        for(auto&& e : range(50, 60)) {
+            s2 = s2.insert(e);
+        }
+
+        s = unite(s1, s2);
+
+        for(auto&& e : range(size_t(1), size_t(60))) {
+            ASSERT_TRUE(s.count(e));
+        }
+
+        auto actual = viewContainer(s).map(LAM(hc, hc.value)).toHashSet();
+        ASSERT_EQ(actual, range(size_t(1), size_t(60)).toHashSet());
+    }
+
+    {
+        hamt_set<hash_colliding> s;
+
+        for(auto&& e : range(15, 35)) {
+            s = s.insert(e);
+        }
+
+        auto s1 = s;
+        auto s2 = s;
+
+        for(auto&& e : range(1, 12)) {
+            s1 = s1.insert(e);
+        }
+        for(auto&& e : range(11, 15)) {
+            s2 = s2.insert(e);
+        }
+
+        s = unite(s1, s2);
+
+        for(auto&& e : range(size_t(1), size_t(35))) {
+            ASSERT_TRUE(s.count(e));
+        }
+
+        auto actual = viewContainer(s).map(LAM(hc, hc.value)).toHashSet();
+        ASSERT_EQ(actual, range(size_t(1), size_t(35)).toHashSet());
+    }
+}
+
+#include "Util/unmacros.h"
 #include "Util/generate_unmacros.h"
 
 

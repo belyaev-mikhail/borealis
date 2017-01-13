@@ -104,7 +104,7 @@ public:
 protected:
 
     Type::Ptr type;
-    std::string name;
+    util::indexed_string name;
 
     Subterms subterms;
 
@@ -119,8 +119,15 @@ struct TermHash {
     }
 };
 
+struct TermShallowHash {
+    size_t operator()(Term::Ptr trm) const noexcept {
+        return std::hash<const void*>{}(trm.get());
+    }
+};
+
 struct TermEquals {
     bool operator()(Term::Ptr lhv, Term::Ptr rhv) const noexcept {
+        if(!lhv) return !rhv;
         return lhv->equals(rhv.get());
     }
 };
@@ -143,6 +150,19 @@ struct hash<borealis::Term::Ptr> {
 template<>
 struct hash<const borealis::Term::Ptr> : hash<borealis::Term::Ptr> {};
 } // namespace std
+
+namespace functional_hell {
+namespace matchers {
+
+template<>
+struct compare_trait<borealis::Term::Ptr> {
+    bool operator()(const borealis::Term::Ptr& lhv, const borealis::Term::Ptr& rhv) const {
+        return lhv->equals(rhv.get());
+    }
+};
+
+} /* namespace matchers */
+} /* namespace functional_hell */
 
 #define MK_COMMON_TERM_IMPL(CLASS) \
 private: \

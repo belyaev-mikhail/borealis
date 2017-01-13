@@ -13,6 +13,8 @@
 #include "Util/json.hpp"
 #include "Util/hash.hpp"
 
+#include "Util/generate_macros.h"
+
 namespace borealis {
 namespace util {
 
@@ -20,7 +22,7 @@ namespace impl_ {
 
 struct string_cache {
     std::vector<std::string> fwd;
-    std::unordered_map<string_ref, size_t> bwd;
+    std::unordered_map<std::string, size_t> bwd;
 
     size_t operator[](string_ref key) {
         auto it = bwd.find(key);
@@ -86,6 +88,8 @@ public:
         return a.id < b.id;
     }
 
+    GENERATE_AUX_COMPARISONS(indexed_string);
+
     friend std::ostream& operator<<(std::ostream& ost, indexed_string str) {
         return ost << str.str();
     }
@@ -95,12 +99,12 @@ template<>
 struct json_traits<indexed_string> {
     using optional_ptr_t = std::unique_ptr<indexed_string>;
 
-    static Json::Value toJson(const indexed_string& val) {
-        Json::Value ret = Json::StaticString(val.c_str());
+    static json::Value toJson(const indexed_string& val) {
+        json::Value ret{ json::Value::StaticString, val.c_str(), val.size() };
         return ret;
     }
 
-    static optional_ptr_t fromJson(const Json::Value& val) {
+    static optional_ptr_t fromJson(const json::Value& val) {
         if(!val.isString()) return nullptr;
         return std::make_unique<indexed_string>(val.asCString());
     }
@@ -119,5 +123,7 @@ struct hash<borealis::util::indexed_string> {
 };
 
 } /* namespace std */
+
+#include "Util/generate_unmacros.h"
 
 #endif //INDEXED_STRING_HPP

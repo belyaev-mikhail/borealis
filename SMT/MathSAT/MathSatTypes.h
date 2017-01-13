@@ -8,7 +8,7 @@
 #ifndef BOREALIS_MATHSATTYPES_H_
 #define BOREALIS_MATHSATTYPES_H_
 
-#include "SMT/SMT.hpp"
+// #include "SMT/SMT.hpp"
 #include "SMT/MathSAT/Logic.hpp"
 
 namespace borealis {
@@ -20,6 +20,8 @@ class Solver;
 }
 
 struct MathSAT {
+    using Engine = MathSATEngine;
+
     using ExprFactory = mathsat_::ExprFactory;
     using ExecutionContext = mathsat_::ExecutionContext;
     using Solver = mathsat_::Solver;
@@ -31,20 +33,18 @@ struct MathSAT {
     // logic type to represent memory units
     using Byte = mathsat_::logic::BitVector<64>;
     // logic type to represent integers
-    using Integer = mathsat_::logic::DynBitVectorExpr;
+    using Integer = mathsat_::logic::AnyBitVector;
     // logic type to represent reals
     using Real = mathsat_::logic::BitVector<64>;
     // bit vector
     template<size_t N>
     using BV = mathsat_::logic::BitVector<N>;
     // dynamic bit vector
-    using DynBV = mathsat_::logic::DynBitVectorExpr;
-    // regular comparable type
-    using Comparable = mathsat_::logic::ComparableExpr;
+    using DynBV = mathsat_::logic::AnyBitVector;
     // unsigned comparable type
-    using UComparable = mathsat_::logic::UComparableExpr;
+    using UComparable = mathsat_::logic::AnyBitVector;
     // dynamic logic type
-    using Dynamic = mathsat_::logic::SomeExpr;
+    using Dynamic = mathsat_::logic::ValueExpr;
 
     using add_no_overflow = mathsat_::logic::add_no_overflow;
 

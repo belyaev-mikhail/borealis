@@ -8,13 +8,22 @@
 #ifndef CHECKVISITOR_HPP_
 #define CHECKVISITOR_HPP_
 
+
 #include "Logging/logger.hpp"
 #include "Passes/Defect/DefectManager/DefectInfo.h"
 #include "SMT/MathSAT/Solver.h"
 #include "SMT/Z3/Solver.h"
+#include "SMT/Boolector/Solver.h"
+#include "SMT/STP/Solver.h"
+#include "SMT/CVC4/Solver.h"
+#include "SMT/Portfolio/Solver.h"
+#include "State/Transformer/GraphBuilder.h"
+#include "State/Transformer/MemorySpacer.h"
 #include "State/Transformer/StateSlicer.h"
 #include "State/Transformer/TermSizeCalculator.h"
-#include "State/Transformer/UnusedVariablesDeleter.h"
+
+
+#include "Util/macros.h"
 
 namespace borealis {
 
@@ -30,7 +39,7 @@ public:
     using explicit_result = smt::Result;
 
     CheckHelper(Pass* pass, llvm::Instruction* I, DefectType defectType) :
-            pass(pass), I(I), defectType(defectType) {};
+        pass(pass), I(I), defectType(defectType) {};
 
     bool skip() {
         return skip(pass->DM->getDefect(defectType, I));
@@ -41,11 +50,77 @@ public:
         return false;
     }
 
+private:
+    static smt::Result checkViolationZ3(
+        std::pair<size_t, size_t> memoryBounds,
+        PredicateState::Ptr query,
+        PredicateState::Ptr state) {
+        Z3::ExprFactory ef;
+        Z3::Solver s(ef, memoryBounds.first, memoryBounds.second);
+        return s.isViolated(query, state);
+    }
+    static smt::Result checkViolationBoolector(
+        std::pair<size_t, size_t> memoryBounds,
+        PredicateState::Ptr query,
+        PredicateState::Ptr state) {
+        Boolector::ExprFactory ef;
+        Boolector::Solver s(ef, memoryBounds.first, memoryBounds.second);
+        return s.isViolated(query, state);
+    }
+    static smt::Result checkViolationSTP(
+        std::pair<size_t, size_t> memoryBounds,
+        PredicateState::Ptr query,
+        PredicateState::Ptr state) {
+        STP::ExprFactory ef;
+        STP::Solver s(ef, memoryBounds.first, memoryBounds.second);
+        return s.isViolated(query, state);
+    }
+    static smt::Result checkViolationCVC4(
+        std::pair<size_t, size_t> memoryBounds,
+        PredicateState::Ptr query,
+        PredicateState::Ptr state) {
+        CVC4::ExprFactory ef;
+        CVC4::Solver s(ef, memoryBounds.first, memoryBounds.second);
+        return s.isViolated(query, state);
+    }
+    static smt::Result checkViolationMathSAT(
+        std::pair<size_t, size_t> memoryBounds,
+        PredicateState::Ptr query,
+        PredicateState::Ptr state) {
+        MathSAT::ExprFactory ef;
+        MathSAT::Solver s(ef, memoryBounds.first, memoryBounds.second);
+        return s.isViolated(query, state);
+    }
+    static smt::Result checkViolationPortfolio(
+        std::pair<size_t, size_t> memoryBounds,
+        PredicateState::Ptr query,
+        PredicateState::Ptr state) {
+        portfolio_::Solver s(memoryBounds.first, memoryBounds.second);
+        return s.isViolated(query, state);
+    }
+    static smt::Result checkViolation(
+        std::pair<size_t, size_t> memoryBounds,
+        PredicateState::Ptr query,
+        PredicateState::Ptr state) {
+        static config::StringConfigEntry engine{ "analysis", "smt-engine" };
+        auto engineName = engine.get("z3");
+        if(engineName == "mathsat") return checkViolationMathSAT(memoryBounds, query, state);
+        if(engineName == "z3") return checkViolationZ3(memoryBounds, query, state);
+        if(engineName == "cvc4") return checkViolationCVC4(memoryBounds, query, state);
+        if(engineName == "boolector") return checkViolationBoolector(memoryBounds, query, state);
+        if(engineName == "stp") return checkViolationSTP(memoryBounds, query, state);
+        if(engineName == "portfolio") return checkViolationPortfolio(memoryBounds, query, state);
+        UNREACHABLE(tfm::format("Unknown solver specified: %s", engineName));
+    }
+public:
+
     bool check(PredicateState::Ptr query, PredicateState::Ptr state) {
         return check(query, state, pass->DM->getDefect(defectType, I));
     }
     bool check(PredicateState::Ptr query, PredicateState::Ptr state, const DefectInfo& di) {
         TRACE_FUNC;
+
+        auto&& FN = pass->FN;
 
         static config::BoolConfigEntry logQueries("output", "smt-query-logging");
         bool noQueryLogging = not logQueries.get(false);
@@ -53,43 +128,47 @@ public:
         dbgs() << "Query size:" << TermSizeCalculator::measure(query) << endl;
         dbgs() << "State size:" << TermSizeCalculator::measure(state) << endl;
 
-        if (not query or not state) return false;
-        if (query->isEmpty()) return false;
-        if (state->isEmpty()) return true;
-
         dbgs() << "Defect: " << di << endl;
         dbgs() << "Checking: " << *I << endl;
         if(!noQueryLogging) dbgs() << "  Query: " << query << endl;
 
-        dbgs() << "Slicing started" << endl;
+        if (not query or not state) return false;
+        if (query->isEmpty()) return false;
+        if (state->isEmpty()) return true;
+
         static config::BoolConfigEntry useLocalAA("analysis", "use-local-aa");
-        auto&& sliced1 = StateSlicer(pass->FN, query, useLocalAA.get(false)? nullptr : pass->AA).transform(state);
-        auto&& sliced = UnusedVariablesDeleter(pass->FN, query).transform(sliced1);
-        //auto&& sliced = state;
-        dbgs() << "Slicing finished" << endl;
-
-        dbgs() << "State size after slicing:" << TermSizeCalculator::measure(sliced) << endl;
-
-        if (state == sliced) {
-            dbgs() << "Slicing failed" << endl;
+        static config::BoolConfigEntry doSlicing("analysis", "do-slicing");
+        if(doSlicing.get(true)) {
+            dbgs() << "Slicing started" << endl;
+            auto sliced = StateSlicer(FN, query, useLocalAA.get(false)? nullptr : pass->AA).transform(state);
+            dbgs() << "Slicing finished" << endl;
+            dbgs() << "State size after slicing:" << TermSizeCalculator::measure(sliced) << endl;
+            if (state == sliced) {
+                dbgs() << "Slicing failed" << endl;
+            } else {
+                if(!noQueryLogging) dbgs() << "Sliced: " << state << endl << "to: " << sliced << endl;
+            }
+            state = sliced;
         } else {
-            if(!noQueryLogging) dbgs() << "Sliced: " << state << endl << "to: " << sliced << endl;
+            dbgs() << "Slicing disabled" << endl;
         }
 
-        if(!noQueryLogging) dbgs() << "  State: " << sliced << endl;
+        static config::BoolConfigEntry memSpacing("analysis", "memory-spaces");
+        if(memSpacing.get(false)) {
+            dbgs() << "Memspacing started" << endl;
+            MemorySpacer msp(FN, FN.State->Chain(state, query));
+            state = msp.transform(state);
+            query = msp.transform(query);
+            dbgs() << "Memspacing finished" << endl;
+        } else {
+            dbgs() << "Memspacing disabled" << endl;
+        }
+
+        if(!noQueryLogging) dbgs() << "  State: " << state << endl;
 
         auto&& fMemInfo = pass->FM->getMemoryBounds(I->getParent()->getParent());
 
-#if defined USE_MATHSAT_SOLVER
-        MathSAT::ExprFactory ef;
-        MathSAT::Solver s(ef, fMemInfo.first, fMemInfo.second);
-#else
-        //auto&& ef = util::threadLocalInstance<Z3::ExprFactory>();
-        Z3::ExprFactory ef;
-        Z3::Solver s(ef, fMemInfo.first, fMemInfo.second);
-#endif
-
-        auto solverResult = s.isViolated(query, sliced);
+        auto solverResult = checkViolation(fMemInfo, query, state);
         if (auto satRes = solverResult.getSatPtr()) {
             pass->DM->addDefect(di);
             pass->DM->getAdditionalInfo(di).satModel = util::just(*satRes);
@@ -100,6 +179,14 @@ public:
         } else {
             pass->DM->addNoDefect(di);
             dbgs() << "Defect falsified: " << di << endl;
+            if(solverResult.isUnknown()) dbgs() << "{Unknown}" << endl;
+            else dbgs() << "{Unsat}" << endl;
+
+            //if(solverResult.isUnknown()) {
+            //    auto graph = buildGraphRep(state);
+            //    llvm::ViewGraph(&graph, "Unknown state");
+            //}
+
             return false;
         }
     }
@@ -149,5 +236,7 @@ public:
 };
 
 } // namespace borealis
+
+#include "Util/unmacros.h"
 
 #endif /* CHECKVISITOR_HPP_ */

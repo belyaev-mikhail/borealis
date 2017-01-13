@@ -14,7 +14,7 @@ FreeVarTerm::FreeVarTerm(Type::Ptr type, const std::string& vname) :
         class_tag(*this),
         type,
         vname
-    ), vname(vname), global(global) {};
+    ), vname(vname), global(false) {};
 
 Term* FreeVarTerm::update() {
     name = "(" + getVName() + ")";

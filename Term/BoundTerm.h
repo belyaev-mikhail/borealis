@@ -60,12 +60,15 @@ struct SMTImpl<Impl, BoundTerm> {
         USING_SMT_IMPL(Impl);
 
         ASSERTC(ctx != nullptr);
+        size_t memspace = 0;
+        if(auto&& ptr = llvm::dyn_cast<type::Pointer>(t->getRhv()->getType())) {
+            memspace = ptr->getMemspace();
+        }
 
-        auto&& r = SMT<Impl>::doit(t->getRhv(), ef, ctx).template to<Pointer>();
-        ASSERT(not r.empty(), "Bound read with non-pointer right side");
-        auto&& rp = r.getUnsafe();
+        Pointer rp = SMT<Impl>::doit(t->getRhv(), ef, ctx);
+        ASSERT(rp, "Bound read with non-pointer right side");
 
-        return ctx->getBound(rp, ExprFactory::sizeForType(t->getType()));
+        return ctx->getBound(rp, ExprFactory::sizeForType(t->getType()), memspace);
     }
 };
 #include "Util/unmacros.h"
