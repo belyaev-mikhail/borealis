@@ -17,11 +17,8 @@
 #include "State/Transformer/AggregateTransformer.h"
 #include "State/Transformer/CallSiteInitializer.h"
 #include "State/Transformer/MemoryContextSplitter.h"
-#include "State/Transformer/Retyper.h"
-#include "State/Transformer/StateOptimizer.h"
 #include "State/Transformer/TermSizeCalculator.h"
 #include "State/Transformer/GraphBuilder.h"
-#include "Util/graph.h"
 #include "Util/util.h"
 
 #include "Util/macros.h"
@@ -29,11 +26,14 @@
 namespace borealis {
 
 OneForAll::OneForAll() :
-        ProxyFunctionPass(ID),
-        NULLPTRIFY3(DT, FM, SLT) {}
+    ProxyFunctionPass(ID),
+    SO{FN}, RR{FN},
+    NULLPTRIFY3(DT, FM, SLT) {}
+
 OneForAll::OneForAll(llvm::Pass* pass) :
-        ProxyFunctionPass(ID, pass),
-        NULLPTRIFY3(DT, FM, SLT) {}
+    ProxyFunctionPass(ID, pass),
+    SO{FN}, RR{FN},
+    NULLPTRIFY3(DT, FM, SLT) {}
 
 void OneForAll::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
@@ -51,11 +51,14 @@ void OneForAll::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 bool OneForAll::runOnFunction(llvm::Function& F) {
     init();
 
-    DT = &GetAnalysis< llvm::DominatorTreeWrapperPass >::doit(this, F).getDomTree();
-    FM = &GetAnalysis< FunctionManager >::doit(this, F);
-    SLT = &GetAnalysis< SourceLocationTracker >::doit(this, F);
+    DT = &GetAnalysis<llvm::DominatorTreeWrapperPass>::doit(this, F).getDomTree();
+    FM = &GetAnalysis<FunctionManager>::doit(this, F);
+    SLT = &GetAnalysis<SourceLocationTracker>::doit(this, F);
 
-    FN = FactoryNest(F.getDataLayout(), GetAnalysis< SlotTrackerPass >::doit(this, F).getSlotTracker(F));
+    FN = FactoryNest(F.getDataLayout(), GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(F));
+
+    SO = StateOptimizer{FN};
+    RR = Retyper{FN};
 
 #define HANDLE_ANALYSIS(CLASS) \
     PA.push_back(static_cast<AbstractPredicateAnalysis*>(&GetAnalysis<CLASS>::doit(this, F)));
@@ -101,11 +104,7 @@ bool OneForAll::runOnFunction(llvm::Function& F) {
     }
     dbgs() << "End of topological sorting for: " << F.getName() << endl;
 
-    for (auto* BB : ordered.getUnsafe()) {
-        processBasicBlock(BB);
-    }
-
-    finalize();
+    TO = ordered.getUnsafe();
 
     return false;
 }
@@ -120,37 +119,22 @@ void OneForAll::init() {
 
 void OneForAll::finalize() {
     AbstractPredicateStateAnalysis::finalize();
-
-    if (PredicateStateAnalysis::OptimizeStates()) {
-
-        dbgs() << "Optimizer started" << endl;
-        StateOptimizer so{FN};
-
-        initialState = so.transform(initialState);
-        for (auto&& v : util::viewContainerValues(instructionStates)) {
-            v = so.transform(v);
-        }
-        dbgs() << "Optimizer finished" << endl;
-    }
-
-    Retyper retyper{FN};
-
-    initialState = retyper.transform(initialState);
-    for (auto&& v : util::viewContainerValues(instructionStates)) {
-        v = retyper.transform(v);
-    }
 }
 
-void OneForAll::processBasicBlock(llvm::BasicBlock* BB) {
+void OneForAll::processBasicBlock(const llvm::BasicBlock* BB) {
     using namespace llvm;
     using borealis::util::viewContainer;
+
+    static config::BoolConfigEntry assumeDefectsTriggerOnceSetting("analysis", "assume-defects-trigger-once");
+    bool assumeDefectsTriggerOnce = assumeDefectsTriggerOnceSetting.get(false);
 
     auto&& inState = BBM(BB);
 
     auto&& fMemInfo = FM->getMemoryBounds(BB->getParent());
 
     if (nullptr == inState) return;
-    if (PredicateStateAnalysis::CheckUnreachable() and inState->isUnreachableIn(fMemInfo.first, fMemInfo.second)) return;
+    if (PredicateStateAnalysis::CheckUnreachable() and inState->isUnreachableIn(fMemInfo.first, fMemInfo.second))
+        return;
 
     for (auto&& I : viewContainer(*BB)) {
 
@@ -167,7 +151,7 @@ void OneForAll::processBasicBlock(llvm::BasicBlock* BB) {
                 FM->getEns(CI, FN)
             ).apply();
             auto&& instantiatedCallState =
-                    CallSiteInitializer(&CI, FN).transform(callState);
+                CallSiteInitializer(&CI, FN).transform(callState);
 
             instructionState = (
                 FN.State *
@@ -176,10 +160,29 @@ void OneForAll::processBasicBlock(llvm::BasicBlock* BB) {
             ).apply();
         }
 
-        inState = instructionState;
+        if (assumeDefectsTriggerOnce) {
+            inState = (FN.State * instructionState + PostPM(&I)).apply();
+        } else {
+            inState = instructionState;
+        }
+
     }
 
     basicBlockStates[BB] = inState;
+}
+
+void OneForAll::finalizeBasicBlock(const llvm::BasicBlock* BB) {
+    if (PredicateStateAnalysis::OptimizeStates()) {
+        dbgs() << "Optimizer started" << endl;
+        for (auto&& I : *BB) {
+            instructionStates[&I] = SO.transform(instructionStates[&I]);
+        }
+        dbgs() << "Optimizer finished" << endl;
+    }
+
+    for (auto&& I : *BB) {
+        instructionStates[&I] = RR.transform(instructionStates[&I]);
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -210,17 +213,17 @@ std::vector<PredicateState::Ptr> optimizeChoices(
     PredicateStateFactory::Ptr PSF
 ) {
     auto&& has_empty = util::viewContainer(choices)
-                       .any_of(LAM(c, c->isEmpty()));
+        .any_of(LAM(c, c->isEmpty()));
 
     auto&& non_empty = util::viewContainer(choices)
-                       .filter(LAM(c, not c->isEmpty()))
-                       .toVector();
+        .filter(LAM(c, not c->isEmpty()))
+        .toVector();
 
     if (non_empty.size() < 2) return choices;
 
     auto&& frontGroups = util::viewContainer(non_empty)
-                        .map([](auto&& c) { return std::make_pair(getFront(c), c); })
-                        .toHashMultiMap();
+        .map([](auto&& c) {return std::make_pair(getFront(c), c);})
+        .toHashMultiMap();
 
     std::unordered_map<PredicateState::Ptr, std::vector<PredicateState::Ptr>> results;
 
@@ -269,14 +272,14 @@ std::vector<PredicateState::Ptr> optimizeChoices(
     return result;
 }
 
-PredicateState::Ptr OneForAll::BBM(llvm::BasicBlock* BB) {
+PredicateState::Ptr OneForAll::BBM(const llvm::BasicBlock* BB) {
     using namespace llvm;
     using borealis::util::containsKey;
     using borealis::util::view;
 
     TRACE_UP("psa::bbm", valueSummary(BB));
 
-    const auto* idom = (*DT)[BB]->getIDom();
+    const auto* idom = (*DT)[const_cast<llvm::BasicBlock*>(BB)]->getIDom();
     // Function entry block does not have an idom
     if (not idom) return initialState;
 
@@ -347,6 +350,21 @@ PredicateState::Ptr OneForAll::PM(const llvm::Instruction* I) {
     return res << SLT->getLocFor(I);
 }
 
+PredicateState::Ptr OneForAll::PostPM(const llvm::Instruction* I) {
+    using borealis::util::containsKey;
+
+    auto&& res = FN.State->Basic();
+
+    for (auto* APA : PA) {
+        auto&& map = APA->getPostPredicateMap();
+        if (containsKey(map, I)) {
+            res = res + map.at(I);
+        }
+    }
+
+    return res << SLT->getLocFor(I);
+}
+
 PredicateState::Ptr OneForAll::PPM(const PhiBranch& key) {
     using borealis::util::containsKey;
 
@@ -375,6 +393,50 @@ PredicateState::Ptr OneForAll::TPM(const TerminatorBranch& key) {
     }
 
     return res << SLT->getLocFor(key.first);
+}
+
+PredicateState::Ptr OneForAll::getInstructionState(const llvm::Instruction* I) {
+    if (not util::containsKey(instructionStates, I)) {
+
+        // FIXME: Make it lazy and rebuild only when needed
+        DT = &GetAnalysis<llvm::DominatorTreeWrapperPass>::doit(
+            this,
+            const_cast<llvm::Function&>(*I->getParent()->getParent())
+        ).getDomTree();
+
+        std::unordered_set<const llvm::BasicBlock*> active;
+
+        std::queue<const llvm::BasicBlock*> working;
+        working.push(I->getParent());
+
+        while (not working.empty()) {
+            auto&& curr = working.front();
+
+            if (not util::contains(active, curr)) {
+
+                dbgs() << "Processing BB: " << llvm::valueSummary(curr) << endl;
+
+                active.insert(curr);
+
+                for (auto&& predBB : util::view(pred_begin(curr), pred_end(curr))) {
+                    if (not util::containsKey(instructionStates, predBB->getTerminator())) {
+                        working.push(predBB);
+                    }
+                }
+            }
+
+            working.pop();
+        }
+
+        for (auto&& BB : TO) {
+            if (util::contains(active, BB)) {
+                processBasicBlock(BB);
+                finalizeBasicBlock(BB);
+            }
+        }
+    }
+
+    return instructionStates[I];
 }
 
 ////////////////////////////////////////////////////////////////////////////////

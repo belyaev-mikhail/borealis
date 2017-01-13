@@ -15,6 +15,7 @@
 #include "State/Transformer/FunctionSummariesTransformer.h"
 #include "State/Transformer/ReplaceTermTransformer.h"
 #include "State/Transformer/StateRipper.h"
+#include "State/Transformer/StateSlicer.h"
 #include "State/Transformer/TerTermToPathPredTransf.h"
 #include "State/Transformer/UnexpPathPrDeleter.h"
 #include "State/Transformer/UnusedGlobalsDeleter.h"

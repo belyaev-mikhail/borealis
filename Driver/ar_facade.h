@@ -99,7 +99,7 @@ public:
 
         //clang.assignLogger(*this);
 
-        CommandLine pseudoLinker = CommandLine("ar");
+        CommandLine pseudoLinker = CommandLine();
         pseudoLinker = pseudoLinker.push_back("-o").push_back(output) + CommandLine(inputs);
 
         infos() << pseudoLinker << endl;

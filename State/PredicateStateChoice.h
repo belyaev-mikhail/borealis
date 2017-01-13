@@ -91,7 +91,7 @@ struct SMTImpl<Impl, PredicateStateChoice> {
         for (auto&& choice : s->getChoices()) {
             ExecutionContext choiceCtx(*ctx);
 
-            auto&& path = choice->filterByTypes({PredicateType::PATH});
+            auto&& path = choice->filterByTypes({PredicateType::PATH})->simplify();
             auto&& z3state = SMT<Impl>::doit(choice, ef, &choiceCtx, pathMode);
 
             res = res || z3state;
@@ -107,6 +107,21 @@ struct SMTImpl<Impl, PredicateStateChoice> {
         return res;
     }
 };
+
+struct PredicateStateChoiceExtractor {
+
+    auto unapply(PredicateState::Ptr t) const -> functional_hell::matchers::storage_t<decltype(std::declval<PredicateStateChoice>().getChoices())> {
+        if (auto&& tt = llvm::dyn_cast<PredicateStateChoice>(t)) {
+            return functional_hell::matchers::make_storage(tt->getChoices());
+        } else {
+            return {};
+        }
+    }
+
+};
+
+static auto $PredicateStateChoice = functional_hell::matchers::make_pattern(PredicateStateChoiceExtractor());
+
 
 } /* namespace borealis */
 

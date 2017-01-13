@@ -244,9 +244,9 @@ TEST(MathSAT, logic) {
     Env env = Env(conf);
 
     auto check_expr = [&](Bool e)->bool {
-        Solver solver(msatimpl::getEnvironment(e));
-        solver.add(msatimpl::getAxiom(e));
-        solver.add(!msatimpl::getExpr(e));
+        Solver solver(e.getCtx());
+        solver.add(e.getAxiom());
+        solver.add(not e.getExpr());
         return solver.check() == MSAT_UNSAT;
     };
 
@@ -297,9 +297,9 @@ TEST(MathSAT, memoryArray) {
                 [&](int val) {return Byte::mkConst(factory.unwrap(), val);};
 
         auto check_expr = [&](Bool e)->bool {
-            borealis::mathsat::Solver solver(msatimpl::getEnvironment(e));
-            solver.add(msatimpl::getAxiom(e));
-            solver.add(!msatimpl::getExpr(e));
+            borealis::mathsat::Solver solver(factory.unwrap());
+            solver.add(e.getAxiom());
+            solver.add((not e).getExpr());
             return solver.check() == MSAT_UNSAT;
         };
 
@@ -336,8 +336,8 @@ TEST(MathSAT, mergeMemory) {
         Bool cond_a = cond == a;
         Bool cond_b = cond == b;
 
-        memory_with_a.writeExprToMemory(ptr, a);
-        memory_with_b.writeExprToMemory(ptr, b);
+        memory_with_a.writeExprToMemory(ptr, a, 0);
+        memory_with_b.writeExprToMemory(ptr, b, 0);
 
         ExecutionContext merged = ExecutionContext::mergeMemory(
                 "merged",
@@ -347,7 +347,7 @@ TEST(MathSAT, mergeMemory) {
                     { cond_b, memory_with_b }
                 }
         );
-        Integer c = merged.readExprFromMemory<Byte>(ptr);
+        Integer c = merged.readExprFromMemory<Byte>(ptr, 0);
 
         auto check_expr_in = [&](Bool e, Bool in)->bool {
 
@@ -358,15 +358,15 @@ TEST(MathSAT, mergeMemory) {
 
             borealis::mathsat::Solver s(factory.unwrap());
 
-            s.add(msatimpl::asAxiom(in));
+            s.add(in.asAxiom());
 
             Bool pred = factory.getBoolVar("$CHECK$");
-            s.add(msatimpl::asAxiom(implies(pred, !e)));
+            s.add(pred.implies(not e).asAxiom());
 
             infos() << "$CHECK$:" << endl
-                    << implies(pred, !e) << endl;
+                    << pred.implies(not e) << endl;
 
-            borealis::mathsat::Expr pred_e = msatimpl::getExpr(pred);
+            borealis::mathsat::Expr pred_e = pred.getExpr();
             msat_result r = s.check( {pred_e});
 
             if (r == MSAT_SAT) {
@@ -406,14 +406,14 @@ TEST(MathSAT, Unlogic) {
 
     auto check_undo = [&](Expr e)->bool {
         ExecutionContext ctx(factory, (1 << 16) + 1, (2 << 16) + 1);
-        Dynamic dynE(e);
+        Dynamic dynE(factory.unwrap(), e);
         auto undoed = unlogic::undoThat(dynE);
         auto redoed = borealis::SMT<borealis::MathSAT>::doit(undoed, factory, &ctx);
         auto b = (dynE == Dynamic(redoed));
 
-        borealis::mathsat::Solver solver(logic::msatimpl::getEnvironment(b));
-        solver.add(logic::msatimpl::getAxiom(b));
-        solver.add(!logic::msatimpl::getExpr(b));
+        borealis::mathsat::Solver solver(b.getCtx());
+        solver.add(b.getAxiom());
+        solver.add(not b.getExpr());
         return solver.check() == MSAT_UNSAT;
     };
 
@@ -462,9 +462,6 @@ TEST(MathSAT, diversify) {
     {
         USING_SMT_IMPL(borealis::MathSAT);
 
-        using borealis::mathsat_::logic::msatimpl::asAxiom;
-        using borealis::mathsat_::logic::msatimpl::getExpr;
-
         ExprFactory ef;
 
         auto a = ef.getIntVar("a");
@@ -481,13 +478,13 @@ TEST(MathSAT, diversify) {
                             .else_(one);
 
         borealis::mathsat::DSolver s(ef.unwrap());
-        s.add(asAxiom(query));
-        s.add(asAxiom(state));
+        s.add(query.asAxiom());
+        s.add(state.asAxiom());
 
         auto res = s.check();
         ASSERT_EQ(msat_result::MSAT_SAT, res);
 
-        auto models = s.diversify({getExpr(a), getExpr(b)});
+        auto models = s.diversify({ a.getExpr(), b.getExpr() });
         ASSERT_EQ(32, models.size());
     }
 }

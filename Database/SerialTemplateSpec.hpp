@@ -1,14 +1,16 @@
 #ifndef SERIAL_TEMPLATE_SPEC_HPP
 #define SERIAL_TEMPLATE_SPEC_HPP
 
-#include <lib/leveldb-mp/serializer/Serializer.hpp>
+#include <Serializer.hpp>
 
 #include <string>
 
 #include "Protobuf/Converter.hpp"
 
+namespace borealis {
+namespace db {
 
-using Buff=leveldb_daemon::serializer::Buffer;
+using Buff = leveldb_mp::serializer::Buffer;
 
 template <class T>
 class ProtobufSerializer{
@@ -35,78 +37,90 @@ public:
     }
 };
 
+} /* namespace db */
+} /* namespace borealis */
+
+namespace leveldb_mp {
+namespace serializer {
+
+using borealis::db::ProtobufSerializer;
+using borealis::db::ProtobufDeserializer;
+using borealis::db::Buff;
+
 /*Predicate State*/
 template<>
-struct leveldb_daemon::serializer::serializer<borealis::PredicateState>: public ProtobufSerializer<borealis::PredicateState>{};
+struct leveldb_mp::serializer::serializer<borealis::PredicateState>: public ProtobufSerializer<borealis::PredicateState>{};
 
 template<>
-struct leveldb_daemon::serializer::deserializer<borealis::PredicateState, Buff, borealis::FactoryNest>:
-        public ProtobufDeserializer<borealis::PredicateState::Ptr, borealis::proto::PredicateState, borealis::FactoryNest>{};
+struct leveldb_mp::serializer::deserializer<borealis::PredicateState, Buff, borealis::FactoryNest>:
+    public ProtobufDeserializer<borealis::PredicateState::Ptr, borealis::proto::PredicateState, borealis::FactoryNest>{};
 
 /*Predicate*/
 template<>
-struct leveldb_daemon::serializer::serializer<borealis::Predicate>: public ProtobufSerializer<borealis::Predicate>{};
+struct leveldb_mp::serializer::serializer<borealis::Predicate>: public ProtobufSerializer<borealis::Predicate>{};
 
 template<>
-struct leveldb_daemon::serializer::deserializer<borealis::Predicate, Buff, borealis::FactoryNest>:
-        public ProtobufDeserializer<borealis::Predicate::Ptr, borealis::proto::Predicate, borealis::FactoryNest>{};
+struct leveldb_mp::serializer::deserializer<borealis::Predicate, Buff, borealis::FactoryNest>:
+    public ProtobufDeserializer<borealis::Predicate::Ptr, borealis::proto::Predicate, borealis::FactoryNest>{};
 
 /*Term*/
 template<>
-struct leveldb_daemon::serializer::serializer<borealis::Term>: public ProtobufSerializer<borealis::Term>{};
+struct leveldb_mp::serializer::serializer<borealis::Term>: public ProtobufSerializer<borealis::Term>{};
 
 template<>
-struct leveldb_daemon::serializer::deserializer<borealis::Term, Buff, borealis::FactoryNest>:
-        public ProtobufDeserializer<borealis::Term::Ptr, borealis::proto::Term, borealis::FactoryNest>{};
+struct leveldb_mp::serializer::deserializer<borealis::Term, Buff, borealis::FactoryNest>:
+    public ProtobufDeserializer<borealis::Term::Ptr, borealis::proto::Term, borealis::FactoryNest>{};
 
 /*Type*/
 template<>
-struct leveldb_daemon::serializer::serializer<borealis::Type>: public ProtobufSerializer<borealis::Type>{};
+struct leveldb_mp::serializer::serializer<borealis::Type>: public ProtobufSerializer<borealis::Type>{};
 
 template<>
-struct leveldb_daemon::serializer::deserializer<borealis::Type, Buff, borealis::FactoryNest>:
-        public ProtobufDeserializer<borealis::Type::Ptr, borealis::proto::Type, borealis::FactoryNest>{};
+struct leveldb_mp::serializer::deserializer<borealis::Type, Buff, borealis::FactoryNest>:
+    public ProtobufDeserializer<borealis::Type::Ptr, borealis::proto::Type, borealis::FactoryNest>{};
 
 
 /*Annotation*/
 template<>
-struct leveldb_daemon::serializer::serializer<borealis::Annotation>: public ProtobufSerializer<borealis::Annotation>{};
+struct leveldb_mp::serializer::serializer<borealis::Annotation>: public ProtobufSerializer<borealis::Annotation>{};
 
 template<>
-struct leveldb_daemon::serializer::deserializer<borealis::Annotation, Buff, borealis::FactoryNest>:
-        public ProtobufDeserializer<borealis::Annotation::Ptr, borealis::proto::Annotation, borealis::FactoryNest>{};
+struct leveldb_mp::serializer::deserializer<borealis::Annotation, Buff, borealis::FactoryNest>:
+    public ProtobufDeserializer<borealis::Annotation::Ptr, borealis::proto::Annotation, borealis::FactoryNest>{};
 
 /*AnnotationContainer*/
 template<>
-struct leveldb_daemon::serializer::serializer<borealis::AnnotationContainer>: public ProtobufSerializer<borealis::AnnotationContainer>{};
+struct leveldb_mp::serializer::serializer<borealis::AnnotationContainer>: public ProtobufSerializer<borealis::AnnotationContainer>{};
 
 template<>
-struct leveldb_daemon::serializer::deserializer<borealis::AnnotationContainer, Buff, borealis::FactoryNest>:
-        public ProtobufDeserializer<borealis::AnnotationContainer::Ptr, borealis::proto::AnnotationContainer, borealis::FactoryNest>{};
+struct leveldb_mp::serializer::deserializer<borealis::AnnotationContainer, Buff, borealis::FactoryNest>:
+    public ProtobufDeserializer<borealis::AnnotationContainer::Ptr, borealis::proto::AnnotationContainer, borealis::FactoryNest>{};
 
 /*Contract*/
 template<>
-struct leveldb_daemon::serializer::serializer<borealis::Contract>: public ProtobufSerializer<borealis::Contract>{};
+struct leveldb_mp::serializer::serializer<borealis::Contract>: public ProtobufSerializer<borealis::Contract>{};
 
 template<>
-struct leveldb_daemon::serializer::deserializer<borealis::Contract, Buff, borealis::FactoryNest>:
-        public ProtobufDeserializer<borealis::Contract::Ptr, borealis::proto::Contract, borealis::FactoryNest>{};
+struct leveldb_mp::serializer::deserializer<borealis::Contract, Buff, borealis::FactoryNest>:
+    public ProtobufDeserializer<borealis::Contract::Ptr, borealis::proto::Contract, borealis::FactoryNest>{};
 
 /*FunctionIdentifier*/
 template<>
-struct leveldb_daemon::serializer::serializer<borealis::FunctionIdentifier>: public ProtobufSerializer<borealis::FunctionIdentifier>{};
+struct leveldb_mp::serializer::serializer<borealis::FunctionIdentifier>: public ProtobufSerializer<borealis::FunctionIdentifier>{};
 
 template<>
-struct leveldb_daemon::serializer::deserializer<borealis::FunctionIdentifier, Buff, borealis::FactoryNest>:
-        public ProtobufDeserializer<borealis::FunctionIdentifier::Ptr, borealis::proto::FunctionIdentifier, borealis::FactoryNest>{};
+struct leveldb_mp::serializer::deserializer<borealis::FunctionIdentifier, Buff, borealis::FactoryNest>:
+    public ProtobufDeserializer<borealis::FunctionIdentifier::Ptr, borealis::proto::FunctionIdentifier, borealis::FactoryNest>{};
 
 /*ContractContainer*/
 template<>
-struct leveldb_daemon::serializer::serializer<borealis::ContractContainer>: public ProtobufSerializer<borealis::ContractContainer>{};
+struct leveldb_mp::serializer::serializer<borealis::ContractContainer>: public ProtobufSerializer<borealis::ContractContainer>{};
 
 template<>
-struct leveldb_daemon::serializer::deserializer<borealis::ContractContainer, Buff, borealis::FactoryNest>:
-        public ProtobufDeserializer<borealis::ContractContainer::Ptr, borealis::proto::ContractContainer, borealis::FactoryNest>{};
+struct leveldb_mp::serializer::deserializer<borealis::ContractContainer, Buff, borealis::FactoryNest>:
+    public ProtobufDeserializer<borealis::ContractContainer::Ptr, borealis::proto::ContractContainer, borealis::FactoryNest>{};
 
+} /* namespace serializer */
+} /* namespace leveldb_mp */
 
 #endif /* SERIAL_TEMPLATE_SPEC_HPP */

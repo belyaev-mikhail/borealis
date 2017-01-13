@@ -15,6 +15,7 @@
 
 #include "State/PredicateState.def"
 #include "State/Transformer/CachingTransformer.hpp"
+#include "State/Transformer/ControlFlowDepsTracker.h"
 #include "State/Transformer/LocalStensgaardAA.h"
 
 namespace borealis {
@@ -94,6 +95,8 @@ public:
     PredicateState::Ptr transform(PredicateState::Ptr ps);
     using Base::transformBase;
     Predicate::Ptr transformBase(Predicate::Ptr pred);
+    PredicateState::Ptr transformBase(PredicateState::Ptr ps);
+    PredicateState::Ptr transformChoice(PredicateStateChoicePtr ps);
 
 private:
 
@@ -103,6 +106,8 @@ private:
     Term::Set slicePtrs;
 
     std::unique_ptr<LocalAABase> AA;
+    ControlFlowDepsTracker CFDT;
+    ControlFlowDepsTracker::PredicateSet currentPathDeps;
 
     void init(llvm::AliasAnalysis* llvmAA);
     void initWithTermSet(const TermSet& ts, llvm::AliasAnalysis* llvmAA);
@@ -111,7 +116,9 @@ private:
 
     bool checkPath(Predicate::Ptr pred, const Term::Set& lhv, const Term::Set& rhv);
     bool checkVars(const Term::Set& lhv, const Term::Set& rhv);
-    bool checkPtrs(const Term::Set& lhv, const Term::Set& rhv);
+    bool checkPtrs(Predicate::Ptr pred, const Term::Set& lhv, const Term::Set& rhv);
+
+    void addControlFlowDeps(Predicate::Ptr pred);
 
 };
 

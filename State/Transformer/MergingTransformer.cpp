@@ -97,6 +97,8 @@ void MergingTransformer::deleteOppositePredicates(std::vector<Predicate::Ptr>& s
 }
 
 void MergingTransformer::mergePredicates(std::vector<Predicate::Ptr> &state) {
+    if (state.size() < 2) return;
+
     Z3::ExprFactory ef;
     Z3::Solver s(ef, fMemInfo.first, fMemInfo.second);
     PredicateSet forDelete;

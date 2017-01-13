@@ -13,7 +13,7 @@
 
 namespace borealis {
 
-CheckManager::CheckManager() : llvm::ImmutablePass(ID) {}
+CheckManager::CheckManager() : llvm::ModulePass(ID) {}
 
 void CheckManager::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AU.setPreservesAll();
@@ -49,8 +49,6 @@ bool CheckManager::shouldSkipInstruction(llvm::Instruction* I) const {
     using namespace llvm;
 
     IntrinsicsManager& im = IntrinsicsManager::getInstance();
-
-    if(isTriviallyInboundsGEP(I)) return true;
 
     if (auto* gep = llvm::dyn_cast<GetElementPtrInst>(I)) {
         return util::view(gep->user_begin(), gep->user_end())
