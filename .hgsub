@@ -8,3 +8,4 @@ lib/backward-cpp = [git]https://github.com/bombela/backward-cpp.git
 lib/andersen = [git]https://github.com/ice-phoenix/andersen.git
 lib/rapidjson = [git]https://github.com/miloyip/rapidjson.git
 lib/inih = [git]https://github.com/ice-phoenix/inih.git
+lib/memorypool = [git]https://bitbucket.org/vorpal-research/memorypool.git
