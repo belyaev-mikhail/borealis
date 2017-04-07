@@ -38,6 +38,11 @@ public:
     PredicateState::Ptr Choice(
             std::vector<PredicateState::Ptr>&& choices);
 
+    PredicateState::Ptr Choice(
+            const std::set<PredicateState::Ptr>& choices);
+    PredicateState::Ptr Choice(
+            std::set<PredicateState::Ptr>&& choices);
+
     PredicateState::Ptr Basic();
 
     PredicateState::Ptr Basic(const std::vector<Predicate::Ptr>& data);

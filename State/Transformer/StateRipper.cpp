@@ -42,18 +42,18 @@ namespace borealis {
 
     PredicateState::Ptr StateRipper::transformChoice(PredicateStateChoicePtr state){
         for(auto&& i=0U;i<state->getChoices().size();++i){
-            Base::transform(state->getChoices()[i]);
-            if(contProt)
-                return state->getChoices()[i];
+            auto&& newState=Base::transform(state->getChoices()[i]);
+            if(contProt){
+                return newState;
+            }
+
         }
         return state;
     }
 
     PredicateState::Ptr StateRipper::transformChain(PredicateStateChainPtr state){
         if(!contProt){
-            isFromBase=true;
             auto&& in=Base::transform(state->getBase());
-            isFromBase=false;
             auto&& in2=Base::transform(state->getCurr());
             if(contProt){
                 return FN.State->Chain(in,in2);
@@ -63,18 +63,6 @@ namespace borealis {
         else {
             return state;
         }
-    }
-
-
-
-    bool StateRipper::isOpaqueTerm(Term::Ptr term) {
-        return llvm::is_one_of<
-                OpaqueBoolConstantTerm,
-                OpaqueIntConstantTerm,
-                OpaqueFloatingConstantTerm,
-                OpaqueStringConstantTerm,
-                OpaqueNullPtrTerm
-        >(term);
     }
 
 }  /* namespace borealis */

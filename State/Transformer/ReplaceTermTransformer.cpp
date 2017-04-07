@@ -8,11 +8,20 @@
 
 namespace borealis {
 
-    ReplaceTermTransformer::ReplaceTermTransformer(const FactoryNest& FN,const std::string& funName) : Base(FN), fName(funName) {}
+ReplaceTermTransformer::ReplaceTermTransformer(const FactoryNest& FN, TermSet from, const Term::Ptr to):
+        Base(FN), replaceable(from), replacement(to) {
+}
 
-    Term::Ptr ReplaceTermTransformer::transformValueTerm(Term::Ptr term){
-        std::string newName="$$";
-        newName=newName+fName+"_"+term->getName();
-        return FN.Term->getValueTerm(term->getType(),newName);
-    }
+ReplaceTermTransformer::ReplaceTermTransformer(const FactoryNest& FN, Term::Ptr from, const Term::Ptr to):
+        Base(FN), replacement(to) {
+    replaceable.insert(from);
+}
+
+Term::Ptr ReplaceTermTransformer::transformTerm(Term::Ptr term) {
+    if(util::contains(replaceable, term))
+        return replacement;
+    else
+        return term;
+}
+
 }

@@ -626,6 +626,37 @@ smt::Result Solver::isWeaker(Predicate::Ptr first, Predicate::Ptr second) {
     return UnsatResult{};
 }
 
+smt::Result Solver::checkSummary(PredicateState::Ptr first, PredicateState::Ptr second){
+    TRACE_FUNC
+
+    using namespace logic;
+
+    auto s = z3::solver(z3ef.unwrap());
+
+    ExecutionContext ctxFirst(z3ef, memoryStart, memoryEnd);
+    ExecutionContext ctxSecond(z3ef, memoryStart, memoryEnd);
+
+    auto z3first = SMT<Z3>::doit(first, z3ef, &ctxFirst);
+    auto z3second = SMT<Z3>::doit(second, z3ef, &ctxSecond);
+
+    ctxFirst.getAxioms().foreach(APPLY(s.add));
+    ctxSecond.getAxioms().foreach(APPLY(s.add));
+
+    auto z3query = z3second.implies(z3first);
+
+
+    Bool pred = z3ef.getBoolVar("$CHECK$");
+    s.add(pred.implies(not z3query).getExpr());
+
+    z3::expr pred_e = pred.getExpr();
+    z3::check_result r = s.check(1, &pred_e);
+
+    if (r == z3::sat) {
+        return SatResult{};
+    }
+    return UnsatResult{};
+}
+
 } // namespace z3_
 } // namespace borealis
 

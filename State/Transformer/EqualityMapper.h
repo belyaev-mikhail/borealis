@@ -28,6 +28,8 @@ public:
     Predicate::Ptr transformEqualityPredicate(EqualityPredicatePtr pred);
     Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
+    PredicateState::Ptr transformImply(PredicateStateImplyPtr ps);
+
     const TermMap& getMappedValues() const;
 
 private:

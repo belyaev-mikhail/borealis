@@ -6,6 +6,7 @@
  */
 
 #include <llvm/IR/InstVisitor.h>
+#include <Passes/Transform/ContractExtractorPass.h>
 
 #include "Passes/Checker/CheckHelper.hpp"
 #include "Passes/Checker/CheckOutOfBoundsPass.h"
@@ -56,7 +57,6 @@ public:
             )
         )();
         auto ps = pass->getInstructionState(&loc);
-
         h.check(q, ps);
     }
 
@@ -98,7 +98,6 @@ void CheckOutOfBoundsPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 }
 
 bool CheckOutOfBoundsPass::runOnFunction(llvm::Function& F) {
-
     CM = &GetAnalysis<CheckManager>::doit(this, F);
     if (CM->shouldSkipFunction(&F)) return false;
 
@@ -121,6 +120,16 @@ PredicateState::Ptr CheckOutOfBoundsPass::getInstructionState(llvm::Instruction*
     auto F = I->getParent()->getParent();
     if(!PSA) PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *F);
     return PSA->getInstructionState(I);
+}
+
+PredicateState::Ptr CheckOutOfBoundsPass::getFunctionState(const llvm::Function *F) {
+    llvm::Function* fun = const_cast<llvm::Function*>(F);
+    PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *fun);
+    auto&& ret=llvm::getAllRets(fun);
+    if(ret.size()==0)
+        return FN.State->Basic();
+    assert(ret.size()==1);
+    return PSA->getInstructionState(*ret.begin());
 }
 
 CheckOutOfBoundsPass::~CheckOutOfBoundsPass() {}

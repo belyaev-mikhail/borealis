@@ -45,6 +45,8 @@ public:
     virtual void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
     virtual ~CheckOutOfBoundsPass();
 
+    PredicateState::Ptr getFunctionState(const llvm::Function* F);
+
 private:
 
     PredicateState::Ptr getInstructionState(llvm::Instruction* I);
@@ -57,6 +59,7 @@ private:
     PredicateStateAnalysis* PSA;
 
     FactoryNest FN;
+
 };
 
 } /* namespace borealis */

@@ -13,8 +13,10 @@
 #include <llvm/Pass.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Analysis/AliasAnalysis.h>
+#include <llvm/Analysis/CallGraph.h>
 
 #include "Passes/Contract/ContractManager.h"
+#include "Passes/Checker/CheckManager.h"
 #include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
 #include "Passes/Util/ProxyFunctionPass.h"
 #include "Util/passes.hpp"
@@ -24,10 +26,12 @@ namespace borealis {
 class ContractExtractorPass : public ProxyFunctionPass, public ShouldBeModularized {
 
     using TermSet = std::unordered_set<Term::Ptr,TermHash, TermEquals>;
+	using FunSet = std::unordered_set<llvm::Function*>;
 
 private:
 
 	void processCallInstruction(llvm::CallInst& I, PredicateState::Ptr S);
+	void getFunUsages(llvm::Function& F);
 
 public:
 
@@ -46,6 +50,9 @@ private:
     ContractManager* CM;
     PredicateStateAnalysis* PSA;
     llvm::AliasAnalysis AA;
+	llvm::CallGraph* CG;
+
+	FunSet usages;
 };
 
 } /* namespace borealis */

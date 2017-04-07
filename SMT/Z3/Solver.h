@@ -63,6 +63,10 @@ public:
             Predicate::Ptr first,
             Predicate::Ptr second);
 
+    smt::Result checkSummary(
+            PredicateState::Ptr first,
+            PredicateState::Ptr second);
+
 private:
 
     ExprFactory& z3ef;

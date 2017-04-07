@@ -30,12 +30,10 @@ namespace borealis {
 
         using Base::transformBase;
 
-        bool isOpaqueTerm(Term::Ptr term);
     private:
 
         Predicate::Ptr protPred;
         bool contProt;
-        bool isFromBase;
     };
 
 } /*namespace borealis*/
