@@ -12,7 +12,7 @@
 
 namespace borealis {
 
-    UnexpPathPrDeleter::UnexpPathPrDeleter(const FactoryNest& FN, const Predicate::Ptr& prPred): Base(FN),protPred(prPred) { }
+    UnexpPathPrDeleter::UnexpPathPrDeleter(const FactoryNest& FN, const Predicate::Ptr& prPred): Base(FN), protPred(prPred) { }
 
 
     PredicateState::Ptr UnexpPathPrDeleter::transform(PredicateState::Ptr ps){

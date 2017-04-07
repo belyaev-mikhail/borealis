@@ -29,11 +29,12 @@ class FunctionSummariesTransformer : public borealis::Transformer<FunctionSummar
 
 
 public:
-    FunctionSummariesTransformer(const FactoryNest& FN, const TermSet rtvMap);
+    FunctionSummariesTransformer(const FactoryNest& FN, const TermSet rtvMap, const Term::Ptr rtv);
 
     using Base::transform;
     PredicateState::Ptr transform(PredicateState::Ptr ps);
-    Predicate::Ptr transformPredicate(Predicate::Ptr pred);
+    Predicate::Ptr transformStore(StorePredicatePtr pred);
+    Predicate::Ptr transformEquality(EqualityPredicatePtr pred);
 
 
     PredicateState::Ptr transformChoice(PredicateStateChoicePtr ps);
@@ -56,6 +57,9 @@ public:
         return isImplyHere;
     }
 
+    PrVector getRtvValues(){
+        return rtvValues;
+    }
 private:
     bool isOpaqueTerm(Term::Ptr term);
 
@@ -68,6 +72,8 @@ private:
     TermSet rtvEquiv;
     std::stack<Predicate::Ptr> prStack;
     bool isImplyHere;
+    PrVector rtvValues;
+    Term::Ptr rtv;
 
 };
 

@@ -28,14 +28,17 @@ class TerTermToPathPredTransf : public borealis::Transformer<TerTermToPathPredTr
         PredicateState::Ptr transformBasicPredicateState(BasicPredicateStatePtr ps);
 
         Predicate::Ptr transformEquality(EqualityPredicatePtr pred);
+        Predicate::Ptr transformStore(StorePredicatePtr pred);
+        Predicate::Ptr transformPredicate(Predicate::Ptr pred);
 
         Term::Ptr transformTernaryTerm(Term::Ptr term);
 
     private:
         Term::Ptr curLhv;
-        PredicateState::Ptr newChoice;
+        std::vector<PredicateState::Ptr> newChoices;
         bool containTernTerm;
         int counterTT;
+        std::vector<int> countersTT;
 };
 
 }

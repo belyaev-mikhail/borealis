@@ -36,7 +36,6 @@ void DefectSummaryPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 }
 
 bool DefectSummaryPass::runOnModule(llvm::Module& M) {
-
     auto& dm = GetAnalysis<DefectManager>::doit(this);
 
     auto* mainFileEntry = M.getModuleIdentifier().c_str();

@@ -159,6 +159,16 @@ bool CheckNullDereferencePass::runOnFunction(llvm::Function& F) {
     return false;
 }
 
+PredicateState::Ptr CheckNullDereferencePass::getFunctionState(const llvm::Function *F) {
+    llvm::Function* fun = const_cast<llvm::Function*>(F);
+    PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *fun);
+    auto&& ret=llvm::getAllRets(fun);
+    if(ret.size()==0)
+        return FN.State->Basic();
+    assert(ret.size()==1);
+    return PSA->getInstructionState(*ret.begin());
+}
+
 PredicateState::Ptr CheckNullDereferencePass::getInstructionState(llvm::Instruction* I) {
     auto F = I->getParent()->getParent();
     if(!PSA) PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *F);

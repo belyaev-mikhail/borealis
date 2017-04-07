@@ -12,6 +12,7 @@ namespace borealis {
 EqualityMapper::EqualityMapper(FactoryNest FN) : Base(FN) {}
 
 Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr pred) {
+
     if (util::at(mapping,pred->getLhv()) && pred->getType() == PredicateType::STATE) {
         usedTerms.insert(pred->getLhv());
     }
@@ -47,6 +48,10 @@ Predicate::Ptr EqualityMapper::transformPredicate(Predicate::Ptr pred) {
         return Predicate::Ptr{ pred->replaceOperands(mapping) };
     }
     return pred;
+}
+
+PredicateState::Ptr EqualityMapper::transformImply(PredicateStateImplyPtr ps) {
+    return ps;
 }
 
 const EqualityMapper::TermMap& EqualityMapper::getMappedValues() const {

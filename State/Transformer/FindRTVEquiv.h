@@ -24,7 +24,10 @@ class FindRTVEquiv: public Transformer<FindRTVEquiv> {
 public:
 
     FindRTVEquiv(const FactoryNest& fn, const Term::Ptr rt);
+
+    PredicateState::Ptr transform(PredicateState::Ptr ps);
     Predicate::Ptr transformEqualityPredicate(EqualityPredicatePtr pred);
+    Predicate::Ptr transformStorePredicate(StorePredicatePtr pred);
 
     bool isOpaqueTerm(Term::Ptr term);
 
@@ -32,6 +35,8 @@ public:
 
 private:
     TermSet rtvEquiv;
+    TermSet storeTerms;
+
 };
 
 

@@ -48,6 +48,8 @@ public:
     virtual void getAnalysisUsage(llvm::AnalysisUsage& Info) const override;
     virtual ~CheckNullDereferencePass();
 
+    PredicateState::Ptr getFunctionState(const llvm::Function* F);
+
 private:
 
     PredicateState::Ptr getInstructionState(llvm::Instruction* I);

@@ -14,15 +14,21 @@ namespace borealis {
 
 class ReplaceTermTransformer : public Transformer<ReplaceTermTransformer> {
 
-    using Base = Transformer<ReplaceTermTransformer>;
+using Base = Transformer<ReplaceTermTransformer>;
+using TermSet = std::unordered_set<Term::Ptr, TermHash, TermEquals>;
 
-    public:
+public:
 
-        ReplaceTermTransformer(const FactoryNest& fn,const std::string& funName);
-        Term::Ptr transformValueTerm(Term::Ptr term);
+    ReplaceTermTransformer(const FactoryNest& FN, TermSet from, const Term::Ptr to);
+    ReplaceTermTransformer(const FactoryNest& FN, Term::Ptr from, const Term::Ptr to);
 
-    private:
-        std::string fName;
+    Term::Ptr transformTerm(Term::Ptr term);
+
+
+private:
+
+    TermSet replaceable;
+    const Term::Ptr replacement;
 };
 
 

@@ -46,6 +46,8 @@ public:
     virtual void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
     virtual ~CheckContractPass();
 
+    PredicateState::Ptr getFunctionState(const llvm::Function* F);
+
 private:
 
     PredicateState::Ptr getInstructionState(llvm::Instruction* I);
