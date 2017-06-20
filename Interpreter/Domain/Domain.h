@@ -18,7 +18,9 @@
 namespace borealis {
 namespace absint {
 
+struct Split;
 class DomainFactory;
+class MemoryObject;
 
 class Domain : public std::enable_shared_from_this<const Domain>, public logging::ObjectLevelLogging<Domain> {
 public:
@@ -86,8 +88,12 @@ public:
 
     /// Other
     virtual size_t hashCode() const = 0;
-    virtual std::string toString(const std::string prefix = "") const {
+
+    virtual std::string toPrettyString(const std::string& prefix) const {
         return prefix + "unknown";
+    }
+    virtual std::string toString() const {
+        return toPrettyString("");
     }
 
     virtual Type getType() const {
@@ -150,6 +156,11 @@ public:
     /// Other
     virtual Domain::Ptr icmp(Domain::Ptr other, llvm::CmpInst::Predicate operation) const;
     virtual Domain::Ptr fcmp(Domain::Ptr other, llvm::CmpInst::Predicate operation) const;
+    /// Split operations
+    virtual Split splitByEq(Domain::Ptr other) const;
+    virtual Split splitByNeq(Domain::Ptr other) const;
+    virtual Split splitByLess(Domain::Ptr other) const;
+    virtual Split splitBySLess(Domain::Ptr other) const;
 
 protected:
 
@@ -177,6 +188,11 @@ struct DomainHash {
     size_t operator()(Domain::Ptr lhv) const noexcept {
         return lhv->hashCode();
     }
+};
+
+struct Split {
+    Domain::Ptr true_;
+    Domain::Ptr false_;
 };
 
 }   /* namespace absint */
