@@ -34,6 +34,17 @@ GepTerm::GepTerm(Type::Ptr type, Term::Ptr base, const std::vector<Term::Ptr>& s
     subterms.insert(subterms.end(), shifts.begin(), shifts.end());
 };
 
+Term* GepTerm::update() {
+    name = std::string("gep") +
+           (isTriviallyInbounds()? "[inbounds]" : "") +
+           "(" + getBase()->getName() + "," +
+           util::viewContainer(subterms).drop(1)
+                   .map([](auto&& s) { return s->getName(); })
+                   .fold(std::string("0"), [](auto&& acc, auto&& e) { return acc + "+" + e; }) +
+           ")";
+    return this;
+}
+
 Term::Ptr GepTerm::getBase() const {
     return subterms[0];
 }

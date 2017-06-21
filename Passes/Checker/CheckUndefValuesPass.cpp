@@ -61,6 +61,8 @@ void CheckUndefValuesPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AUX<CheckManager>::addRequiredTransitive(AU);
 
     AUX<DefectManager>::addRequiredTransitive(AU);
+    AUX<PredicateStateAnalysis>::addRequiredTransitive(AU);
+    AUX<SlotTrackerPass>::addRequiredTransitive(AU);
 }
 
 bool CheckUndefValuesPass::runOnFunction(llvm::Function& F) {
@@ -69,12 +71,31 @@ bool CheckUndefValuesPass::runOnFunction(llvm::Function& F) {
     if (CM->shouldSkipFunction(&F)) return false;
 
     DM = &GetAnalysis<DefectManager>::doit(this, F);
+    FN = FactoryNest(F.getDataLayout(), GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(F));
+
+    PSA = nullptr;
 
     UndefInstVisitor uiv(this);
     uiv.visit(F);
 
     DM->sync();
     return false;
+}
+
+PredicateState::Ptr CheckUndefValuesPass::getFunctionState(const llvm::Function *F) {
+    llvm::Function* fun = const_cast<llvm::Function*>(F);
+    PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *fun);
+    auto&& ret=llvm::getAllRets(fun);
+    if(ret.size()==0)
+        return FN.State->Basic();
+    assert(ret.size()==1);
+    return PSA->getInstructionState(*ret.begin());
+}
+
+PredicateState::Ptr CheckUndefValuesPass::getInstructionState(llvm::Instruction* I) {
+    auto F = I->getParent()->getParent();
+    if(!PSA) PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *F);
+    return PSA->getInstructionState(I);
 }
 
 CheckUndefValuesPass::~CheckUndefValuesPass() {}

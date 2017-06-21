@@ -42,6 +42,11 @@ StateSlicer::StateSlicer(FactoryNest FN, PredicateState::Ptr query, llvm::AliasA
 StateSlicer::StateSlicer(FactoryNest FN, PredicateState::Ptr query) :
     Base(FN), query(query), sliceVars{}, slicePtrs{}, AA{}, CFDT{FN}{ init(nullptr); }
 
+StateSlicer::StateSlicer(FactoryNest FN, const TermSet& TS, llvm::AliasAnalysis* AA) :
+        Base(FN), AA{}, CFDT{FN} { initWithTermSet(TS, AA); }
+
+StateSlicer::StateSlicer(FactoryNest FN, const TermSet& TS) :
+    Base(FN), sliceVars{}, slicePtrs{}, AA{}, CFDT{FN} { initWithTermSet(TS, nullptr); }
 
 static struct {
     using argument_type = Term::Ptr;
@@ -74,6 +79,18 @@ void StateSlicer::init(llvm::AliasAnalysis* llvmAA) {
     util::viewContainer(tc.getTerms())
         .filter(isInterestingTerm)
         .foreach(APPLY(this->addSliceTerm));
+}
+
+void StateSlicer::initWithTermSet(const TermSet& ts, llvm::AliasAnalysis* llvmAA){
+    if(llvmAA) {
+        AA = util::make_unique<AliasAnalysisAdapter>(llvmAA, FN);
+    } else {
+        AA = util::make_unique<LocalStensgaardAA>(FN);
+    }
+
+    util::viewContainer(ts)
+            .filter(isInterestingTerm)
+            .foreach(APPLY(this->addSliceTerm));
 }
 
 void StateSlicer::addSliceTerm(Term::Ptr term) {

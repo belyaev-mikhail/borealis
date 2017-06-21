@@ -8,6 +8,7 @@
 #include <clang/Basic/FileManager.h>
 #include <clang/Basic/SourceManager.h>
 
+#include <algorithm>
 #include <fstream>
 
 #include "Codegen/llvm.h"
@@ -35,12 +36,15 @@ void DefectSummaryPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
 }
 
 bool DefectSummaryPass::runOnModule(llvm::Module& M) {
-
     auto& dm = GetAnalysis<DefectManager>::doit(this);
 
     auto* mainFileEntry = M.getModuleIdentifier().c_str();
-
+    std::vector<DefectInfo> defects;
     for (auto& defect : dm) {
+        defects.push_back(defect);
+    }
+    std::sort(defects.begin(),defects.end());
+    for (auto& defect : defects) {
         Locus origin = defect.location;
 
         if (!origin) {

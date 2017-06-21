@@ -1988,8 +1988,7 @@
       ],
       "contracts": [
             "@requires \\bound(\\arg0) >= \\property(strlen, \\arg0) + \\property(strlen, \\arg1)",
-            "@assigns \\property(strlen, \\arg0)",
-            "@ensures \\property(strlen, \\arg0) == \\old(\\property(strlen, \\arg0)) + \\property(strlen, \\arg1)"
+            "@assigns \\property(strlen, \\arg0)"
       ]
 },
 {

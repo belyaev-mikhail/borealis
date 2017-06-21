@@ -38,6 +38,21 @@ public:
 
     void interrupt(); // here be dragons
 
+    smt::Result isFullGroup(
+            PredicateState::Ptr query);
+
+    z3::expr_vector getUnsatCore(
+            std::vector<Predicate::Ptr>& query,
+            Predicate::Ptr pred = nullptr);
+
+    smt::Result isPossible(
+            Predicate::Ptr first,
+            Predicate::Ptr second);
+
+    smt::Result isWeaker(
+            Predicate::Ptr first,
+            Predicate::Ptr second);
+
 private:
 
     ExprFactory& bef;

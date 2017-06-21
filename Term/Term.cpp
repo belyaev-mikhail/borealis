@@ -8,7 +8,8 @@
 #include <z3/z3++.h>
 #include "Statistics/statistics.h"
 #include "Term/Term.h"
-#include "Term/TermFactory.h"
+
+#include "Util/macros.h"
 
 namespace borealis {
 
@@ -46,12 +47,32 @@ const Term::Subterms& Term::getSubterms() const {
 }
 
 Term::Set Term::getFullTermSet(Term::Ptr term) {
+    if (term == nullptr)
+        return Term::Set{};
     auto&& res = Term::Set{term};
     for (auto&& subterm : term->subterms) {
         auto&& nested = Term::getFullTermSet(subterm);
         res.insert(nested.begin(), nested.end());
     }
     return res;
+}
+
+Term* Term::clone() const {
+    BYE_BYE(Term*, "Should not be called!");
+}
+
+Term* Term::update() {
+    return this;
+}
+
+Term* Term::replaceOperands(const std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>& map) const {
+    auto* res = this->clone();
+    for (auto&& subterm : res->subterms) {
+        if (auto&& m = util::at(map, subterm)) {
+            subterm = m.getUnsafe();
+        }
+    }
+    return res->update();
 }
 
 bool Term::equals(const Term* other) const {
@@ -81,3 +102,5 @@ borealis::logging::logstream& operator<<(borealis::logging::logstream& s, Term::
 }
 
 } // namespace borealis
+
+#include "Util/unmacros.h"

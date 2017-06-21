@@ -20,8 +20,8 @@
 #include "State/Transformer/GraphBuilder.h"
 #include "State/Transformer/MemorySpacer.h"
 #include "State/Transformer/StateSlicer.h"
+#include "State/Transformer/SummariesExtractor.hpp"
 #include "State/Transformer/TermSizeCalculator.h"
-
 
 #include "Util/macros.h"
 
@@ -141,6 +141,15 @@ public:
         if (query->isEmpty()) return false;
         if (state->isEmpty()) return true;
 
+        static config::BoolConfigEntry extractSummaries("analysis", "extract-summaries");
+        errs()<<"di="<<di<<endl;
+        if(extractSummaries.get(true)){
+            SummariesExtractor <Pass> se(FN, I, query, pass, state);
+            state = se.getResultingPS();
+            query = se.getQuery();
+            dbgs()<<"New state="<<state<<endl;
+            dbgs()<<"New query="<<query<<endl;
+        }
         static config::BoolConfigEntry useLocalAA("analysis", "use-local-aa");
         static config::BoolConfigEntry doSlicing("analysis", "do-slicing");
         if(doSlicing.get(true)) {

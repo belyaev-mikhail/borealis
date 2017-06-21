@@ -96,6 +96,30 @@ template<>
 struct leveldb_mp::serializer::deserializer<borealis::AnnotationContainer, Buff, borealis::FactoryNest>:
     public ProtobufDeserializer<borealis::AnnotationContainer::Ptr, borealis::proto::AnnotationContainer, borealis::FactoryNest>{};
 
+/*Contract*/
+template<>
+struct leveldb_mp::serializer::serializer<borealis::Contract>: public ProtobufSerializer<borealis::Contract>{};
+
+template<>
+struct leveldb_mp::serializer::deserializer<borealis::Contract, Buff, borealis::FactoryNest>:
+    public ProtobufDeserializer<borealis::Contract::Ptr, borealis::proto::Contract, borealis::FactoryNest>{};
+
+/*FunctionIdentifier*/
+template<>
+struct leveldb_mp::serializer::serializer<borealis::FunctionIdentifier>: public ProtobufSerializer<borealis::FunctionIdentifier>{};
+
+template<>
+struct leveldb_mp::serializer::deserializer<borealis::FunctionIdentifier, Buff, borealis::FactoryNest>:
+    public ProtobufDeserializer<borealis::FunctionIdentifier::Ptr, borealis::proto::FunctionIdentifier, borealis::FactoryNest>{};
+
+/*ContractContainer*/
+template<>
+struct leveldb_mp::serializer::serializer<borealis::ContractContainer>: public ProtobufSerializer<borealis::ContractContainer>{};
+
+template<>
+struct leveldb_mp::serializer::deserializer<borealis::ContractContainer, Buff, borealis::FactoryNest>:
+    public ProtobufDeserializer<borealis::ContractContainer::Ptr, borealis::proto::ContractContainer, borealis::FactoryNest>{};
+
 } /* namespace serializer */
 } /* namespace leveldb_mp */
 
