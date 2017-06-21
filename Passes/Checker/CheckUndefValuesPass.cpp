@@ -92,6 +92,12 @@ PredicateState::Ptr CheckUndefValuesPass::getFunctionState(const llvm::Function 
     return PSA->getInstructionState(*ret.begin());
 }
 
+PredicateState::Ptr CheckUndefValuesPass::getInstructionState(llvm::Instruction* I) {
+    auto F = I->getParent()->getParent();
+    if(!PSA) PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *F);
+    return PSA->getInstructionState(I);
+}
+
 CheckUndefValuesPass::~CheckUndefValuesPass() {}
 
 char CheckUndefValuesPass::ID;

@@ -35,6 +35,8 @@ const Term::Subterms& Term::getSubterms() const {
 }
 
 Term::Set Term::getFullTermSet(Term::Ptr term) {
+    if (term == nullptr)
+        return Term::Set{};
     auto&& res = Term::Set{term};
     for (auto&& subterm : term->subterms) {
         auto&& nested = Term::getFullTermSet(subterm);

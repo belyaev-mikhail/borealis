@@ -7,6 +7,7 @@
 
 #include <llvm/IR/InstVisitor.h>
 #include <Passes/Transform/ContractExtractorPass.h>
+#include <Passes/PredicateAnalysis/DefaultPredicateAnalysis.h>
 
 #include "Passes/Checker/CheckHelper.hpp"
 #include "Passes/Checker/CheckOutOfBoundsPass.h"
@@ -95,6 +96,8 @@ void CheckOutOfBoundsPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AUX<FunctionManager>::addRequiredTransitive(AU);
     AUX<PredicateStateAnalysis>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
+    AUX<DefaultPredicateAnalysis>::addRequiredTransitive(AU);
+
 }
 
 bool CheckOutOfBoundsPass::runOnFunction(llvm::Function& F) {
@@ -122,6 +125,14 @@ PredicateState::Ptr CheckOutOfBoundsPass::getInstructionState(llvm::Instruction*
     return PSA->getInstructionState(I);
 }
 
+CallPredicate::Ptr CheckOutOfBoundsPass::getCallInstructionPredicate(const llvm::CallInst* C){
+    auto c = const_cast<llvm::CallInst*>(C);
+    auto F = c->getParent()->getParent();
+    auto&& DPA = &GetAnalysis<DefaultPredicateAnalysis>::doit(this, *F);
+    auto pred = DPA->getPredicateMap()[c];
+    return pred;
+}
+
 PredicateState::Ptr CheckOutOfBoundsPass::getFunctionState(const llvm::Function *F) {
     llvm::Function* fun = const_cast<llvm::Function*>(F);
     PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *fun);
@@ -131,6 +142,7 @@ PredicateState::Ptr CheckOutOfBoundsPass::getFunctionState(const llvm::Function 
     assert(ret.size()==1);
     return PSA->getInstructionState(*ret.begin());
 }
+
 
 CheckOutOfBoundsPass::~CheckOutOfBoundsPass() {}
 

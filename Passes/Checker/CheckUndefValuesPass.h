@@ -45,6 +45,7 @@ public:
     virtual ~CheckUndefValuesPass();
 
     PredicateState::Ptr getFunctionState(const llvm::Function* F);
+    PredicateState::Ptr getInstructionState(llvm::Instruction* I);
 
 private:
 

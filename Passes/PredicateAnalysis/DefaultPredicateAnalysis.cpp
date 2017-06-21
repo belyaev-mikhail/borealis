@@ -11,6 +11,7 @@
 #include <Term/TermBuilder.h>
 
 #include "Codegen/llvm.h"
+#include "Codegen/intrinsics_manager.h"
 #include "Passes/PredicateAnalysis/DefaultPredicateAnalysis.h"
 #include "Passes/Tracker/SlotTrackerPass.h"
 
@@ -88,6 +89,38 @@ public:
             pass->SLT->getLocFor(&I),
             PredicateType::ASSUME
         );
+    }
+
+    void visitCallInst(llvm::CallInst& I) {
+        using llvm::Value;
+        auto&& F = I.getCalledFunction();
+        if(F == nullptr)
+            return;
+        if (IntrinsicsManager::getInstance().getIntrinsicType(F) != function_type::UNKNOWN)
+            return;
+        if (I.getCalledFunction() != nullptr) {
+            if (I.getCalledFunction()->getReturnType()->isVoidTy())
+                pass->PM[&I] = pass->FN.Predicate->getCallPredicate(
+                        pass->FN.Term->getOpaqueConstantTerm(I.getCalledFunction()->getName()),
+                        nullptr,
+                        util::viewContainer(I.arg_operands()).map(APPLY(pass->FN.Term->getValueTerm)).toVector(),
+                        pass->SLT->getLocFor(&I)
+                );
+            else
+                pass->PM[&I] = pass->FN.Predicate->getCallPredicate(
+                        pass->FN.Term->getOpaqueConstantTerm(I.getCalledFunction()->getName()),
+                        pass->FN.Term->getValueTerm(&I),
+                        util::viewContainer(I.arg_operands()).map(APPLY(pass->FN.Term->getValueTerm)).toVector(),
+                        pass->SLT->getLocFor(&I)
+                );
+        }
+        else
+            pass->PM[&I] = pass->FN.Predicate->getCallPredicate(
+                    pass->FN.Term->getValueTerm(I.getCalledValue()),
+                    pass->FN.Term->getValueTerm(&I),
+                    util::viewContainer(I.arg_operands()).map(APPLY(pass->FN.Term->getValueTerm)).toVector(),
+                    pass->SLT->getLocFor(&I)
+            );
     }
 
     void visitCmpInst(llvm::CmpInst& I) {
