@@ -28,6 +28,16 @@ public:
         return getEqualityPredicate(lhv, loadTerm, loc);
     }
 
+    Predicate::Ptr getCallPredicate(
+            Term::Ptr funName,
+            Term::Ptr result,
+            const std::vector<Term::Ptr>& args,
+            const Locus& loc = Locus()) {
+        return Predicate::Ptr(
+                new CallPredicate(funName, result, args, loc));
+    }
+
+
     Predicate::Ptr getStorePredicate(
             Term::Ptr lhv,
             Term::Ptr rhv,

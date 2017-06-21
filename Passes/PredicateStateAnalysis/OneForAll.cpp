@@ -151,7 +151,6 @@ void OneForAll::processBasicBlock(const llvm::BasicBlock* BB) {
                 FM->getBdy(CI, FN) +
                 FM->getEns(CI, FN)
             ).apply();
-
             auto&& instantiatedCallState =
                 CallSiteInitializer(&CI, FN).transform(callState);
 
@@ -201,6 +200,9 @@ PredicateState::Ptr getFront(PredicateState::Ptr state) {
         // this makes us optimize over the biggest possible choice state
         // (and this is kinda what we want here)
         return choice->self();
+
+    } else if (auto* imply = llvm::dyn_cast<PredicateStateImply>(state)) {
+        return imply->self();
 
     } else {
         UNREACHABLE("Should never happen!");

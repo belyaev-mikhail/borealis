@@ -13,6 +13,8 @@
 #include "Logging/logger.hpp"
 #include "Passes/Checker/CheckManager.h"
 #include "Passes/Defect/DefectManager.h"
+#include "Passes/PredicateStateAnalysis/PredicateStateAnalysis.h"
+#include "Passes/Tracker/SlotTrackerPass.h"
 #include "Passes/Util/ProxyFunctionPass.h"
 #include "Util/passes.hpp"
 
@@ -42,11 +44,17 @@ public:
     virtual void getAnalysisUsage(llvm::AnalysisUsage& AU) const override;
     virtual ~CheckUndefValuesPass();
 
+    PredicateState::Ptr getFunctionState(const llvm::Function* F);
+    PredicateState::Ptr getInstructionState(llvm::Instruction* I);
+
 private:
 
     CheckManager* CM;
 
     DefectManager* DM;
+    PredicateStateAnalysis* PSA;
+
+    FactoryNest FN;
 
 };
 

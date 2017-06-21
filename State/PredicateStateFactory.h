@@ -21,6 +21,10 @@ public:
 
     using Ptr = std::shared_ptr<PredicateStateFactory>;
 
+    PredicateState::Ptr Imply(
+            PredicateState::Ptr base,
+            Predicate::Ptr implyTo);
+
     PredicateState::Ptr Chain(
             PredicateState::Ptr base,
             PredicateState::Ptr curr);
@@ -33,6 +37,11 @@ public:
             const std::vector<PredicateState::Ptr>& choices);
     PredicateState::Ptr Choice(
             std::vector<PredicateState::Ptr>&& choices);
+
+    PredicateState::Ptr Choice(
+            const std::set<PredicateState::Ptr>& choices);
+    PredicateState::Ptr Choice(
+            std::set<PredicateState::Ptr>&& choices);
 
     PredicateState::Ptr Basic();
 

@@ -11,6 +11,7 @@
 #include <Term/TermBuilder.h>
 
 #include "Codegen/llvm.h"
+#include "Codegen/intrinsics_manager.h"
 #include "Passes/PredicateAnalysis/DefaultPredicateAnalysis.h"
 #include "Passes/Tracker/SlotTrackerPass.h"
 
@@ -92,6 +93,38 @@ public:
         );
     }
 
+    void visitCallInst(llvm::CallInst& I) {
+        using llvm::Value;
+        auto&& F = I.getCalledFunction();
+        if(F == nullptr)
+            return;
+        if (IntrinsicsManager::getInstance().getIntrinsicType(F) != function_type::UNKNOWN)
+            return;
+        if (I.getCalledFunction() != nullptr) {
+            if (I.getCalledFunction()->getReturnType()->isVoidTy())
+                pass->PM[&I] = pass->FN.Predicate->getCallPredicate(
+                        pass->FN.Term->getOpaqueConstantTerm(I.getCalledFunction()->getName()),
+                        nullptr,
+                        util::viewContainer(I.arg_operands()).map(APPLY(pass->FN.Term->getValueTerm)).toVector(),
+                        pass->SLT->getLocFor(&I)
+                );
+            else
+                pass->PM[&I] = pass->FN.Predicate->getCallPredicate(
+                        pass->FN.Term->getOpaqueConstantTerm(I.getCalledFunction()->getName()),
+                        pass->FN.Term->getValueTerm(&I),
+                        util::viewContainer(I.arg_operands()).map(APPLY(pass->FN.Term->getValueTerm)).toVector(),
+                        pass->SLT->getLocFor(&I)
+                );
+        }
+        else
+            pass->PM[&I] = pass->FN.Predicate->getCallPredicate(
+                    pass->FN.Term->getValueTerm(I.getCalledValue()),
+                    pass->FN.Term->getValueTerm(&I),
+                    util::viewContainer(I.arg_operands()).map(APPLY(pass->FN.Term->getValueTerm)).toVector(),
+                    pass->SLT->getLocFor(&I)
+            );
+    }
+
     void visitCmpInst(llvm::CmpInst& I) {
         using llvm::ConditionType;
         using llvm::Value;
@@ -146,12 +179,13 @@ public:
 
         for (auto c = I.case_begin(); c != I.case_end(); ++c) {
             Term::Ptr caseTerm = pass->FN.Term->getConstTerm(c.getCaseValue());
+            Term::Ptr cmpTerm = pass->FN.Term->getCmpTerm(llvm::ConditionType::EQ, condTerm, caseTerm);
             const BasicBlock* caseSucc = c.getCaseSuccessor();
 
             pass->TPM[{&I, caseSucc}] =
                 pass->FN.Predicate->getEqualityPredicate(
-                    condTerm,
-                    caseTerm,
+                    cmpTerm,
+                    pass->FN.Term->getTrueTerm(),
                     pass->SLT->getLocFor(&I),
                     PredicateType::PATH
                 );

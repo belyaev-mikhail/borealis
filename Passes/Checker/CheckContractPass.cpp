@@ -6,6 +6,7 @@
  */
 
 #include <llvm/IR/InstVisitor.h>
+#include <Passes/PredicateAnalysis/DefaultPredicateAnalysis.h>
 
 #include "Codegen/intrinsics_manager.h"
 #include "Passes/Checker/CheckContractPass.h"
@@ -171,6 +172,7 @@ void CheckContractPass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AUX<VariableInfoTracker>::addRequiredTransitive(AU);
     AUX<PredicateStateAnalysis>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
+    AUX<DefaultPredicateAnalysis>::addRequiredTransitive(AU);
 }
 
 bool CheckContractPass::runOnFunction(llvm::Function& F) {
@@ -195,10 +197,28 @@ bool CheckContractPass::runOnFunction(llvm::Function& F) {
     return false;
 }
 
+PredicateState::Ptr CheckContractPass::getFunctionState(const llvm::Function *F) {
+    llvm::Function* fun = const_cast<llvm::Function*>(F);
+    PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *fun);
+    auto&& ret=llvm::getAllRets(fun);
+    if(ret.size()==0)
+        return FN.State->Basic();
+    assert(ret.size()==1);
+    return PSA->getInstructionState(*ret.begin());
+}
+
 PredicateState::Ptr CheckContractPass::getInstructionState(llvm::Instruction* I) {
     auto F = I->getParent()->getParent();
     if(!PSA) PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *F);
     return PSA->getInstructionState(I);
+}
+
+CallPredicate::Ptr CheckContractPass::getCallInstructionPredicate(const llvm::CallInst* C){
+    auto c = const_cast<llvm::CallInst*>(C);
+    auto F = c->getParent()->getParent();
+    auto&& DPA = &GetAnalysis<DefaultPredicateAnalysis>::doit(this, *F);
+    auto pred = DPA->getPredicateMap()[c];
+    return pred;
 }
 
 CheckContractPass::~CheckContractPass() {}

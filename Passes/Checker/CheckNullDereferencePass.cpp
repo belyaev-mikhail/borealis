@@ -6,6 +6,7 @@
  */
 
 #include <llvm/IR/InstVisitor.h>
+#include <Passes/PredicateAnalysis/DefaultPredicateAnalysis.h>
 
 
 #include "Util/disjoint_sets.hpp"
@@ -134,6 +135,7 @@ void CheckNullDereferencePass::getAnalysisUsage(llvm::AnalysisUsage& AU) const {
     AUX<NameTracker>::addRequiredTransitive(AU);
     AUX<SlotTrackerPass>::addRequiredTransitive(AU);
     AUX<SourceLocationTracker>::addRequiredTransitive(AU);
+    AUX<DefaultPredicateAnalysis>::addRequiredTransitive(AU);
 }
 
 bool CheckNullDereferencePass::runOnFunction(llvm::Function& F) {
@@ -149,6 +151,7 @@ bool CheckNullDereferencePass::runOnFunction(llvm::Function& F) {
     FM = &GetAnalysis<FunctionManager>::doit(this, F);
     NT = &GetAnalysis<NameTracker>::doit(this, F);
     SLT = &GetAnalysis<SourceLocationTracker>::doit(this, F);
+    //ST = GetAnalysis<SlotTrackerPass>::doit(this, F).getSlotTracker(F);
 
     ST = &GetAnalysis<SlotTrackerPass>::doit(this, F);
     FN = FactoryNest(F.getDataLayout(), ST->getSlotTracker(F));
@@ -164,6 +167,24 @@ PredicateState::Ptr CheckNullDereferencePass::getInstructionState(llvm::Instruct
     auto F = I->getParent()->getParent();
     if(!PSA) PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *F);
     return PSA->getInstructionState(I);
+}
+
+CallPredicate::Ptr CheckNullDereferencePass::getCallInstructionPredicate(const llvm::CallInst* C){
+    auto c = const_cast<llvm::CallInst*>(C);
+    auto F = c->getParent()->getParent();
+    auto&& DPA = &GetAnalysis<DefaultPredicateAnalysis>::doit(this, *F);
+    auto pred = DPA->getPredicateMap()[c];
+    return pred;
+}
+
+PredicateState::Ptr CheckNullDereferencePass::getFunctionState(const llvm::Function *F) {
+    llvm::Function* fun = const_cast<llvm::Function*>(F);
+    PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *fun);
+    auto&& ret=llvm::getAllRets(fun);
+    if(ret.size()==0)
+        return FN.State->Basic();
+    assert(ret.size()==1);
+    return PSA->getInstructionState(*ret.begin());
 }
 
 CheckNullDereferencePass::~CheckNullDereferencePass() {}

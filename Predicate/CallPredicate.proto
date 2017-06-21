@@ -1,0 +1,16 @@
+syntax = "proto2";
+import "Predicate/Predicate.proto";
+import "Term/Term.proto";
+
+package borealis.proto;
+
+message CallPredicate {
+    extend borealis.proto.Predicate {
+        optional CallPredicate ext = 17;
+    }
+
+    optional Term funName = 1;
+    optional Term result = 2;
+    repeated Term args = 3;
+}
+
