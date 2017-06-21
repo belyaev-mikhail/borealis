@@ -21,14 +21,17 @@ public:
 
     ReplaceTermTransformer(const FactoryNest& FN, TermSet from, const Term::Ptr to);
     ReplaceTermTransformer(const FactoryNest& FN, Term::Ptr from, const Term::Ptr to);
+    ReplaceTermTransformer(const FactoryNest& FN, const Term::Ptr to, bool isReturnValue = false);
 
     Term::Ptr transformTerm(Term::Ptr term);
+    Term::Ptr transformReturnValueTerm(ReturnValueTermPtr term);
 
 
 private:
 
     TermSet replaceable;
     const Term::Ptr replacement;
+    bool isRTV;
 };
 
 
