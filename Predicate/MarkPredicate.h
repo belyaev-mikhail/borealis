@@ -1,6 +1,7 @@
 #ifndef MARK_PREDICATE_H
 #define MARK_PREDICATE_H
 
+#include "Config/config.h"
 #include "Predicate/Predicate.h"
 
 namespace borealis {

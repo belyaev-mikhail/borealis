@@ -16,11 +16,6 @@ OpaqueFloatingConstantTerm::OpaqueFloatingConstantTerm(Type::Ptr type, double va
         util::toString(value)
     ), value(value) {};
 
-Term* OpaqueFloatingConstantTerm::update() {
-    name = util::toString(getValue());
-    return this;
-}
-
 double OpaqueFloatingConstantTerm::getValue() const {
     return value;
 }

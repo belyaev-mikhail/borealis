@@ -18,11 +18,6 @@ SignTerm::SignTerm(Type::Ptr type, Term::Ptr rhv):
     subterms = { rhv };
 };
 
-Term* SignTerm::update() {
-    name = "sign(" + getRhv()->getName() + ")";
-    return this;
-}
-
 Term::Ptr SignTerm::getRhv() const {
     return subterms[0];
 }

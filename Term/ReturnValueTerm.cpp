@@ -16,11 +16,6 @@ ReturnValueTerm::ReturnValueTerm(Type::Ptr type, const std::string& funcName) :
         "\\result_" + funcName
     ), funcName(funcName) {};
 
-Term* ReturnValueTerm::update() {
-    name = "\\result_" + getFunctionName();
-    return this;
-}
-
 const std::string& ReturnValueTerm::getFunctionName() const {
     return funcName;
 }

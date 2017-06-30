@@ -13,6 +13,12 @@ MarkPredicate::MarkPredicate(
     ops = { id };
 }
 
+Predicate* MarkPredicate::update() {
+    asString = toString();
+
+    return this;
+}
+
 Term::Ptr MarkPredicate::getId() const {
     return ops.front();
 }

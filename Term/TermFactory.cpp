@@ -55,8 +55,8 @@ struct AllocationPoint {
 template<>
 struct AllocationPoint<ValueTerm> {
     template<
-        class ...Args,
-        class = std::enable_if_t<not std::is_same<std::tuple<std::decay_t<Args>...>, std::tuple<ValueTerm>>::value>
+            class ...Args,
+            class = std::enable_if_t<not std::is_same<std::tuple<std::decay_t<Args>...>, std::tuple<ValueTerm>>::value>
     >
     inline static Term::Ptr alloc(Args&&... args) { return make_pooled<ValueTerm>(std::forward<Args>(args)...); }
 
@@ -87,23 +87,23 @@ inline Term::Ptr make_new(Args &&... args) {
 };
 
 TermFactory::TermFactory(SlotTracker* st, const llvm::DataLayout* DL, TypeFactory::Ptr TyF) :
-    st(st), DL(DL), TyF(TyF) {}
+        st(st), DL(DL), TyF(TyF) {}
 
 Term::Ptr TermFactory::getArgumentTerm(const llvm::Argument* arg, llvm::Signedness sign) {
     ASSERT(st, "Missing SlotTracker");
 
     return make_new<ArgumentTerm>(
-        TyF->cast(arg->getType(), DL, sign),
-        arg->getArgNo(),
-        st->getLocalName(arg)
+            TyF->cast(arg->getType(), DL, sign),
+            arg->getArgNo(),
+            st->getLocalName(arg)
     );
 }
 
 Term::Ptr TermFactory::getArgumentTermExternal(size_t numero, const std::string& name, Type::Ptr type) {
     return make_new<ArgumentTerm>(
-        type,
-        numero,
-        name
+            type,
+            numero,
+            name
     );
 }
 
@@ -113,8 +113,8 @@ Term::Ptr TermFactory::getArgumentCountTerm() {
 
 Term::Ptr TermFactory::getVarArgumentTerm(size_t numero) {
     return make_new<VarArgumentTerm>(
-        TyF->getUnknownType(),
-        numero
+            TyF->getUnknownType(),
+            numero
     );
 }
 
@@ -122,10 +122,10 @@ Term::Ptr TermFactory::getStringArgumentTerm(const llvm::Argument* arg, llvm::Si
     ASSERT(st, "Missing SlotTracker");
 
     return make_new<ArgumentTerm>(
-        TyF->cast(arg->getType(), DL, sign),
-        arg->getArgNo(),
-        st->getLocalName(arg),
-        ArgumentKind::STRING
+            TyF->cast(arg->getType(), DL, sign),
+            arg->getArgNo(),
+            st->getLocalName(arg),
+            ArgumentKind::STRING
     );
 }
 
@@ -142,9 +142,9 @@ Term::Ptr TermFactory::getConstTerm(const llvm::Constant* c, llvm::Signedness si
         if (opcode >= Instruction::CastOpsBegin && opcode <= Instruction::CastOpsEnd) {
 
             return getCastTerm(
-                TyF->cast(cE->getType(), DL),
-                opcode == Instruction::SExt,
-                getValueTerm(cE->getOperand(0))
+                    TyF->cast(cE->getType(), DL),
+                    opcode == Instruction::SExt,
+                    getValueTerm(cE->getOperand(0))
             );
         } else if (opcode == Instruction::GetElementPtr) {
             auto&& base = cE->getOperand(0);
@@ -190,8 +190,8 @@ Term::Ptr TermFactory::getConstTerm(const llvm::Constant* c, llvm::Signedness si
     }
 
     return make_new<ConstTerm>(
-        TyF->cast(c->getType(), DL),
-        st->getLocalName(c)
+            TyF->cast(c->getType(), DL),
+            st->getLocalName(c)
     );
 }
 
@@ -230,7 +230,7 @@ Term::Ptr TermFactory::getIntTerm(int64_t value, unsigned int size, llvm::Signed
 Term::Ptr TermFactory::getIntTerm(const std::string& representation, unsigned int size, llvm::Signedness sign) {
     if(size > sizeof(int64_t) * 8) {
         return make_new<OpaqueBigIntConstantTerm>(
-            TyF->getInteger(size, sign), representation
+                TyF->getInteger(size, sign), representation
         );
     }
 
@@ -246,7 +246,7 @@ Term::Ptr TermFactory::getIntTerm(const llvm::APInt& value, llvm::Signedness sig
         llvm::SmallString<30> ss;
         value.toStringUnsigned(ss);
         return make_new<OpaqueBigIntConstantTerm>(
-            TyF->getInteger(size, sign), ss.str().str()
+                TyF->getInteger(size, sign), ss.str().str()
         );
     }
 
@@ -259,7 +259,7 @@ Term::Ptr TermFactory::getIntTerm(int64_t value, Type::Ptr type) {
 
 Term::Ptr TermFactory::getRealTerm(double d) {
     return make_new<OpaqueFloatingConstantTerm>(
-        TyF->getFloat(), d
+            TyF->getFloat(), d
     );
 }
 
@@ -267,8 +267,8 @@ Term::Ptr TermFactory::getReturnValueTerm(const llvm::Function* F, llvm::Signedn
     ASSERT(st, "Missing SlotTracker");
 
     return make_new<ReturnValueTerm>(
-        TyF->cast(F->getFunctionType()->getReturnType(), DL, sign),
-        F->getName().str()
+            TyF->cast(F->getFunctionType()->getReturnType(), DL, sign),
+            F->getName().str()
     );
 }
 
@@ -276,8 +276,8 @@ Term::Ptr TermFactory::getReturnPtrTerm(const llvm::Function* F) {
     ASSERT(st, "Missing SlotTracker");
 
     return make_new<ReturnPtrTerm>(
-        TyF->getPointer(TyF->cast(F->getFunctionType()->getReturnType(), DL)),
-        F->getName().str()
+            TyF->getPointer(TyF->cast(F->getFunctionType()->getReturnType(), DL)),
+            F->getName().str()
     );
 }
 
@@ -319,22 +319,22 @@ Term::Ptr TermFactory::getLocalValueTerm(const llvm::Value* v, llvm::Signedness 
 
 Term::Ptr TermFactory::getTernaryTerm(Term::Ptr cnd, Term::Ptr tru, Term::Ptr fls) {
     return make_new<TernaryTerm>(
-        TernaryTerm::getTermType(TyF, cnd, tru, fls),
-        cnd, tru, fls
+            TernaryTerm::getTermType(TyF, cnd, tru, fls),
+            cnd, tru, fls
     );
 }
 
 Term::Ptr TermFactory::getBinaryTerm(llvm::ArithType opc, Term::Ptr lhv, Term::Ptr rhv) {
     return make_new<BinaryTerm>(
-        BinaryTerm::getTermType(TyF, lhv, rhv),
-        opc, lhv, rhv
+            BinaryTerm::getTermType(TyF, lhv, rhv),
+            opc, lhv, rhv
     );
 }
 
 Term::Ptr TermFactory::getUnaryTerm(llvm::UnaryArithType opc, Term::Ptr rhv) {
     return make_new<UnaryTerm>(
-        UnaryTerm::getTermType(TyF, rhv),
-        opc, rhv
+            UnaryTerm::getTermType(TyF, rhv),
+            opc, rhv
     );
 }
 
@@ -344,8 +344,8 @@ Term::Ptr TermFactory::getUnlogicLoadTerm(Term::Ptr rhv) {
 
 Term::Ptr TermFactory::getLoadTerm(Term::Ptr rhv) {
     return make_new<LoadTerm>(
-        LoadTerm::getTermType(TyF, rhv),
-        rhv
+            LoadTerm::getTermType(TyF, rhv),
+            rhv
     );
 }
 
@@ -358,10 +358,10 @@ Term::Ptr TermFactory::getGepTerm(Term::Ptr base, const std::vector<Term::Ptr>& 
     auto&& tp = GepTerm::getGepChild(base->getType(), shifts);
 
     return make_new<GepTerm>(
-        TyF->getPointer(tp),
-        base,
-        shifts,
-        isTriviallyInbounds
+            TyF->getPointer(tp),
+            base,
+            shifts,
+            isTriviallyInbounds
     );
 }
 
@@ -376,19 +376,19 @@ Term::Ptr TermFactory::getGepTerm(llvm::Value* base, const ValueVector& idxs, bo
     ASSERT(!!type, "getGepTerm: type after GEP is funked up");
 
     return make_new<GepTerm>(
-        TyF->cast(type, DL),
-        getValueTerm(base),
-        util::viewContainer(idxs)
-            .map([this](llvm::Value* idx) { return getValueTerm(idx); })
-            .toVector(),
-        isTriviallyInbounds
+            TyF->cast(type, DL),
+            getValueTerm(base),
+            util::viewContainer(idxs)
+                    .map([this](llvm::Value* idx) { return getValueTerm(idx); })
+                    .toVector(),
+            isTriviallyInbounds
     );
 }
 
 Term::Ptr TermFactory::getCmpTerm(llvm::ConditionType opc, Term::Ptr lhv, Term::Ptr rhv) {
     return make_new<CmpTerm>(
-        CmpTerm::getTermType(TyF, lhv, rhv),
-        opc, lhv, rhv
+            CmpTerm::getTermType(TyF, lhv, rhv),
+            opc, lhv, rhv
     );
 }
 
@@ -406,8 +406,8 @@ Term::Ptr TermFactory::getOpaqueNamedConstantTerm(const std::string& name) {
 
 Term::Ptr TermFactory::getOpaqueConstantTerm(int64_t v, size_t bitSize) {
     return make_new<OpaqueIntConstantTerm>(
-        bitSize == 0 ? TyF->getUnknownType() : TyF->getInteger(bitSize),
-        v
+            bitSize == 0 ? TyF->getUnknownType() : TyF->getInteger(bitSize),
+            v
     );
 }
 
@@ -425,73 +425,73 @@ Term::Ptr TermFactory::getOpaqueConstantTerm(const char* v) {
 
 Term::Ptr TermFactory::getOpaqueConstantTerm(const std::string& v) {
     return make_new<OpaqueStringConstantTerm>(
-        TyF->getUnknownType(), v
+            TyF->getUnknownType(), v
     );
 }
 
 Term::Ptr TermFactory::getOpaqueIndexingTerm(Term::Ptr lhv, Term::Ptr rhv) {
     return make_new<OpaqueIndexingTerm>(
-        TyF->getUnknownType(),
-        lhv,
-        rhv
+            TyF->getUnknownType(),
+            lhv,
+            rhv
     );
 }
 
 Term::Ptr TermFactory::getOpaqueMemberAccessTerm(Term::Ptr lhv, const std::string& property, bool indirect) {
     return make_new<OpaqueMemberAccessTerm>(
-        TyF->getUnknownType(),
-        lhv,
-        property,
-        indirect
+            TyF->getUnknownType(),
+            lhv,
+            property,
+            indirect
     );
 }
 
 Term::Ptr TermFactory::getOpaqueCallTerm(Term::Ptr lhv, const std::vector<Term::Ptr>& rhv) {
     return make_new<OpaqueCallTerm>(
-        TyF->getUnknownType(),
-        lhv,
-        rhv
+            TyF->getUnknownType(),
+            lhv,
+            rhv
     );
 }
 
 Term::Ptr TermFactory::getSignTerm(Term::Ptr rhv) {
     return make_new<SignTerm>(
-        SignTerm::getTermType(TyF, rhv),
-        rhv
+            SignTerm::getTermType(TyF, rhv),
+            rhv
     );
 }
 
 Term::Ptr TermFactory::getCastTerm(Type::Ptr type, bool signExtend, Term::Ptr rhv) {
     return make_new<CastTerm>(
-        type,
-        signExtend,
-        rhv
+            type,
+            signExtend,
+            rhv
     );
 }
 
 Term::Ptr TermFactory::getAxiomTerm(Term::Ptr lhv, Term::Ptr rhv) {
     return make_new<AxiomTerm>(
-        AxiomTerm::getTermType(TyF, lhv, rhv),
-        lhv, rhv
+            AxiomTerm::getTermType(TyF, lhv, rhv),
+            lhv, rhv
     );
 }
 
 Term::Ptr TermFactory::getBoundTerm(Term::Ptr rhv) {
     return make_new<BoundTerm>(
-        TyF->getInteger(64, llvm::Signedness::Unsigned),
-        rhv
+            TyF->getInteger(64, llvm::Signedness::Unsigned),
+            rhv
     );
 }
 
 TermFactory::Ptr TermFactory::get(SlotTracker* st, const llvm::DataLayout* DL, TypeFactory::Ptr TyF) {
     return TermFactory::Ptr{
-        new TermFactory(st, DL, TyF)
+            new TermFactory(st, DL, TyF)
     };
 }
 
 TermFactory::Ptr TermFactory::get(const llvm::DataLayout* DL, TypeFactory::Ptr TyF) {
     return TermFactory::Ptr{
-        new TermFactory(nullptr, DL, TyF)
+            new TermFactory(nullptr, DL, TyF)
     };
 }
 

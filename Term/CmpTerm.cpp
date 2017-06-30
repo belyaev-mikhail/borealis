@@ -18,11 +18,6 @@ CmpTerm::CmpTerm(Type::Ptr type, llvm::ConditionType opcode, Term::Ptr lhv, Term
     subterms = { lhv, rhv };
 };
 
-Term* CmpTerm::update() {
-    name = "(" + getLhv()->getName() + " " + llvm::conditionString(opcode) + " " + getRhv()->getName() + ")";
-    return this;
-}
-
 llvm::ConditionType CmpTerm::getOpcode() const {
     return opcode;
 }

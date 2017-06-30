@@ -18,11 +18,6 @@ BoundTerm::BoundTerm(Type::Ptr type, Term::Ptr rhv):
     subterms = { rhv };
 };
 
-Term* BoundTerm::update() {
-    name = "bound(" + getRhv()->getName() + ")";
-    return this;
-}
-
 Term::Ptr BoundTerm::getRhv() const {
     return subterms[0];
 }

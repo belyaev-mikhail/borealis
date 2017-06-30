@@ -16,10 +16,6 @@ ArgumentTerm::ArgumentTerm(Type::Ptr type, unsigned int idx, const std::string& 
         name
     ), idx(idx), kind(kind) {}
 
-Term* ArgumentTerm::update() {
-    return this;
-}
-
 unsigned ArgumentTerm::getIdx() const {
     return idx;
 }

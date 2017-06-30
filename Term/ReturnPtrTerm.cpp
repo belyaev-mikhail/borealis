@@ -20,9 +20,4 @@ const std::string& ReturnPtrTerm::getFunctionName() const {
     return funcName;
 }
 
-Term* ReturnPtrTerm::update() {
-    name = "&\\result_" + getFunctionName();
-    return this;
-}
-
 } // namespace borealis

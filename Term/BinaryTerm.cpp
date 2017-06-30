@@ -18,11 +18,6 @@ BinaryTerm::BinaryTerm(Type::Ptr type, llvm::ArithType opcode, Term::Ptr lhv, Te
     subterms = { lhv, rhv };
 };
 
-Term* BinaryTerm::update() {
-    name = "(" + getLhv()->getName() + " " + llvm::arithString(opcode) + " " + getRhv()->getName() + ")";
-    return this;
-}
-
 llvm::ArithType BinaryTerm::getOpcode() const {
     return opcode;
 }

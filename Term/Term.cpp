@@ -8,21 +8,20 @@
 #include <z3/z3++.h>
 #include "Statistics/statistics.h"
 #include "Term/Term.h"
-
-#include "Util/macros.h"
+#include "Term/TermFactory.h"
 
 namespace borealis {
 
 static Statistic totalTermsCreated("misc", "totalTerms", "Total number of terms created");
 
 Term::Term(id_t classTag, Type::Ptr type, const std::string& name):
-    ClassTag(classTag), type(type), name(name) { ++totalTermsCreated; };
+        ClassTag(classTag), type(type), name(name) { ++totalTermsCreated; };
 
 Term::Term(id_t classTag, Type::Ptr type, util::indexed_string name):
-    ClassTag(classTag), type(type), name(name) { ++totalTermsCreated; };
+        ClassTag(classTag), type(type), name(name) { ++totalTermsCreated; };
 
 Term::Term(id_t classTag, Type::Ptr type, const char* name):
-    Term(classTag, type, util::indexed_string(name)) {};
+        Term(classTag, type, util::indexed_string(name)) {};
 
 void Term::update() {}
 
@@ -57,31 +56,13 @@ Term::Set Term::getFullTermSet(Term::Ptr term) {
     return res;
 }
 
-Term* Term::clone() const {
-    BYE_BYE(Term*, "Should not be called!");
-}
-
-Term* Term::update() {
-    return this;
-}
-
-Term* Term::replaceOperands(const std::unordered_map<Term::Ptr, Term::Ptr, TermHash, TermEquals>& map) const {
-    auto* res = this->clone();
-    for (auto&& subterm : res->subterms) {
-        if (auto&& m = util::at(map, subterm)) {
-            subterm = m.getUnsafe();
-        }
-    }
-    return res->update();
-}
-
 bool Term::equals(const Term* other) const {
     if (other == nullptr) return false;
     return classTag == other->classTag &&
-            // type == other->type &&
-            name == other->name &&
-            // retypable == other->retypable &&
-            util::equal(subterms, other->subterms, ops::deref_equals_to);
+           // type == other->type &&
+           name == other->name &&
+           // retypable == other->retypable &&
+           util::equal(subterms, other->subterms, ops::deref_equals_to);
 }
 
 size_t Term::hashCode() const {
@@ -102,5 +83,3 @@ borealis::logging::logstream& operator<<(borealis::logging::logstream& s, Term::
 }
 
 } // namespace borealis
-
-#include "Util/unmacros.h"

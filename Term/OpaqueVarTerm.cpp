@@ -16,10 +16,6 @@ OpaqueVarTerm::OpaqueVarTerm(Type::Ptr type, const std::string& vname):
         vname
     ), vname(vname) {};
 
-Term* OpaqueVarTerm::update() {
-    name = getVName();
-    return this;
-}
 
 const std::string& OpaqueVarTerm::getVName() const {
     return vname;

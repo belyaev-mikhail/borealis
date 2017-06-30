@@ -18,11 +18,6 @@ ReadPropertyTerm::ReadPropertyTerm(Type::Ptr type, Term::Ptr propName, Term::Ptr
     subterms = { rhv, propName };
 };
 
-Term* ReadPropertyTerm::update() {
-    name = "read(" + getPropertyName()->getName() + "," + getRhv()->getName() + ")";
-    return this;
-}
-
 Term::Ptr ReadPropertyTerm::getRhv() const {
     return subterms[0];
 }
