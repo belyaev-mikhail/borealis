@@ -21,11 +21,6 @@ AxiomTerm::AxiomTerm(Type::Ptr type, Term::Ptr lhv, Term::Ptr rhv):
     subterms = { lhv, rhv };
 };
 
-Term* AxiomTerm::update() {
-    name = "(" + getLhv()->getName() + " with axiom " + getRhv()->getName() + ")";
-    return this;
-}
-
 Term::Ptr AxiomTerm::getLhv() const {
     return subterms[0];
 }

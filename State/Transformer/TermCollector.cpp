@@ -22,8 +22,10 @@ std::unordered_set<Term::Ptr, TermHash, TermEquals> TermCollector::moveTerms() {
 }
 
 Term::Ptr TermCollector::transformTerm(Term::Ptr term) {
-    terms.insert(term);
-    return Base::transformTerm(term);
+    if (term != nullptr){
+        terms.insert(term);
+    }
+    return term;
 }
 
 } /* namespace borealis */

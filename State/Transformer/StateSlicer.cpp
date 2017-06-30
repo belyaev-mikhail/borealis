@@ -72,10 +72,8 @@ void StateSlicer::init(llvm::AliasAnalysis* llvmAA) {
     } else {
         AA = util::make_unique<LocalStensgaardAA>(FN);
     }
-
     auto&& tc = TermCollector(FN);
     tc.transform(query);
-
     util::viewContainer(tc.getTerms())
         .filter(isInterestingTerm)
         .foreach(APPLY(this->addSliceTerm));
@@ -142,7 +140,8 @@ void StateSlicer::addControlFlowDeps(Predicate::Ptr res) {
 }
 
 Predicate::Ptr StateSlicer::transformBase(Predicate::Ptr pred) {
-
+    if(llvm::dyn_cast<CallPredicate>(pred) != nullptr)
+        return pred;
     if(auto&& globals = llvm::dyn_cast<GlobalsPredicate>(pred)) {
         // by the global definition, everything relevant must be in slice
         // we count only pointers because all globals are pointers

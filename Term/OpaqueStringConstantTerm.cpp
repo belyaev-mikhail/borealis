@@ -16,10 +16,6 @@ OpaqueStringConstantTerm::OpaqueStringConstantTerm(Type::Ptr type, const std::st
         value
     ), value(value) {};
 
-Term* OpaqueStringConstantTerm::update() {
-    return this;
-}
-
 const std::string& OpaqueStringConstantTerm::getValue() const {
     return value;
 }

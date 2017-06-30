@@ -39,7 +39,7 @@ public:
     using explicit_result = smt::Result;
 
     CheckHelper(Pass* pass, llvm::Instruction* I, DefectType defectType) :
-        pass(pass), I(I), defectType(defectType) {};
+        pass(pass), I(I), defectType(defectType) { };
 
     bool skip() {
         return skip(pass->DM->getDefect(defectType, I));
@@ -144,9 +144,11 @@ public:
         static config::BoolConfigEntry extractSummaries("analysis", "extract-summaries");
         errs()<<"di="<<di<<endl;
         if(extractSummaries.get(true)){
+            errs() << "Start extracting summaries" << endl;
             SummariesExtractor <Pass> se(FN, I, query, pass, state);
             state = se.getResultingPS();
             query = se.getQuery();
+            errs() << "End extracting summaries" << endl;
             dbgs()<<"New state="<<state<<endl;
             dbgs()<<"New query="<<query<<endl;
         }
@@ -184,6 +186,7 @@ public:
 
         auto solverResult = checkViolation(fMemInfo, query, state);
         if (auto satRes = solverResult.getSatPtr()) {
+            errs()<<"sat"<<endl;
             pass->DM->addDefect(di);
             pass->DM->getAdditionalInfo(di).satModel = util::just(*satRes);
             pass->DM->getAdditionalInfo(di).atFunc = I->getParent()->getParent();
@@ -191,6 +194,7 @@ public:
             dbgs() << "Defect confirmed: " << di << endl;
             return true;
         } else {
+            errs()<<"unsat"<<endl;
             pass->DM->addNoDefect(di);
             dbgs() << "Defect falsified: " << di << endl;
             if(solverResult.isUnknown()) dbgs() << "{Unknown}" << endl;

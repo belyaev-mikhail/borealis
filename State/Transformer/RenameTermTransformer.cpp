@@ -20,11 +20,14 @@ Term::Ptr RenameTermTransformer::transformTerm(Term::Ptr term) {
 
 bool RenameTermTransformer::isInterestingTerm(Term::Ptr term) {
     return not (llvm::is_one_of<
+            OpaqueBigIntConstantTerm,
             OpaqueBoolConstantTerm,
             OpaqueIntConstantTerm,
             OpaqueFloatingConstantTerm,
             OpaqueStringConstantTerm,
-            OpaqueNullPtrTerm
+            OpaqueNamedConstantTerm,
+            OpaqueNullPtrTerm,
+            ReturnValueTerm
     >(term)) && (term->getNumSubterms() == 0);
 }
 

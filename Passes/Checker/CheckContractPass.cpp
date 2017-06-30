@@ -209,7 +209,7 @@ PredicateState::Ptr CheckContractPass::getFunctionState(const llvm::Function *F)
 
 PredicateState::Ptr CheckContractPass::getInstructionState(llvm::Instruction* I) {
     auto F = I->getParent()->getParent();
-    if(!PSA) PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *F);
+    PSA = &GetAnalysis<PredicateStateAnalysis>::doit(this, *F);
     return PSA->getInstructionState(I);
 }
 

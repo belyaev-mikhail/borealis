@@ -16,11 +16,6 @@ FreeVarTerm::FreeVarTerm(Type::Ptr type, const std::string& vname) :
         vname
     ), vname(vname), global(false) {};
 
-Term* FreeVarTerm::update() {
-    name = "(" + getVName() + ")";
-    return this;
-}
-
 const std::string& FreeVarTerm::getVName() const {
     return vname;
 }

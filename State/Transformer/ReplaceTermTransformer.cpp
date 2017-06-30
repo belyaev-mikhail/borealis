@@ -21,6 +21,9 @@ ReplaceTermTransformer::ReplaceTermTransformer(const FactoryNest& FN, const Term
 Term::Ptr ReplaceTermTransformer::transformTerm(Term::Ptr term) {
     for(auto&& it : replaceable){
         if(term->getName() == it->getName()){
+            if(term->getType()!=replacement->getType()){
+                return term;
+            }
             return replacement;
         }
     }

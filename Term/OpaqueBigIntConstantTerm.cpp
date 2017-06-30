@@ -23,10 +23,6 @@ OpaqueBigIntConstantTerm::OpaqueBigIntConstantTerm(Type::Ptr type, const std::st
         value
     ) {};
 
-Term* OpaqueBigIntConstantTerm::update() {
-    name = getRepresentation();
-    return this;
-}
 
 const std::string& OpaqueBigIntConstantTerm::getRepresentation() const {
     return getName();

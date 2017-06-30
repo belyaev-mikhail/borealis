@@ -32,9 +32,4 @@ size_t VarArgumentTerm::hashCode() const {
     return util::hash::defaultHasher()(Term::hashCode(), idx);
 }
 
-Term* VarArgumentTerm::update() {
-    name = tfm::format("<vararg%d>", getIdx());
-    return this;
-}
-
 } // namespace borealis

@@ -25,23 +25,22 @@ class SummariesExtractor {
 
 public:
 
-    SummariesExtractor(const FactoryNest& FN, const llvm::Instruction* i, PredicateState::Ptr quer, Pass* pass, PredicateState::Ptr funState)
-            : FN(FN), I(i), pass(pass) {
+    SummariesExtractor(const FactoryNest& FN, const llvm::Instruction* i, PredicateState::Ptr q, Pass* pass, PredicateState::Ptr funState)
+            : FN(FN), I(i), query(q), pass(pass), isFirstArg(true), funcState(funState) {
         TF = borealis::TypeFactory::get();
-        query = quer;
-        isFirstArg = true;
-        funcState = funState;
         auto&& fun = I->getParent()->getParent();
         if (fun->getArgumentList().size() == 0) {
             resulting = funState;
             return;
         }
+        // Get and filter all terms from sliced state
         auto&& tc = TermCollector(FN);
-        tc.transform(quer);
+        tc.transform(q);
         TermSet terms;
         for(auto&& it : tc.getTerms())
             if(isInterestingTerm(it))
                 terms.insert(it);
+        // Fixme
         auto&& collector = TermCollector(FN);
         collector.transform(funState);
         auto&& inters = collector.getTerms();
@@ -54,21 +53,25 @@ public:
                 argsNo.push_back(argTerm);
             }
         }
-        getFunUsages(*fun, argsNo, FN.State->Basic(), argsNo, nullptr);
+        //Simple decection of recursion
+        std::vector<llvm::Function*> passedFunctions;
+        // Fixme const?
+        getFunUsages(*const_cast<llvm::Function*>(fun), argsNo, FN.State->Basic(), argsNo, nullptr, passedFunctions);
+        //Fixme delete this if?
         if(resChoices.size()==1)
             resulting = resChoices[0];
         else
             resulting = FN.State->Choice(resChoices);
+        //Fixme termcollector already exist
         tc = TermCollector(FN);
         tc.transform(resulting);
+        // Replace all terms to terms from first function
         for(auto&& it : tc.getTerms()){
             if(llvm::isa<borealis::ArgumentTerm>(it)){
                 auto&& term = FN.Term->getValueTerm(it->getType(), it->getName());
                 resulting = ReplaceTermTransformer(FN, it, term).transform(resulting);
             }
-
         }
-        //errs()<<"resulting="<<resulting<<endl;
     }
 
     PredicateState::Ptr getResultingPS() {return resulting;}
@@ -77,7 +80,6 @@ public:
 private:
 
     void endPoint(PredicateState::Ptr curRes, const llvm::Function& F){
-
         auto&& tc = TermCollector(FN);
         tc.transform(curRes);
         if (tc.getTerms().size() != 0 ){
@@ -90,33 +92,12 @@ private:
         return;
     }
 
-    PredicateState::Ptr getStateIfArgIsFun(llvm::CallInst* inst, Term::Ptr retArg){
-        auto&& res = FN.State->Basic();
-        auto&& calledFun = inst->getCalledFunction();
-        FN.Slot->incorporateFunction(calledFun);
-        TermVec calledArgs;
-        int i = 0;
-        for(auto&& arg : calledFun->getArgumentList()) {
-            auto&& tmp = FN.Term->getValueTerm(inst->getArgOperand(i));
-            auto&& argTerm = FN.Term->getValueTerm(&arg);
-            calledArgs.push_back(argTerm);
-            ++i;
-            auto&& eq = FN.Predicate->getEqualityPredicate(argTerm, tmp);
-            res = FN.State->Chain(res, FN.State->Basic(std::vector<Predicate::Ptr>{eq}));
-        }
-        auto&& ret=llvm::getAllRets(calledFun);
-        if(ret.size()==1){
-            llvm::ReturnInst* re = *ret.begin();
-            auto&& retTerm = FN.Term->getValueTerm(re->getReturnValue());
-            auto&& st = pass->getFunctionState(calledFun);
-            res = FN.State->Chain(res, StateSlicer(FN, TermSet{retTerm}).transform(st));
-            FN.Slot->incorporateFunction(inst->getParent()->getParent());
-            res = FN.State->Chain(res, FN.Predicate->getEqualityPredicate(retArg, retTerm));
-        }
-        return res;
-    }
-
-    void getFunUsages(const llvm::Function& F, TermVec arguments, PredicateState::Ptr curRes, TermVec prevArgs, const llvm::CallInst* c) {
+    void getFunUsages(llvm::Function& F, TermVec arguments, PredicateState::Ptr curRes, TermVec prevArgs,
+                      const llvm::CallInst* c, std::vector<llvm::Function*> passedFunctions) {
+        // Simple detection of recursion
+        if (util::contains(passedFunctions, &F))
+            return;
+        passedFunctions.push_back(&F);
         auto&& sliced = FN.State->Basic();
         if (isFirstArg){
             sliced = funcState;
@@ -124,11 +105,23 @@ private:
         }
         else {
             sliced = getArgUsagesForFun(F, arguments);
+            //Rename all terms but not args
+            TermSet curArgs;
+            for(auto&& arg : F.getArgumentList()){
+                auto&& argTerm = FN.Term->getArgumentTerm(&arg);
+                curArgs.insert(argTerm);
+            }
+            sliced = RenameTermTransformer(FN, F.getName(), curArgs).transform(sliced);
+            //Rename arguments
+            for(auto&& arg:arguments){
+                if(!util::contains(curArgs, arg)){
+                    arg = FN.Term->getValueTerm(arg->getType(), F.getName().str() + "_" + arg->getName());
+                }
+            }
+
         }
 
         // search CallPredicates and insert states from functions
-        // getFunUsages dont work because of all users
-        //
         if(c != nullptr){
             CallPredicate::Ptr p = pass->getCallInstructionPredicate(c);
             if (p != nullptr){
@@ -140,7 +133,7 @@ private:
                 }
                 else {
                     CallsSummariesExtraction<Pass> cse(FN, sliced, c, p, pass);
-                    auto&& trans = cse.transform(pass->getFunctionState(&F));
+                    auto&& trans = cse.transform(sliced);
                     auto&& slice = StateSlicer(FN, TermSet(arguments.begin(), arguments.end())).transform(trans);
                     sliced = slice;
                 }
@@ -148,23 +141,11 @@ private:
             }
         }
         if (F.users().begin() == F.users().end()) {
-            /*Replace args*/
-            for(auto i = 0U; i < arguments.size(); ++i){
-                auto&& sliced1 = ReplaceTermTransformer(FN, arguments[i], prevArgs[i]).transform(sliced);
-                if(sliced1->equals(sliced.get()) && not(prevArgs[i]->equals(arguments[i].get()))){
-                    auto&& eq = FN.Predicate->getEqualityPredicate(prevArgs[i], arguments[i]);
-                    sliced = FN.State->Chain(FN.State->Basic(std::vector<Predicate::Ptr>{eq}), sliced);
-                }
-                else{
-                    sliced = sliced1;
-                }
-            }
-
-
             curRes = FN.State->Chain(sliced, curRes);
             endPoint(curRes, F);
             return;
         }
+        // Fixme
         auto curFunSliced = sliced;
         auto curFunRes = curRes;
         for (auto&& it : F.users()) {
@@ -179,15 +160,22 @@ private:
                     curFunArgs.push_back(argTerm);
                 }
                 int vec_ind = 0;
-                for(auto&& i = 0U; i < curFunArgs.size(); ++i){
+                // Fixme!
+                if (curFunArgs.size() != call->getNumArgOperands())
+                    continue;
+
+                for(auto&& i = 0U; i < call->getNumArgOperands(); ++i){
+                    FN.Slot->incorporateFunction(call->getParent()->getParent());
                     auto&& arg = call->getArgOperand(i);
                     auto&& tmp = FN.Term->getValueTerm(arg);
-                    //if(auto&& call = llvm::dyn_cast<llvm::CallInst>(arg)){
-                        //auto&& st = getStateIfArgIsFun(call, tmp);
-                        //assert(st!=NULL);
-                        //sliced = FN.State->Chain(st, sliced);
-                    //}
-                    if (isInterestingTerm(tmp)){
+                    if (auto&& gep = llvm::dyn_cast<GepTerm>(tmp)){
+                        newArgs.push_back(gep->getBase());
+                        ++vec_ind;
+                    }
+                    else if (isInterestingTerm(tmp)){
+                        auto&& retmp = FN.Term->getValueTerm(tmp->getType(), call->getParent()->getParent()->getName().str() + "_" + tmp->getName());
+                        auto&& eq = FN.Predicate->getEqualityPredicate(curFunArgs[vec_ind], retmp);
+                        sliced = FN.State->Chain(FN.State->Basic(std::vector<Predicate::Ptr>{eq}), sliced);
                         newArgs.push_back(tmp);
                         ++vec_ind;
                     }
@@ -197,19 +185,8 @@ private:
                         curFunArgs.erase(curFunArgs.begin() + vec_ind);
                     }
                 }
-                for(auto i = 0U; i < arguments.size(); ++i){
-                    auto&& sliced1 = ReplaceTermTransformer(FN, arguments[i], prevArgs[i]).transform(sliced);
-                    if(sliced1->equals(sliced.get()) && not(prevArgs[i]->equals(arguments[i].get()))){
-                        auto&& eq = FN.Predicate->getEqualityPredicate(prevArgs[i], arguments[i]);
-                        sliced = FN.State->Chain(FN.State->Basic(std::vector<Predicate::Ptr>{eq}), sliced);
-                    }
-                    else{
-                        sliced = sliced1;
-                    }
-
-                }
                 curRes = FN.State->Chain(sliced, curRes);
-                getFunUsages(*fun, newArgs, curRes, curFunArgs, call);
+                getFunUsages(*fun, newArgs, curRes, curFunArgs, call, passedFunctions);
             }
         }
         return;
@@ -226,13 +203,13 @@ private:
     }
 
     bool isInterestingTerm(Term::Ptr term) {
-        return not (llvm::is_one_of<
+        return (not (llvm::is_one_of<
                 OpaqueBoolConstantTerm,
                 OpaqueIntConstantTerm,
                 OpaqueFloatingConstantTerm,
                 OpaqueStringConstantTerm,
                 OpaqueNullPtrTerm
-        >(term)) && (term->getNumSubterms() == 0);
+        >(term))) && (term->getNumSubterms() == 0);
     }
 
 
@@ -241,9 +218,7 @@ private:
     PredicateState::Ptr query;
     Pass* pass;
     PredicateState::Ptr resulting;
-
     std::vector<PredicateState::Ptr> resChoices;
-
     borealis::TypeFactory::Ptr TF;
     bool isFirstArg;
     PredicateState::Ptr funcState;

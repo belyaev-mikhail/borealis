@@ -13,7 +13,7 @@ EqualityMapper::EqualityMapper(FactoryNest FN) : Base(FN) {}
 
 Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr pred) {
 
-    if (util::at(mapping,pred->getLhv()) && pred->getType() == PredicateType::STATE) {
+    /*if (util::at(mapping,pred->getLhv()) && pred->getType() == PredicateType::STATE) {
         usedTerms.insert(pred->getLhv());
     }
 
@@ -38,15 +38,15 @@ Predicate::Ptr EqualityMapper::transformEqualityPredicate(EqualityPredicatePtr p
         } else {
             usedTerms.insert(newEq->getLhv());
         }
-    }
+    }*/
 
-    return replaced;
+    return pred;
 }
 
 Predicate::Ptr EqualityMapper::transformPredicate(Predicate::Ptr pred) {
-    if (pred->getType() == PredicateType::PATH) {
+    /*if (pred->getType() == PredicateType::PATH) {
         return Predicate::Ptr{ pred->replaceOperands(mapping) };
-    }
+    }*/
     return pred;
 }
 
