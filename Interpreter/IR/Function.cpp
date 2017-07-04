@@ -18,6 +18,8 @@ Function::Function(const llvm::Function* function, DomainFactory* factory, SlotT
           factory_(factory) {
     inputState_ = State::Ptr{ new State() };
     outputState_ = State::Ptr{ new State() };
+    for (auto i = 0U; i < instance_->getArgumentList().size(); ++i) arguments_.push_back(nullptr);
+
     for (auto&& block : util::viewContainer(*instance_)) {
         auto&& aiBlock = BasicBlock(&block, tracker_);
         blocks_.insert( {&block, aiBlock} );
@@ -85,61 +87,63 @@ std::string Function::getName() const {
 
 std::string Function::toString() const {
     std::ostringstream ss;
-    ss << "--- Function \"";
-    ss << getName() << "\" ---";
+    ss << *this;
+    return ss.str();
+}
 
-    if (not arguments_.empty()) {
+SlotTracker& Function::getSlotTracker() const {
+    return *tracker_;
+}
+
+bool Function::updateArguments(const std::vector<Domain::Ptr>& args) {
+    ASSERT(instance_->isVarArg() || arguments_.size() == args.size(), "Wrong number of arguments");
+    // This is generally fucked up
+    if (arguments_.size() == 0)
+        return not getEntryNode()->isVisited();
+
+    bool changed = false;
+    // adding function arguments to input state
+    auto&& it = instance_->getArgumentList().begin();
+    for (auto i = 0U; i < arguments_.size(); ++i, ++it) {
+        ASSERT(args[i], "Nullptr in functions arguments");
+
+        auto arg = args[i];
+        if (arguments_[i]) {
+            arg = arguments_[i]->widen(arg);
+            changed |= not arguments_[i]->equals(arg.get());
+        } else {
+            changed = true;
+        }
+        arguments_[i] = arg;
+        inputState_->addVariable(it, arguments_[i]);
+    }
+    getEntryNode()->getInputState()->merge(inputState_);
+    return changed;
+}
+
+std::ostream& operator<<(std::ostream& ss, const Function& f) {
+    ss << "--- Function \"" << f.getName() << "\" ---";
+
+    auto& arguments = f.getArguments();
+    if (not arguments.empty()) {
         auto i = 0U;
-        for (auto&& it : instance_->args()) {
-            ss << std::endl << tracker_->getLocalName(&it) << " = " << arguments_[i++];
+        for (auto&& it : f.getInstance()->args()) {
+            ss << std::endl << f.getSlotTracker().getLocalName(&it) << " = " << arguments[i++];
         }
         ss << std::endl;
     }
 
-    for (auto&& it : util::viewContainer(*instance_)) {
-        ss << std::endl << getBasicBlock(&it)->toString();
+    for (auto&& it : util::viewContainer(*f.getInstance())) {
+        ss << std::endl << f.getBasicBlock(&it);
+        ss.flush();
     }
 
     ss << std::endl << "Retval = ";
-    if (outputState_->getReturnValue())
-        ss << outputState_->getReturnValue()->toString();
+    if (f.getOutputState()->getReturnValue())
+        ss << f.getOutputState()->getReturnValue()->toString();
     else ss << "void";
 
-    return ss.str();
-}
-
-void Function::setArguments(const std::vector<Domain::Ptr>& args) {
-    ASSERT(instance_->isVarArg() || instance_->getArgumentList().size() == args.size(), "Wrong number of arguments");
-    arguments_.clear();
-
-    // adding function arguments to input state
-    auto&& it = instance_->getArgumentList().begin();
-    for (auto i = 0U; i < args.size(); ++i) {
-        if (args[i]) {
-            inputState_->addVariable(it, args[i]);
-            arguments_.push_back(args[i]);
-        }
-        if (++it == instance_->getArgumentList().end()) break;
-    }
-
-    // merge the front block's input state with function input state
-    getBasicBlock(&instance_->front())->getInputState()->merge(inputState_);
-}
-
-bool Function::atFixpoint() {
-    for (auto& block : blocks_) {
-        if (not block.second.atFixpoint()) return false;
-    }
-    return true;
-}
-
-const SlotTracker& Function::getSlotTracker() const {
-    return *tracker_;
-}
-
-std::ostream& operator<<(std::ostream& s, const Function& f) {
-    s << f.toString();
-    return s;
+    return ss;
 }
 
 std::ostream& operator<<(std::ostream& s, const Function* f) {
@@ -152,9 +156,29 @@ std::ostream& operator<<(std::ostream& s, const Function::Ptr f) {
     return s;
 }
 
-borealis::logging::logstream& operator<<(borealis::logging::logstream& s, const Function& f) {
-    s << f.toString();
-    return s;
+borealis::logging::logstream& operator<<(borealis::logging::logstream& ss, const Function& f) {
+    ss << "--- Function \"" << f.getName() << "\" ---";
+
+    auto& arguments = f.getArguments();
+    if (not arguments.empty()) {
+        auto i = 0U;
+        for (auto&& it : f.getInstance()->args()) {
+            ss << endl << f.getSlotTracker().getLocalName(&it) << " = " << arguments[i++];
+        }
+        ss << endl;
+    }
+
+    for (auto&& it : util::viewContainer(*f.getInstance())) {
+        ss << endl << f.getBasicBlock(&it);
+        ss.flush();
+    }
+
+    ss << endl << "Retval = ";
+    if (f.getOutputState()->getReturnValue())
+        ss << f.getOutputState()->getReturnValue()->toString();
+    else ss << "void";
+
+    return ss;
 }
 
 borealis::logging::logstream& operator<<(borealis::logging::logstream& s, const Function* f) {

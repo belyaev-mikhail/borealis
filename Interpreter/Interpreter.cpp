@@ -19,7 +19,7 @@ Interpreter::Interpreter(const llvm::Module* module, FuncInfoProvider* FIP, Slot
         : ObjectLevelLogging("interpreter"), module_(module, st), FIP_(FIP), ST_(st) {}
 
 void Interpreter::run() {
-    auto&& main = module_.create("main");
+    auto&& main = module_.get("main");
     if (main) {
         std::vector<Domain::Ptr> args;
         for (auto&& arg : main->getInstance()->getArgumentList()) {
@@ -38,7 +38,8 @@ const Module& Interpreter::getModule() const {
 }
 
 void Interpreter::interpretFunction(Function::Ptr function, const std::vector<Domain::Ptr>& args) {
-    function->setArguments(args);
+    // if arguments are not updated, then this function was already interpreted
+    if (not function->updateArguments(args)) return;
     stack_.push({ function, nullptr, {function->getEntryNode()}, {} });
     context_ = &stack_.top();
 
@@ -64,7 +65,7 @@ void Interpreter::interpretFunction(Function::Ptr function, const std::vector<Do
 }
 
 Domain::Ptr Interpreter::getVariable(const llvm::Value* value) {
-    if (auto&& global = module_.findGLobal(value)) {
+    if (auto&& global = module_.findGlobal(value)) {
         return global;
 
     } else if (auto&& local = context_->state->find(value)) {
@@ -386,25 +387,10 @@ void Interpreter::visitCallInst(llvm::CallInst& i) {
     } else {
         std::vector<Domain::Ptr> args;
         Function::Ptr function = module_.get(i.getCalledFunction());
-        if (function) {
-            auto& oldArgs = function->getArguments();
-            for (auto j = 0U; j < oldArgs.size(); ++j) {
-                auto&& newArg = getVariable(i.getArgOperand(j));
-                args.push_back(oldArgs[j]->widen(newArg));
-            }
-
-            if ( not util::equal(args, oldArgs,
-                                 [](Domain::Ptr a, Domain::Ptr b) { return a->equals(b.get()); }) ) {
-                interpretFunction(function, args);
-            }
-
-        } else {
-            function = module_.create(i.getCalledFunction());
-            for (auto j = 0U; j < i.getNumArgOperands(); ++j) {
-                args.push_back(getVariable(i.getArgOperand(j)));
-            }
-            interpretFunction(function, args);
+        for (auto j = 0U; j < i.getNumArgOperands(); ++j) {
+            args.push_back(getVariable(i.getArgOperand(j)));
         }
+        interpretFunction(function, args);
 
         if (not i.getType()->isVoidTy()) {
             ASSERT(function->getReturnValue(), "extract value result");
@@ -475,12 +461,12 @@ void Interpreter::handleMemoryAllocation(const llvm::CallInst& i) {
     // Adding new level of abstraction (pointer to array to real value), because:
     // - if this is alloc, we need one more level for correct GEP handler
     // - if this is malloc, we create array of dynamically allocated objects
-    if (integer->to()->isMax()) {
+    if (integer->ub()->isMax()) {
         stub(i);
         return;
     }
 
-    auto&& arrayType = llvm::ArrayType::get(i.getType()->getPointerElementType(), integer->to()->getRawValue());
+    auto&& arrayType = llvm::ArrayType::get(i.getType()->getPointerElementType(), integer->ub()->getRawValue());
     auto&& ptrType = llvm::PointerType::get(arrayType, 0);
     Domain::Ptr domain = module_.getDomainFactory()->allocate(*ptrType);
 
@@ -519,7 +505,7 @@ void Interpreter::handleDeclaration(const llvm::CallInst& i) {
             auto arg = i.getArgOperand(j);
             auto argType = arg->getType();
             if (argType->isPointerTy()) {
-                errs() << "Moving pointer to TOP: " << ST_->toString(arg) << endl;
+                warns() << "Moving pointer to TOP: " << ST_->toString(arg) << endl;
                 context_->state->addVariable(arg, module_.getDomainFactory()->getTop(*argType));
             }
         }

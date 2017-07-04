@@ -51,14 +51,14 @@ public:
     Domain::Ptr getReturnValue() const;
 
     /// Assumes that @args[i] corresponds to i-th argument of the function
-    void setArguments(const std::vector<Domain::Ptr>& args);
+    /// Returns true, if arguments were updated and function should be reinterpreted
+    bool updateArguments(const std::vector<Domain::Ptr>& args);
 
     BasicBlock* getEntryNode() const;
     BasicBlock* getBasicBlock(const llvm::BasicBlock* bb) const;
-    const SlotTracker& getSlotTracker() const;
+    SlotTracker& getSlotTracker() const;
 
     bool empty() const;
-    bool atFixpoint();
     std::string getName() const;
     std::string toString() const;
 

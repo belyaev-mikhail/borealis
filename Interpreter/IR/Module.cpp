@@ -4,7 +4,7 @@
 
 #include <andersen/include/Andersen.h>
 
-#include "Interpreter/Util.h"
+#include "Interpreter/Util.hpp"
 #include "Module.h"
 #include "Util/collections.hpp"
 
@@ -18,10 +18,10 @@ Module::Module(const llvm::Module* module, SlotTrackerPass* st)
           ST_(st),
           factory_(ST_) {
     /// Initialize all global variables
-    initGLobals();
+    initGlobals();
 }
 
-void Module::initGLobals() {
+void Module::initGlobals() {
     for (auto&& it : instance_->getGlobalList()) {
         Domain::Ptr globalDomain;
         if (it.hasInitializer()) {
@@ -59,7 +59,7 @@ void Module::initGLobals() {
     }
 }
 
-Function::Ptr Module::create(const llvm::Function* function) {
+Function::Ptr Module::get(const llvm::Function* function) {
     if (auto&& opt = util::at(functions_, function)) {
         return opt.getUnsafe();
     } else {
@@ -69,22 +69,16 @@ Function::Ptr Module::create(const llvm::Function* function) {
     }
 }
 
-Function::Ptr Module::create(const std::string& fname) {
+Function::Ptr Module::get(const std::string& fname) {
     auto&& function = instance_->getFunction(fname);
-    return (function) ? create(function) : nullptr;
+    return (function) ? get(function) : nullptr;
 }
 
-Function::Ptr Module::get(const llvm::Function* function) const {
-    if (auto&& opt = util::at(functions_, function))
-        return opt.getUnsafe();
-    return nullptr;
-}
-
-Module::GlobalsMap& Module::getGloabls() {
+const Module::GlobalsMap& Module::getGloabls() const {
     return globals_;
 }
 
-Domain::Ptr Module::findGLobal(const llvm::Value* val) const {
+Domain::Ptr Module::findGlobal(const llvm::Value* val) const {
     auto&& it = globals_.find(val);
     return (it == globals_.end()) ? nullptr : it->second;
 }
@@ -95,19 +89,7 @@ void Module::setGlobal(const llvm::Value* val, Domain::Ptr domain) {
 
 std::string Module::toString() const {
     std::ostringstream ss;
-
-    if (not globals_.empty()) {
-        ss << "globals: " << std::endl;
-        for (auto&& global : globals_) {
-            ss << "  ";
-            ss << global.first->getName().str() << " = ";
-            ss << global.second->toPrettyString("  ") << std::endl;
-        }
-    }
-    ss << std::endl;
-    for (auto&& it : functions_) {
-        ss << std::endl << it.second << std::endl;
-    }
+    ss << *this;
     return ss.str();
 }
 
@@ -120,12 +102,36 @@ const Module::FunctionMap& Module::getFunctions() const {
 }
 
 std::ostream& operator<<(std::ostream& s, const Module& m) {
-    s << m.toString();
+    if (not m.getGloabls().empty()) {
+        s << "globals: " << std::endl;
+        for (auto&& global : m.getGloabls()) {
+            s << "  " << global.first->getName().str() << " = " << global.second->toPrettyString("  ") << std::endl;
+            s.flush();
+        }
+    }
+    s << std::endl;
+    s.flush();
+    for (auto&& it : m.getFunctions()) {
+        s << std::endl << it.second << std::endl;
+        s.flush();
+    }
     return s;
 }
 
 borealis::logging::logstream& operator<<(borealis::logging::logstream& s, const Module& m) {
-    s << m.toString();
+    if (not m.getGloabls().empty()) {
+        s << "globals: " << endl;
+        for (auto&& global : m.getGloabls()) {
+            s << "  " << global.first->getName().str() << " = " << global.second->toPrettyString("  ") << endl;
+            s.flush();
+        }
+    }
+    s << endl;
+    s.flush();
+    for (auto&& it : m.getFunctions()) {
+        s << endl << it.second << endl;
+        s.flush();
+    }
     return s;
 }
 
