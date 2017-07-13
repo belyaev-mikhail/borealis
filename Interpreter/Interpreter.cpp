@@ -5,10 +5,10 @@
 #include "Annotation/Annotation.h"
 #include "Interpreter.h"
 
+#include "ConditionSplitter.h"
 #include "Util/collections.hpp"
 
 #include "Util/macros.h"
-#include "ConditionSplitter.h"
 
 namespace borealis {
 namespace absint {
@@ -19,7 +19,7 @@ Interpreter::Interpreter(const llvm::Module* module, FuncInfoProvider* FIP, Slot
         : ObjectLevelLogging("interpreter"), module_(module, st), FIP_(FIP), ST_(st) {}
 
 void Interpreter::run() {
-    auto&& main = module_.create("main");
+    auto&& main = module_.get("main");
     if (main) {
         std::vector<Domain::Ptr> args;
         for (auto&& arg : main->getInstance()->getArgumentList()) {
@@ -38,23 +38,23 @@ const Module& Interpreter::getModule() const {
 }
 
 void Interpreter::interpretFunction(Function::Ptr function, const std::vector<Domain::Ptr>& args) {
-    function->setArguments(args);
+    // if arguments are not updated and globals are not changed, then this function don't need to be reinterpreted
+    if (not (function->updateArguments(args) || function->updateGlobals(module_.getGlobalsFor(function)))) return;
     stack_.push({ function, nullptr, {function->getEntryNode()}, {} });
     context_ = &stack_.top();
 
     while (not context_->deque.empty()) {
         auto&& basicBlock = context_->deque.front();
+        basicBlock->updateGlobals(module_.getGlobalsFor(basicBlock));
 
         // updating output block with new information
-        auto&& inputBlock = basicBlock->getInputState();
-        auto&& outputBlock = basicBlock->getOutputState();
-        outputBlock->merge(inputBlock);
-        context_->state = outputBlock;
+        basicBlock->mergeOutputWithInput();
+        context_->state = basicBlock->getOutputState();
         visit(const_cast<llvm::BasicBlock*>(basicBlock->getInstance()));
         basicBlock->setVisited();
 
         // update function output block
-        context_->function->getOutputState()->merge(context_->state);
+        context_->function->mergeToOutput(context_->state);
 
         context_->deque.pop_front();
     }
@@ -64,7 +64,7 @@ void Interpreter::interpretFunction(Function::Ptr function, const std::vector<Do
 }
 
 Domain::Ptr Interpreter::getVariable(const llvm::Value* value) {
-    if (auto&& global = module_.findGLobal(value)) {
+    if (auto&& global = module_.findGlobal(value)) {
         return global;
 
     } else if (auto&& local = context_->state->find(value)) {
@@ -106,14 +106,14 @@ void Interpreter::visitBranchInst(llvm::BranchInst& i) {
 
         auto trueSuccessor = context_->function->getBasicBlock(i.getSuccessor(0));
         auto falseSuccessor = context_->function->getBasicBlock(i.getSuccessor(1));
-        trueSuccessor->getInputState()->merge(context_->state);
-        falseSuccessor->getInputState()->merge(context_->state);
+        trueSuccessor->mergeToInput(context_->state);
+        falseSuccessor->mergeToInput(context_->state);
 
         if (cond->isTop()) {
             auto splitted = ConditionSplitter(i.getCondition(), this, context_->state).apply();
             for (auto&& it : splitted) {
-                trueSuccessor->getInputState()->addVariable(it.first, it.second.true_);
-                falseSuccessor->getInputState()->addVariable(it.first, it.second.false_);
+                trueSuccessor->addToInput(it.first, it.second.true_);
+                falseSuccessor->addToInput(it.first, it.second.false_);
             }
             successors.push_back(trueSuccessor);
             successors.push_back(falseSuccessor);
@@ -132,7 +132,7 @@ void Interpreter::visitBranchInst(llvm::BranchInst& i) {
         }
     } else {
         auto successor = context_->function->getBasicBlock(i.getSuccessor(0));
-        successor->getInputState()->merge(context_->state);
+        successor->mergeToInput(context_->state);
         successors.push_back(successor);
     }
 
@@ -152,7 +152,7 @@ void Interpreter::visitSwitchInst(llvm::SwitchInst& i) {
             auto caseVal = module_.getDomainFactory()->toInteger(cs.getCaseValue()->getValue());
             if (integer->hasIntersection(caseVal)) {
                 auto successor = context_->function->getBasicBlock(cs.getCaseSuccessor());
-                successor->getInputState()->merge(context_->state);
+                successor->mergeToInput(context_->state);
                 successors.push_back(successor);
                 isDefault = false;
             }
@@ -160,14 +160,14 @@ void Interpreter::visitSwitchInst(llvm::SwitchInst& i) {
 
         if (isDefault) {
             auto successor = context_->function->getBasicBlock(i.getDefaultDest());
-            successor->getInputState()->merge(context_->state);
+            successor->mergeToInput(context_->state);
             successors.push_back(successor);
         }
 
     } else {
         for (auto j = 0U; j < i.getNumSuccessors(); ++j) {
             auto successor = context_->function->getBasicBlock(i.getSuccessor(j));
-            successor->getInputState()->merge(context_->state);
+            successor->mergeToInput(context_->state);
             successors.push_back(successor);
         }
     }
@@ -180,7 +180,7 @@ void Interpreter::visitIndirectBrInst(llvm::IndirectBrInst& i) {
 
     for (auto j = 0U; j < i.getNumSuccessors(); ++j) {
         auto successor = context_->function->getBasicBlock(i.getSuccessor(j));
-        successor->getInputState()->merge(context_->state);
+        successor->mergeToInput(context_->state);
         successors.push_back(successor);
     }
     addSuccessors(successors);
@@ -386,25 +386,10 @@ void Interpreter::visitCallInst(llvm::CallInst& i) {
     } else {
         std::vector<Domain::Ptr> args;
         Function::Ptr function = module_.get(i.getCalledFunction());
-        if (function) {
-            auto& oldArgs = function->getArguments();
-            for (auto j = 0U; j < oldArgs.size(); ++j) {
-                auto&& newArg = getVariable(i.getArgOperand(j));
-                args.push_back(oldArgs[j]->widen(newArg));
-            }
-
-            if ( not util::equal(args, oldArgs,
-                                 [](Domain::Ptr a, Domain::Ptr b) { return a->equals(b.get()); }) ) {
-                interpretFunction(function, args);
-            }
-
-        } else {
-            function = module_.create(i.getCalledFunction());
-            for (auto j = 0U; j < i.getNumArgOperands(); ++j) {
-                args.push_back(getVariable(i.getArgOperand(j)));
-            }
-            interpretFunction(function, args);
+        for (auto j = 0U; j < i.getNumArgOperands(); ++j) {
+            args.push_back(getVariable(i.getArgOperand(j)));
         }
+        interpretFunction(function, args);
 
         if (not i.getType()->isVoidTy()) {
             ASSERT(function->getReturnValue(), "extract value result");
@@ -427,7 +412,7 @@ void Interpreter::visitBitCastInst(llvm::BitCastInst& i) {
 ///////////////////////////////////////////////////////////////
 void Interpreter::addSuccessors(const std::vector<BasicBlock*>& successors) {
     for (auto&& it : successors) {
-        if (not it->atFixpoint() && not util::contains(context_->deque, it)) {
+        if (not it->atFixpoint(module_.getGlobalsFor(it)) && not util::contains(context_->deque, it)) {
             context_->deque.push_back(it);
         }
     }
@@ -475,12 +460,12 @@ void Interpreter::handleMemoryAllocation(const llvm::CallInst& i) {
     // Adding new level of abstraction (pointer to array to real value), because:
     // - if this is alloc, we need one more level for correct GEP handler
     // - if this is malloc, we create array of dynamically allocated objects
-    if (integer->to()->isMax()) {
+    if (integer->ub()->isMax()) {
         stub(i);
         return;
     }
 
-    auto&& arrayType = llvm::ArrayType::get(i.getType()->getPointerElementType(), integer->to()->getRawValue());
+    auto&& arrayType = llvm::ArrayType::get(i.getType()->getPointerElementType(), integer->ub()->getRawValue());
     auto&& ptrType = llvm::PointerType::get(arrayType, 0);
     Domain::Ptr domain = module_.getDomainFactory()->allocate(*ptrType);
 
@@ -519,7 +504,7 @@ void Interpreter::handleDeclaration(const llvm::CallInst& i) {
             auto arg = i.getArgOperand(j);
             auto argType = arg->getType();
             if (argType->isPointerTy()) {
-                errs() << "Moving pointer to TOP: " << ST_->toString(arg) << endl;
+                warns() << "Moving pointer to TOP: " << ST_->toString(arg) << endl;
                 context_->state->addVariable(arg, module_.getDomainFactory()->getTop(*argType));
             }
         }

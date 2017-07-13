@@ -25,7 +25,8 @@ struct PtrLocationHash {
 
 struct PtrLocationEquals {
     bool operator() (const PointerLocation& lhv, const PointerLocation& rhv) const noexcept {
-        return lhv.location_.get() == rhv.location_.get();
+        return lhv.location_->equals(rhv.location_.get());
+        //return lhv.location_.get() == rhv.location_.get();
     }
 };
 
@@ -76,7 +77,6 @@ public:
     virtual Domain::Ptr join(Domain::Ptr other) const;
     virtual Domain::Ptr meet(Domain::Ptr other) const;
     virtual Domain::Ptr widen(Domain::Ptr other) const;
-    virtual Domain::Ptr narrow(Domain::Ptr other) const;
 
     /// Other
     const llvm::Type& getElementType() const;

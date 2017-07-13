@@ -9,7 +9,6 @@
 #define CHECKVISITOR_HPP_
 
 
-
 #include "Logging/logger.hpp"
 #include "Passes/Defect/DefectManager/DefectInfo.h"
 #include "SMT/MathSAT/Solver.h"

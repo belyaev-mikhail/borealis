@@ -6,8 +6,9 @@
 #include <Type/TypeUtils.h>
 
 #include "DomainFactory.h"
-#include "Interpreter/Domain/Integer/ValInteger.h"
-#include "Interpreter/Util.h"
+#include "Interpreter/Domain/Integer/IntValue.h"
+#include "Interpreter/IR/Module.h"
+#include "Interpreter/Util.hpp"
 #include "Util/cast.hpp"
 
 #include "Util/macros.h"
@@ -15,9 +16,10 @@
 namespace borealis {
 namespace absint {
 
-DomainFactory::DomainFactory(SlotTrackerPass* st) : ObjectLevelLogging("domain"),
-                                                    ST_(st),
-                                                    nullptr_{ new Nullptr(this) } {}
+DomainFactory::DomainFactory(Module* module) : ObjectLevelLogging("domain"),
+                                               module_(module),
+                                               ST_(module_->getSlotTracker()),
+                                               nullptr_{ new Nullptr(this) } {}
 
 DomainFactory::~DomainFactory() {
     auto&& info = infos();
@@ -57,24 +59,24 @@ Domain::Ptr DomainFactory::getBottom(const llvm::Type& type) {
 
 Domain::Ptr DomainFactory::get(const llvm::Value* val) {
     auto&& type = *val->getType();
-    /// Void type - do nothing
+    // Void type - do nothing
     if (type.isVoidTy()) {
         return nullptr;
-    /// Integer
+    // Integer
     } else if (type.isIntegerTy()) {
         auto&& intType = llvm::cast<llvm::IntegerType>(&type);
         return getInteger(intType->getBitWidth());
-    /// Float
+    // Float
     } else if (type.isFloatingPointTy()) {
         auto& semantics = util::getSemantics(type);
         return getFloat(semantics);
-    /// Aggregate type (Array or Struct)
+    // Aggregate type (Array or Struct)
     } else if (type.isAggregateType()) {
         return getAggregateObject(type);
-    /// Pointer
+    // Pointer
     } else if (type.isPointerTy()) {
         return allocate(type);
-    /// Otherwise
+    // Otherwise
     } else {
         errs() << "Creating domain of unknown type <" << ST_->toString(&type) << ">" << endl;
         return nullptr;
@@ -82,64 +84,85 @@ Domain::Ptr DomainFactory::get(const llvm::Value* val) {
 }
 
 Domain::Ptr DomainFactory::get(const llvm::Constant* constant) {
-    /// Integer
+    // Integer
     if (auto&& intConstant = llvm::dyn_cast<llvm::ConstantInt>(constant)) {
-        auto constInteger = Integer::Ptr{ new ValInteger(intConstant->getValue(), intConstant->getBitWidth())};
-        return getInteger(constInteger);
-    /// Float
+        return getInteger(toInteger(intConstant->getValue()));
+    // Float
     } else if (auto&& floatConstant = llvm::dyn_cast<llvm::ConstantFP>(constant)) {
         return getFloat(llvm::APFloat(floatConstant->getValueAPF()));
-    /// Nullpointer
+    // Nullpointer
     } else if (auto&& ptrConstant = llvm::dyn_cast<llvm::ConstantPointerNull>(constant)) {
         return getNullptr(*constant->getType()->getPointerElementType());
-    /// Constant Array
+    // Constant Data Array
     } else if (auto&& sequential = llvm::dyn_cast<llvm::ConstantDataSequential>(constant)) {
         std::vector<Domain::Ptr> elements;
         for (auto i = 0U; i < sequential->getNumElements(); ++i) {
             auto element = get(sequential->getElementAsConstant(i));
             if (not element) {
                 errs() << "Cannot create constant: " << ST_->toString(sequential->getElementAsConstant(i)) << endl;
-                return nullptr;
+                element = getTop(*sequential->getType());
             }
             elements.push_back(element);
         }
         return getAggregateObject(*constant->getType(), elements);
-    /// Constant Struct
+    // Constant Array
+    } else if (auto&& constantArray = llvm::dyn_cast<llvm::ConstantArray>(constant)) {
+        std::vector<Domain::Ptr> elements;
+        for (auto i = 0U; i < constantArray->getNumOperands(); ++i) {
+            auto element = get(constantArray->getOperand(i));
+            if (not element) {
+                errs() << "Cannot create constant: " << ST_->toString(constantArray->getOperand(i)) << endl;
+                element = getTop(*sequential->getType());
+            }
+            elements.push_back(element);
+        }
+        return getAggregateObject(*constant->getType(), elements);
+    } else if (auto&& d = llvm::dyn_cast<llvm::ConstantFP>(constant)) {
+        errs() << "Creating constant of ConstantFP" << endl;
+        auto value = llvm::cast<llvm::Value>(constant);
+        errs() << "Unknown constant: " << ST_->toString(value) << endl;
+        return getTop(*value->getType());
+    // Constant Expr
+    } else if (auto&& constExpr = llvm::dyn_cast<llvm::ConstantExpr>(constant)) {
+        return interpretConstantExpr(constExpr);
+    // Constant Struct
     } else if (auto&& structType = llvm::dyn_cast<llvm::ConstantStruct>(constant)) {
         std::vector<Domain::Ptr> elements;
         for (auto i = 0U; i < structType->getNumOperands(); ++i) {
             auto element = get(structType->getAggregateElement(i));
             if (not element) {
                 errs() << "Cannot create constant: " << ST_->toString(structType->getAggregateElement(i)) << endl;
-                return nullptr;
+                element = getTop(*sequential->getType());
             }
             elements.push_back(element);
         }
         return getAggregateObject(*constant->getType(), elements);
-    /// otherwise
+    // Zero initializer
+    } else if (llvm::isa<llvm::ConstantAggregateZero>(constant)) {
+        return getBottom(*constant->getType());
+    // otherwise
     } else {
-        auto value = llvm::cast<llvm::Value>(constant);
-        errs() << "Unknown constant: " << ST_->toString(value) << endl;
-        return getTop(*value->getType());
+        errs() << "Unknown constant: " << ST_->toString(constant) << endl;
+        return getTop(*constant->getType());
     }
 }
 
 Domain::Ptr DomainFactory::allocate(const llvm::Type& type) {
-    /// Void type - do nothing
+    // Void type - do nothing
     if (type.isVoidTy()) {
         return nullptr;
-    /// Simple type - allocating like array
+    // Simple type - allocating like array
     } else if (type.isIntegerTy() || type.isFloatingPointTy()) {
         auto&& arrayType = llvm::ArrayType::get(const_cast<llvm::Type*>(&type), 1);
         return allocate(*arrayType);
-    /// Struct or Array type
+    // Struct or Array type
     } else if (type.isAggregateType()) {
         return getAggregateObject(type);
-    /// Pointer
+    // Pointer
     } else if (type.isPointerTy()) {
         auto&& location = allocate(*type.getPointerElementType());
         return getPointer(*type.getPointerElementType(), { {getIndex(0), location} });
-    /// Otherwise
+    // Otherwise
     } else {
         errs() << "Creating domain of unknown type <" << ST_->toString(&type) << ">" << endl;
         return nullptr;
@@ -161,20 +184,20 @@ Domain::Ptr DomainFactory::cached(const FloatInterval::ID& key) {
 }
 
 Integer::Ptr DomainFactory::toInteger(uint64_t val, size_t width) {
-    return Integer::Ptr{ new ValInteger(val, width) };
+    return Integer::Ptr{ new IntValue(val, width) };
 }
 
 Integer::Ptr DomainFactory::toInteger(const llvm::APInt& val) {
-    return Integer::Ptr{ new ValInteger(val, val.getBitWidth()) };
+    return Integer::Ptr{ new IntValue(val, val.getBitWidth()) };
 }
 
 Domain::Ptr DomainFactory::getIndex(uint64_t indx) {
-    auto indxInteger = Integer::Ptr{ new ValInteger(llvm::APInt(64, indx, false), 64) };
+    auto indxInteger = Integer::Ptr{ new IntValue(llvm::APInt(64, indx, false), 64) };
     return getInteger(indxInteger);
 }
 
 /* Integer */
-Domain::Ptr DomainFactory::getInteger(unsigned width) {
+Domain::Ptr DomainFactory::getInteger(size_t width) {
     return getInteger(Domain::BOTTOM, width);
 }
 
@@ -182,7 +205,7 @@ Domain::Ptr DomainFactory::getInteger(Integer::Ptr val) {
     return getInteger(val, val);
 }
 
-Domain::Ptr DomainFactory::getInteger(Domain::Value value, unsigned width) {
+Domain::Ptr DomainFactory::getInteger(Domain::Value value, size_t width) {
     return cached(std::make_tuple(value,
                                   toInteger(0, width),
                                   toInteger(0, width)));
@@ -228,7 +251,7 @@ Domain::Ptr DomainFactory::getPointer(Domain::Value value, const llvm::Type& ele
 }
 
 Domain::Ptr DomainFactory::getPointer(const llvm::Type& elementType) {
-    return Domain::Ptr{ new Pointer(Domain::BOTTOM, this, elementType) };
+    return getPointer(Domain::BOTTOM, elementType);
 }
 
 Domain::Ptr DomainFactory::getPointer(const llvm::Type& elementType, const Pointer::Locations& locations) {
@@ -242,17 +265,26 @@ Domain::Ptr DomainFactory::getAggregateObject(const llvm::Type& type) {
 
 Domain::Ptr DomainFactory::getAggregateObject(Domain::Value value, const llvm::Type& type) {
     if (type.isArrayTy()) {
-        return Domain::Ptr{new AggregateObject(value, this,
-                                               *type.getArrayElementType(),
-                                               getIndex(type.getArrayNumElements()))};
+        return Domain::Ptr{
+                new AggregateObject(value,
+                                    this,
+                                    *type.getArrayElementType(),
+                                    getIndex(type.getArrayNumElements())
+                )
+        };
+
     } else if (type.isStructTy()) {
         AggregateObject::Types types;
         for (auto i = 0U; i < type.getStructNumElements(); ++i)
             types[i] = type.getStructElementType(i);
 
-        return Domain::Ptr{new AggregateObject(value, this,
-                                               types,
-                                               getIndex(type.getStructNumElements()))};
+        return Domain::Ptr{
+                new AggregateObject(value,
+                                    this,
+                                    types,
+                                    getIndex(type.getStructNumElements())
+                )
+        };
     }
     UNREACHABLE("Unknown aggregate type: " + ST_->toString(&type));
 }
@@ -279,11 +311,50 @@ Domain::Ptr DomainFactory::getAggregateObject(const llvm::Type& type, std::vecto
 
 /* heap */
 MemoryObject::Ptr DomainFactory::getMemoryObject(const llvm::Type& type) {
-    return MemoryObject::Ptr{ new MemoryObject(getBottom(type)) };
+    return getMemoryObject(getBottom(type));
 }
 
 MemoryObject::Ptr DomainFactory::getMemoryObject(Domain::Ptr value) {
     return MemoryObject::Ptr{ new MemoryObject(value) };
+}
+
+Domain::Ptr DomainFactory::interpretConstantExpr(const llvm::ConstantExpr* ce) {
+    auto&& getOperandValue = [&](const llvm::Constant* val) -> Domain::Ptr {
+        if (llvm::isa<llvm::GlobalVariable>(val)) return module_->findGlobal(val);
+        else return get(val);
+    };
+    // GEP
+    if (llvm::isa<llvm::GEPOperator>(ce)) {
+        auto&& ptr = getOperandValue(ce->getOperand(0));
+        ASSERT(ptr, "gep args: " + ST_->toString(ce->getOperand(0)));
+
+        std::vector<Domain::Ptr> offsets;
+        for (auto j = 1U; j != ce->getNumOperands(); ++j) {
+            auto val = ce->getOperand(j);
+            if (auto&& intConstant = llvm::dyn_cast<llvm::ConstantInt>(val)) {
+                offsets.push_back(getIndex(*intConstant->getValue().getRawData()));
+            } else if (auto indx = getOperandValue(val)) {
+                offsets.push_back(indx);
+            } else {
+                UNREACHABLE("Non-integer constant in gep");
+            }
+        }
+        return ptr->gep(*ce->getType()->getPointerElementType(), offsets);
+    // Cast
+    } else if (ce->isCast()) {
+        errs() << "Creating constant of cast constexpr" << endl;
+        errs() << ST_->toString(ce) << endl;
+        errs() << "Cast operands:" << endl;
+        for (auto&& it : ce->operands()) {
+            errs() << ST_->toString(it) << endl;
+        }
+        errs() << "Cast to type: " << ST_->toString(ce->getType()) << endl;
+        errs() << endl;
+        return getTop(*ce->getType());
+    } else {
+        errs() << "Unimplemented ConstExpr: " << ST_->toString(ce) << endl;
+        return getTop(*ce->getType());
+    }
 }
 
 }   /* namespace absint */

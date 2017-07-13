@@ -8,8 +8,8 @@
 #ifndef LOGGER_HPP_
 #define LOGGER_HPP_
 
-#include <type_traits>
 #include <functional>
+#include <type_traits>
 #include <tinyformat/tinyformat.h>
 
 #include "Logging/log_entry.hpp"
