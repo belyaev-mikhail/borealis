@@ -185,7 +185,7 @@ public:
             ret[binOp::CONJ]    = []() { return kind::AND; };
             ret[binOp::DISJ]    = []() { return kind::OR; };
             ret[binOp::IMPLIES] = []() { return kind::IMPLIES; };
-            ret[binOp::IFF]     = []() { return kind::IFF; };
+            ret[binOp::IFF]     = []() { return kind::EQUAL; };
             ret[binOp::XOR]     = []() { return kind::XOR; };
             ret[binOp::CONCAT]  = []() { return kind::BITVECTOR_CONCAT; };
             ret[binOp::BAND]    = []() { return kind::BITVECTOR_AND; };
@@ -223,7 +223,7 @@ public:
     inline static expr_t binop(context_t& ctx, binOp bop, expr_t lhv, expr_t rhv) {
         using namespace CVC4;
         if(lhv.getType().isBoolean() && rhv.getType().isBoolean()) {
-            if(bop == binOp::EQUAL) return ctx.em.mkExpr(kind::IFF, lhv, rhv);
+            if(bop == binOp::EQUAL) return ctx.em.mkExpr(kind::EQUAL, lhv, rhv);
             if(bop == binOp::NEQUAL) return ctx.em.mkExpr(kind::XOR, lhv, rhv);
             if(bop == binOp::XOR) return ctx.em.mkExpr(kind::XOR, lhv, rhv);
         }
