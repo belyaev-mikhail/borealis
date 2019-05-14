@@ -51,7 +51,6 @@ void Interpreter::run() {
         }
 
     } else {
-        // TODO: add topological sorting of functions to increase effitiency
 
         auto&& total = module_.instance()->getFunctionList().size();
         int progress = 0;
@@ -160,7 +159,6 @@ void Interpreter::visitBranchInst(llvm::BranchInst& i) {
 }
 
 void Interpreter::visitSwitchInst(llvm::SwitchInst& i) {
-    // TODO
     std::vector<BasicBlock*> successors;
     auto&& cond = context_->state->get(i.getCondition());
 

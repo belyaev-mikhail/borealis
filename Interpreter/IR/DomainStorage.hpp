@@ -32,8 +32,6 @@ public:
     using Ptr = std::shared_ptr<DomainStorage>;
     using Variable = const llvm::Value*;
 
-private:
-
     using SIntT = AbstractFactory::SInt;
     using UIntT = AbstractFactory::UInt;
     using MachineIntT = AbstractFactory::MachineInt;
@@ -104,13 +102,6 @@ public:
 
     size_t hashCode() const;
     std::string toString() const;
-
-private:
-
-    std::unordered_map<Variable, Split> handleInst(const llvm::Instruction* target) const;
-    std::unordered_map<Variable, Split> handleIcmp(const llvm::ICmpInst* target) const;
-    std::unordered_map<Variable, Split> handleFcmp(const llvm::FCmpInst* target) const;
-    std::unordered_map<Variable, Split> handleBinary(const llvm::BinaryOperator* target) const;
 
 private:
 

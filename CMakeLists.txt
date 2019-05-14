@@ -325,7 +325,10 @@ set(SYSTEM_LIBS
         curses
         pthread
         z
-        m)
+        m
+        apron
+        octD
+        boxD)
 
 set(CLANG_LIBS
         clangFrontendTool

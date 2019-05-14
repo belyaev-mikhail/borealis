@@ -8,7 +8,6 @@
 #include "Interpreter/Domain/AbstractDomain.hpp"
 #include "Interpreter/Domain/AbstractFactory.hpp"
 #include "Interpreter/Domain/Numerical/Number.hpp"
-#include "State.h"
 #include "Term/Term.h"
 #include "Term/BinaryTerm.h"
 #include "Term/CmpTerm.h"
@@ -29,6 +28,20 @@ class Aggregate;
 
 namespace ps {
 
+struct TermEqualsWType {
+    bool operator()(Term::Ptr lhv, Term::Ptr rhv) const noexcept {
+        // This is generally fucked up
+        if (lhv->equals(rhv.get())) {
+            if (lhv->getType() == rhv->getType()) return true;
+            auto&& t1 = llvm::dyn_cast<type::Integer>(lhv->getType().get());
+            auto&& t2 = llvm::dyn_cast<type::Integer>(rhv->getType().get());
+            if (t1 && t2) return t1->getBitsize() == t2->getBitsize();
+            else return false;
+        }
+        return false;
+    }
+};
+
 class DomainStorage
         : public logging::ObjectLevelLogging<DomainStorage>, public std::enable_shared_from_this<DomainStorage> {
 public:
@@ -36,8 +49,6 @@ public:
     using Ptr = std::shared_ptr<DomainStorage>;
     using Variable = Term::Ptr;
     using SplitMap = std::unordered_map<Variable, Split, TermHash, TermEqualsWType>;
-
-private:
 
     using SIntT = AbstractFactory::SInt;
     using UIntT = AbstractFactory::UInt;
@@ -57,11 +68,11 @@ protected:
 
 public:
 
-    DomainStorage(const VariableFactory* vf, DomainStorage::Ptr input = nullptr);
+    explicit DomainStorage(const VariableFactory* vf, DomainStorage::Ptr input = nullptr);
     DomainStorage(const DomainStorage&) = default;
     DomainStorage(DomainStorage&&) = default;
-    DomainStorage& operator=(const DomainStorage&) = default;
-    DomainStorage& operator=(DomainStorage&&) = default;
+//    DomainStorage& operator=(const DomainStorage&) = default;
+//    DomainStorage& operator=(DomainStorage&&) = default;
 
     DomainStorage::Ptr clone() const;
     bool equals(DomainStorage::Ptr other) const;
@@ -84,8 +95,6 @@ public:
     /// x = cast(op, y)
     void apply(CastOperator op, Variable x, Variable y);
 
-    std::pair<DomainStorage::Ptr, DomainStorage::Ptr> split(Variable condition) const;
-
     /// x = *ptr
     void load(Variable x, Variable ptr);
 
@@ -107,14 +116,13 @@ public:
     /// x = allocate<decltype(x)>(size);
     void allocate(Variable x, Variable size);
 
+    /// add constraint 'condition == true'
+    void assumeTrue(Variable condition);
+    /// add constraint 'condition == false'
+    void assumeFalse(Variable condition);
+
     size_t hashCode() const;
     std::string toString() const;
-
-private:
-
-    SplitMap handleTerm(const Term* term) const;
-    SplitMap handleCmp(const CmpTerm* term) const;
-    SplitMap handleBinary(const BinaryTerm* term) const;
 
 private:
 

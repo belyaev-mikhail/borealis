@@ -7,6 +7,7 @@
 #include "Interpreter/Domain/VariableFactory.hpp"
 #include "Interpreter/Domain/Numerical/DoubleInterval.hpp"
 #include "Interpreter/Domain/Numerical/IntervalDomain.hpp"
+#include "Interpreter/Domain/Numerical/Apron/OctagonDomain.hpp"
 #include "Interpreter/Domain/Numerical/NumericalDomain.hpp"
 #include "Interpreter/Domain/Memory/AggregateDomain.hpp"
 #include "Interpreter/Domain/Memory/MemoryDomain.hpp"
@@ -146,6 +147,202 @@ public:
         }
         return nullptr;
     }
+
+    void addConstraint(llvm::ConditionType op, Variable x, Variable y) override {
+        auto&& lhv = this->get(x);
+        auto&& rhv = this->get(y);
+
+        switch (op) {
+            case llvm::ConditionType::EQ: {
+                this->assign(x, lhv->splitByEq(rhv).true_);
+                this->assign(y, rhv->splitByEq(lhv).true_);
+                break;
+            }
+            case llvm::ConditionType::NEQ: {
+                this->assign(x, lhv->splitByEq(rhv).false_);
+                this->assign(y, rhv->splitByEq(lhv).false_);
+                break;
+            }
+            case llvm::ConditionType::GT:
+            case llvm::ConditionType::GE:
+            case llvm::ConditionType::UGT:
+            case llvm::ConditionType::UGE: {
+                this->assign(x, lhv->splitByLess(rhv).false_);
+                this->assign(y, rhv->splitByLess(lhv).true_);
+                break;
+            }
+            case llvm::ConditionType::LT:
+            case llvm::ConditionType::LE:
+            case llvm::ConditionType::ULT:
+            case llvm::ConditionType::ULE: {
+                this->assign(x, lhv->splitByLess(rhv).true_);
+                this->assign(y, rhv->splitByLess(lhv).false_);
+                break;
+            }
+            case llvm::ConditionType::TRUE:break;
+            case llvm::ConditionType::FALSE:break;
+            case llvm::ConditionType::UNKNOWN:break;
+            default:
+                UNREACHABLE("Unknown operation")
+        }
+    }
+};
+
+template <typename N1, typename N2>
+class OctagonDomainImpl : public OctagonDomain<N1, N2, Term::Ptr, TermHash, TermEqualsWType> {
+public:
+
+    using Ptr = AbstractDomain::Ptr;
+    using ConstPtr = AbstractDomain::ConstPtr;
+    using Variable = Term::Ptr;
+    using DOctagon = DoubleOctagon<N1, N2, Term::Ptr, TermHash, TermEqualsWType>;
+    using OctagonMap = std::unordered_map<size_t, Ptr>;
+    using Self = OctagonDomainImpl<N1, N2>;
+    using ParentT = NumericalDomain<Variable>;
+
+protected:
+
+    const VariableFactory* vf_;
+    const Ptr input_;
+
+protected:
+
+    const ParentT* unwrapInput() const {
+        auto* ptr = llvm::dyn_cast<ParentT>(input_.get());
+        ASSERTC(ptr);
+        return ptr;
+    }
+
+    size_t unwrapTypeSize(Variable x) const override {
+        auto* integer = llvm::dyn_cast<type::Integer>(x->getType().get());
+        ASSERTC(integer);
+
+        return integer->getBitsize();
+    }
+
+    util::option<typename DOctagon::DNumber> unwrapDInterval(const typename DOctagon::DInterval* interval) const {
+        using DInt = typename DOctagon::DInterval;
+        using DNum = typename DOctagon::DNumber;
+        auto&& first = llvm::dyn_cast<typename DInt::Interval1>(interval->first().get());
+        auto&& second = llvm::dyn_cast<typename DInt::Interval2>(interval->second().get());
+        ASSERTC(first and second);
+
+        // sometimes interval for llvm::Constant can be non-constant (for example, for constant expressions)
+        if (first->isConstant() and second->isConstant())
+            return util::just( DNum { first->asConstant(), second->asConstant() } );
+        else
+            return util::nothing();
+    }
+
+    util::option<typename DOctagon::DNumber> getConstant(Variable x) const {
+        if (auto&& constant = impl_::getConstant(vf_, x)) {
+            auto* domainRaw = llvm::dyn_cast<typename DOctagon::DInterval>(constant.get());
+            ASSERTC(domainRaw);
+
+            return unwrapDInterval(domainRaw);
+        } else {
+            return util::nothing();
+        }
+    }
+
+public:
+
+    explicit OctagonDomainImpl(const VariableFactory* vf, const Ptr input)
+        : OctagonDomain<N1, N2, Term::Ptr, TermHash, TermEqualsWType>(), vf_(vf), input_(input) {}
+    OctagonDomainImpl(const OctagonDomainImpl&) = default;
+    OctagonDomainImpl(OctagonDomainImpl&&) = default;
+    OctagonDomainImpl& operator=(const OctagonDomainImpl& other) = default;
+    OctagonDomainImpl& operator=(OctagonDomainImpl&&) = default;
+    ~OctagonDomainImpl() override = default;
+
+    static bool classof(const Self*) {
+        return true;
+    }
+
+    static bool classof(const AbstractDomain* other) {
+        return other->getClassTag() == class_tag<Self>();
+    }
+
+    Ptr clone() const override {
+        return std::make_shared<Self>(*this);
+    }
+
+    Ptr get(Variable x) const override {
+        if (input_ != nullptr and unwrapInput()->contains(x)) {
+            return unwrapInput()->get(x);
+
+        }
+        if (auto&& constant = impl_::getConstant(vf_, x)) {
+            return constant;
+
+        } else {
+            auto bitsize = unwrapTypeSize(x);
+            auto* octagon = this->unwrapOctagon(bitsize);
+
+            return octagon->get(x);
+        }
+    }
+
+    bool equals(ConstPtr other) const override {
+        // This is generally fucked up, but for octagons it should be this way
+        // otherwise interpreter goes to infinite loop
+        return this->leq(other);
+    }
+
+    void applyTo(llvm::ArithType op, Variable x, Variable y, Variable z) override {
+        auto bitsize = this->unwrapTypeSize(x);
+        auto* octagon = this->unwrapOctagon(bitsize);
+
+        auto&& yConst = getConstant(y);
+        auto&& zConst = getConstant(z);
+
+        if (yConst && zConst) {
+            octagon->applyTo(op, x, yConst.getUnsafe(), zConst.getUnsafe());
+        } else if (yConst) {
+            octagon->applyTo(op, x, yConst.getUnsafe(), z);
+        } else if (zConst) {
+            octagon->applyTo(op, x, y, zConst.getUnsafe());
+        } else {
+            octagon->applyTo(op, x, y, z);
+        }
+    }
+
+    Ptr applyTo(llvm::ConditionType op, Variable x, Variable y) override {
+        auto bitsize = this->unwrapTypeSize(x);
+        auto* octagon = this->unwrapOctagon(bitsize);
+
+        auto&& xConst = getConstant(x);
+        auto&& yConst = getConstant(y);
+
+        if (xConst && yConst) {
+            return octagon->applyTo(op, xConst.getUnsafe(), yConst.getUnsafe());
+        } else if (xConst) {
+            return octagon->applyTo(op, xConst.getUnsafe(), y);
+        } else if (yConst) {
+            return octagon->applyTo(op, x, yConst.getUnsafe());
+        } else {
+            return octagon->applyTo(op, x, y);
+        }
+    }
+
+    void addConstraint(llvm::ConditionType op, Variable x, Variable y) override {
+        auto bitsize = this->unwrapTypeSize(x);
+        auto* octagon = this->unwrapOctagon(bitsize);
+
+        auto&& xConst = getConstant(x);
+        auto&& yConst = getConstant(y);
+
+        if (xConst && yConst) {
+            return;
+        } else if (xConst) {
+            octagon->addConstraint(op, xConst.getUnsafe(), y);
+        } else if (yConst) {
+            octagon->addConstraint(op, x, yConst.getUnsafe());
+        } else {
+            octagon->addConstraint(op, x, y);
+        }
+    }
+
 };
 
 template <typename MachineInt>
@@ -212,6 +409,38 @@ public:
             return constant;
         }
         return nullptr;
+    }
+
+    void addConstraint(llvm::ConditionType op, Variable x, Variable y) override {
+        auto&& lhv = this->get(x);
+        auto&& rhv = this->get(y);
+
+        switch (op) {
+            case llvm::ConditionType::EQ: {
+                this->assign(x, lhv->splitByEq(rhv).true_);
+                this->assign(y, rhv->splitByEq(lhv).true_);
+                break;
+            }
+            case llvm::ConditionType::NEQ: {
+                this->assign(x, lhv->splitByEq(rhv).false_);
+                this->assign(y, rhv->splitByEq(lhv).false_);
+                break;
+            }
+                // pointers support only equality/inequality check
+            case llvm::ConditionType::GT:
+            case llvm::ConditionType::GE:
+            case llvm::ConditionType::UGT:
+            case llvm::ConditionType::UGE:
+            case llvm::ConditionType::LT:
+            case llvm::ConditionType::LE:
+            case llvm::ConditionType::ULT:
+            case llvm::ConditionType::ULE:
+            case llvm::ConditionType::TRUE:
+            case llvm::ConditionType::FALSE:
+            case llvm::ConditionType::UNKNOWN:break;
+            default:
+                UNREACHABLE("Unknown operation")
+        }
     }
 };
 
@@ -284,6 +513,23 @@ public:
 
 } // namespace impl_
 
+static config::StringConfigEntry numericalDomain("absint", "numeric");
+
+inline AbstractDomain::Ptr initNumericalDomain(const VariableFactory* vf, AbstractDomain::Ptr input) {
+    auto&& numericalDomainName = numericalDomain.get("interval");
+
+    using SIntT = typename DomainStorage::SIntT;
+    using UIntT = typename DomainStorage::UIntT;
+
+    if (numericalDomainName == "interval") {
+        return std::make_shared<impl_::IntervalDomainImpl<DoubleInterval<SIntT, UIntT>>>(vf, input);
+    } else if (numericalDomainName == "octagon") {
+        return std::make_shared<impl_::OctagonDomainImpl<SIntT, UIntT>>(vf, input);
+    } else {
+        UNREACHABLE("Unknown numerical domain name");
+    }
+}
+
 DomainStorage::NumericalDomainT* DomainStorage::unwrapBool() const {
     auto* bools = llvm::dyn_cast<NumericalDomainT>(bools_.get());
     ASSERTC(bools);
@@ -319,7 +565,7 @@ DomainStorage::DomainStorage(const VariableFactory* vf, DomainStorage::Ptr input
         vf_(vf),
         input_(input),
         bools_(std::make_shared<impl_::IntervalDomainImpl<Interval<UIntT>>>(vf_, (input_ ? input_->bools_ : nullptr))),
-        ints_(std::make_shared<impl_::IntervalDomainImpl<DoubleInterval<SIntT, UIntT>>>(vf_, (input_ ? input_->ints_ : nullptr))),
+        ints_(initNumericalDomain(vf_, (input_ ? input_->ints_ : nullptr))),
         floats_(std::make_shared<impl_::IntervalDomainImpl<Interval<Float>>>(vf_, (input_ ? input_->floats_ : nullptr))),
         memory_(std::make_shared<impl_::PointsToDomainImpl<MachineIntT>>(vf_, (input_ ? input_->memory_ : nullptr))),
         structs_(std::make_shared<impl_::AggregateDomainImpl<StructDomain<MachineIntT>>>(vf_, (input_ ? input_->structs_ : nullptr))) {}
@@ -506,6 +752,53 @@ void DomainStorage::allocate(DomainStorage::Variable x, DomainStorage::Variable 
     }
 }
 
+void DomainStorage::assumeTrue(Variable condition) {
+    if (auto* cmp = llvm::dyn_cast<CmpTerm>(condition.get())) {
+        auto cop = cmp->getOpcode();
+
+        auto lhv = cmp->getLhv();
+        auto rhv = cmp->getRhv();
+
+        if (llvm::isa<type::Integer>(lhv->getType().get())) {
+            unwrapInt()->addConstraint(cop, lhv, rhv);
+        } else if (llvm::isa<type::Float>(lhv->getType().get())) {
+            unwrapFloat()->addConstraint(cop, lhv, rhv);
+        } else if (llvm::isa<type::Pointer>(lhv->getType().get())) {
+            unwrapMemory()->addConstraint(cop, lhv, rhv);
+        } else {
+            UNREACHABLE("Unexpected type in constraints");
+        }
+//    } else if (llvm::isa<BinaryTerm>(condition.get())) {
+//        warns() << "binary operations are not supported in condition splitting: " << condition << endl;
+//    } else {
+//        warns() << "Unexpected term in assume: " << condition << endl;
+    }
+}
+
+void DomainStorage::assumeFalse(Variable condition) {
+    if (auto* cmp = llvm::dyn_cast<CmpTerm>(condition.get())) {
+        auto cop = cmp->getOpcode();
+        auto ncop = llvm::makeNot(cop);
+
+        auto lhv = cmp->getLhv();
+        auto rhv = cmp->getRhv();
+
+        if (llvm::isa<type::Integer>(lhv->getType().get())) {
+            unwrapInt()->addConstraint(ncop, lhv, rhv);
+        } else if (llvm::isa<type::Float>(lhv->getType().get())) {
+            unwrapFloat()->addConstraint(ncop, lhv, rhv);
+        } else if (llvm::isa<type::Pointer>(lhv->getType().get())) {
+            unwrapMemory()->addConstraint(ncop, lhv, rhv);
+        } else {
+            UNREACHABLE("Unexpected type in constraints");
+        }
+//    } else if (llvm::isa<BinaryTerm>(condition.get())) {
+//        warns() << "binary operations are not supported in condition splitting: " << condition << endl;
+//    } else {
+//        warns() << "Unexpected term in assume: " << condition << endl;
+    }
+}
+
 size_t DomainStorage::hashCode() const {
     return util::hash::defaultHasher()(bools_, ints_, floats_, memory_);
 }
@@ -518,151 +811,6 @@ std::string DomainStorage::toString() const {
     ss << "Memory:" << std::endl << memory_->toString() << std::endl;
     ss << "Structs:" << std::endl << structs_->toString() << std::endl;
     return ss.str();
-}
-
-std::pair<DomainStorage::Ptr, DomainStorage::Ptr> DomainStorage::split(Variable condition) const {
-    auto&& true_ = std::make_shared<DomainStorage>(*this);
-    auto&& false_ = std::make_shared<DomainStorage>(*this);
-
-    auto&& condDomain = get(condition);
-    if (condDomain->isTop() || condDomain->isBottom())
-        return std::make_pair(true_, false_);
-
-    auto&& splitted = std::move(handleTerm(condition.get()));
-    for (auto&& it : splitted) {
-        true_->assign(it.first, it.second.true_);
-        false_->assign(it.first, it.second.false_);
-    }
-    return std::make_pair(true_, false_);
-}
-
-DomainStorage::SplitMap DomainStorage::handleTerm(const Term* term) const {
-    if (auto&& cmp = llvm::dyn_cast<CmpTerm>(term)) {
-        return std::move(handleCmp(cmp));
-    } else if (auto&& bin = llvm::dyn_cast<BinaryTerm>(term)) {
-        return std::move(handleBinary(bin));
-//    } else if (llvm::isa<type::Bool>(term->getType().get())) {
-//        auto condDomain = get(term->shared_from_this());
-//        return ;
-    } else {
-        errs() << "Unknown term in splitter: " << term->getName() << endl;
-        return {};
-    }
-}
-
-#define SPLIT_EQ(lhvDomain, rhvDomain) \
-    values[lhv] = lhvDomain->splitByEq(rhvDomain); \
-    values[rhv] = rhvDomain->splitByEq(lhvDomain);
-
-#define SPLIT_NEQ(lhvDomain, rhvDomain) \
-    values[lhv] = lhvDomain->splitByEq(rhvDomain).swap(); \
-    values[rhv] = rhvDomain->splitByEq(lhvDomain).swap();
-
-#define SPLIT_LESS(lhvDomain, rhvDomain) \
-    values[lhv] = lhvDomain->splitByLess(rhvDomain); \
-    values[rhv] = rhvDomain->splitByLess(lhvDomain).swap();
-
-#define SPLIT_GREATER(lhvDomain, rhvDomain) \
-    values[rhv] = rhvDomain->splitByLess(lhvDomain); \
-    values[lhv] = lhvDomain->splitByLess(rhvDomain).swap();
-
-DomainStorage::SplitMap DomainStorage::handleCmp(const CmpTerm* target) const {
-    auto&& lhv = target->getLhv();
-    auto&& rhv = target->getRhv();
-
-    auto&& lhvDomain = get(lhv);
-    auto&& rhvDomain = get(rhv);
-    ASSERT(lhvDomain && rhvDomain, "Unknown values in icmp splitter");
-
-    SplitMap values;
-
-    bool isPtr = llvm::isa<type::Pointer>(lhv->getType().get()) || llvm::isa<type::Pointer>(rhv->getType().get());
-
-    switch (target->getOpcode()) {
-        case llvm::ConditionType::EQ: SPLIT_EQ(lhvDomain, rhvDomain); break;
-        case llvm::ConditionType::NEQ: SPLIT_NEQ(lhvDomain, rhvDomain); break;
-        case llvm::ConditionType::GT:
-        case llvm::ConditionType::GE:
-            if (isPtr) break;
-            SPLIT_GREATER(lhvDomain, rhvDomain);
-            break;
-        case llvm::ConditionType::LT:
-        case llvm::ConditionType::LE:
-            if (isPtr) break;
-            SPLIT_LESS(lhvDomain, rhvDomain);
-            break;
-        case llvm::ConditionType::UGT:
-        case llvm::ConditionType::UGE:
-            if (isPtr) break;
-            SPLIT_GREATER(lhvDomain, rhvDomain);
-            break;
-        case llvm::ConditionType::ULT:
-        case llvm::ConditionType::ULE:
-            if (isPtr) break;
-            SPLIT_LESS(lhvDomain, rhvDomain);
-            break;
-        case llvm::ConditionType::TRUE:
-        case llvm::ConditionType::FALSE:
-            break;
-        default:
-            UNREACHABLE("Unknown operation in cmp term");
-    }
-
-    return std::move(values);
-}
-
-DomainStorage::SplitMap DomainStorage::handleBinary(const BinaryTerm* target) const {
-    auto&& lhv = target->getLhv();
-    auto&& rhv = target->getRhv();
-
-    auto&& lhvDomain = get(lhv);
-    auto&& rhvDomain = get(rhv);
-    ASSERT(lhvDomain && rhvDomain, "Unknown values in icmp splitter");
-
-    SplitMap values;
-    auto&& andImpl = [](Split lhv, Split rhv) -> Split {
-        return {lhv.true_->meet(rhv.true_), lhv.false_->join(rhv.false_)};
-    };
-    auto&& orImpl = [](Split lhv, Split rhv) -> Split {
-        return {lhv.true_->join(rhv.true_), lhv.false_->join(rhv.false_)};
-    };
-
-    auto lhvValues = std::move(handleTerm(lhv.get()));
-    auto rhvValues = std::move(handleTerm(rhv.get()));
-
-    for (auto&& it : lhvValues) {
-        auto value = it.first;
-        auto lhvSplit = it.second;
-        auto&& rhvit = util::at(rhvValues, value);
-        if (not rhvit) continue;
-        auto rhvSplit = rhvit.getUnsafe();
-
-        switch (target->getOpcode()) {
-            case llvm::ArithType::LAND:
-            case llvm::ArithType::BAND:
-                values[value] = andImpl(lhvSplit, rhvSplit);
-                break;
-            case llvm::ArithType::LOR:
-            case llvm::ArithType::BOR:
-                values[value] = orImpl(lhvSplit, rhvSplit);
-                break;
-            case llvm::ArithType::XOR: {
-                // XOR = (!lhv AND rhv) OR (lhv AND !rhv)
-                auto&& temp1 = andImpl({lhvSplit.false_, lhvSplit.true_}, rhvSplit);
-                auto&& temp2 = andImpl(lhvSplit, {rhvSplit.false_, rhvSplit.true_});
-                values[value] = orImpl(temp1, temp2);
-                break;
-            }
-            case llvm::ArithType::IMPLIES:
-                // IMPL = (!lhv) OR (rhv)
-                values[value] = orImpl(lhvSplit.swap(), rhvSplit);
-                break;
-            default:
-                UNREACHABLE("Unexpected binary term in splitter");
-        }
-    }
-
-    return std::move(values);
 }
 
 } // namespace ir

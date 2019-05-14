@@ -392,6 +392,14 @@ struct Adapter {
     Number operator()(double) const {
         UNREACHABLE("Unimplemented");
     }
+
+    Number maxValue() const {
+        UNREACHABLE("Unimplemented");
+    }
+
+    Number minValue() const {
+        UNREACHABLE("Unimplemented");
+    }
 };
 
 template <bool sign>
@@ -429,7 +437,20 @@ public:
     }
 
     absint::BitInt<sign> operator()(double n) const {
-        return absint::BitInt<sign>(width_, (int) n);
+        auto in = (unsigned int) n;
+        return absint::BitInt<sign>(width_, in);
+    }
+
+    absint::BitInt<sign> operator()(const std::string& str) const {
+        return absint::BitInt<sign>(llvm::APInt(width_, str, 10));
+    }
+
+    absint::BitInt<sign> maxValue() const {
+        return absint::BitInt<sign> { sign ? llvm::APInt::getSignedMaxValue(width_) : llvm::APInt::getMaxValue(width_) };
+    }
+
+    absint::BitInt<sign> minValue() const {
+        return absint::BitInt<sign> { sign ? llvm::APInt::getSignedMinValue(width_) : llvm::APInt::getMinValue(width_) };
     }
 };
 
@@ -441,7 +462,7 @@ util::cache<size_t, Adapter<absint::BitInt<sign>>*> Adapter<absint::BitInt<sign>
 template <>
 struct Adapter<absint::Float> {
     static Adapter<absint::Float>* get() {
-        static Adapter<absint::Float>* instance = new Adapter<absint::Float>();
+        static auto* instance = new Adapter<absint::Float>();
         return instance;
     }
 
@@ -457,6 +478,18 @@ struct Adapter<absint::Float> {
 
     absint::Float operator()(double n) const {
         return absint::Float(n);
+    }
+
+    absint::Float operator()(const std::string& str) const {
+        return absint::Float(str);
+    }
+
+    absint::Float maxValue() const {
+        return absint::Float{ llvm::APFloat::getInf(absint::Float::getLlvmSemantics(), false) };
+    }
+
+    absint::Float minValue() const {
+        return absint::Float{ llvm::APFloat::getInf(absint::Float::getLlvmSemantics(), true) };
     }
 };
 
@@ -477,6 +510,27 @@ struct Adapter<size_t> {
 
     size_t operator()(double n) const {
         return size_t(n);
+    }
+};
+
+
+template <>
+struct Adapter<mpq_class> {
+    static Adapter<mpq_class>* get() {
+        static auto* instance = new Adapter<mpq_class>();
+        return instance;
+    }
+
+    mpq_class operator()(int n) const {
+        return mpz_class(n);
+    }
+
+    mpq_class operator()(long n) const {
+        return mpz_class(n);
+    }
+
+    mpq_class operator()(double n) const {
+        return mpz_class(n);
     }
 };
 
