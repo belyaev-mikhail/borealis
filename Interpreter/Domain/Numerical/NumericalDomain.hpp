@@ -14,9 +14,10 @@ namespace absint {
 template <typename Variable>
 class NumericalDomain : public AbstractDomain {
 public:
-    NumericalDomain(id_t id) : AbstractDomain(id) {}
+    explicit NumericalDomain(id_t id) : AbstractDomain(id) {}
 
     virtual Ptr get(Variable x) const = 0;
+    virtual bool contains(Variable x) const = 0;
     virtual Ptr toInterval(Variable x) const = 0;
 
     virtual void assign(Variable x, Variable y) = 0;
@@ -24,6 +25,8 @@ public:
 
     virtual void applyTo(llvm::ArithType op, Variable x, Variable y, Variable z) = 0;
     virtual Ptr applyTo(llvm::ConditionType op, Variable x, Variable y) = 0;
+
+    virtual void addConstraint(llvm::ConditionType op, Variable x, Variable y) = 0;
 };
 
 } // namespace absint

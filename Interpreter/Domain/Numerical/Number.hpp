@@ -5,12 +5,15 @@
 #ifndef BOREALIS_NUMBER_HPP
 #define BOREALIS_NUMBER_HPP
 
+#include <gmpxx.h>
+
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/APFloat.h>
 
 #include "Interpreter/Domain/util/Util.hpp"
 
 #include "Util/hash.hpp"
+#include "Util/streams.hpp"
 #include "Util/sayonara.hpp"
 #include "Util/macros.h"
 
@@ -37,8 +40,6 @@ private:
 public:
 
     explicit BitInt(llvm::APInt value) : inner_(std::move(value)) {}
-    BitInt() : inner_(defaultSize, 0) {}
-    explicit BitInt(int n) : inner_(defaultSize, n) {}
     BitInt(size_t width, unsigned long long n) : inner_(width, n) {}
     BitInt(const BitInt&) = default;
     BitInt(BitInt&&) = default;
@@ -46,16 +47,6 @@ public:
     BitInt& operator=(BitInt&&) = default;
 
     size_t width() const { return inner_.getBitWidth(); }
-
-    BitInt& operator=(int n) {
-        inner_ = llvm::APInt(defaultSize, n);
-        return *this;
-    }
-
-    BitInt& operator=(long n) {
-        inner_ = llvm::APInt(defaultSize, n);
-        return *this;
-    }
 
     explicit operator size_t() const {
         return ((size_t) *inner_.getRawData());
@@ -159,6 +150,11 @@ public:
             newInner = inner_.trunc(newWidth);
         }
         return BitInt<newSign>(newInner);
+    }
+
+    mpz_class toGMP() const {
+        // This is generally fucked up, need to find new way to convert llvm::APInt to GMP
+        return mpz_class(toString());
     }
 
 private:
@@ -514,6 +510,7 @@ public:
     Float() : inner_(getLlvmSemantics(), 0.0) {}
     explicit Float(int n) : inner_(getLlvmSemantics(), n) {}
     explicit Float(double n) : inner_(getLlvmSemantics(), n) {}
+    explicit Float(const std::string& n) : inner_(getLlvmSemantics(), n) {}
     Float(const Float&) = default;
     Float(Float&&) = default;
     Float& operator=(const Float&) = default;
@@ -612,6 +609,11 @@ public:
         bool isExact;
         inner_.convertToInteger(value, getRoundingMode(), &isExact);
         return BitInt<sign>(value);
+    }
+
+    mpq_class toGMP() const {
+        // This is generally fucked up, need to find new way to convert llvm::APFloat to GMP
+        return mpq_class(toString());
     }
 
 private:
@@ -737,6 +739,26 @@ inline std::ostream& operator<<(std::ostream& out, const Float& num) {
 }
 
 } // namespace absint
+
+// need for util::toString() to work
+namespace util {
+
+template <bool sign>
+struct Stringifier<absint::BitInt<sign>> {
+    static std::string toString(const absint::BitInt<sign>& t) {
+        return t.toString();
+    }
+};
+
+template <>
+struct Stringifier<absint::Float> {
+    static std::string toString(const absint::Float& t) {
+        return t.toString();
+    }
+};
+
+} // namespace util
+
 } // namespace borealis
 
 
